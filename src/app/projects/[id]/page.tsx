@@ -81,7 +81,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </TabsContent>
         <TabsContent value="team">
             <PlaceholderContent title="Team Members" icon={Users} />
-        </Tabs.Content>
+        </TabsContent>
       </Tabs>
     </div>
   );
