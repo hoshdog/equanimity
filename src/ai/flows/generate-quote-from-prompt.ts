@@ -26,6 +26,7 @@ const GenerateQuoteFromPromptInputSchema = z.object({
     .describe(
       'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
     ),
+    quotingStandards: z.string().optional().describe('A string containing the business-specific quoting standards, such as labor rates and standard material costs.'),
 });
 export type GenerateQuoteFromPromptInput = z.infer<
   typeof GenerateQuoteFromPromptInputSchema
@@ -87,10 +88,17 @@ Business Rules:
 - Desired Profit Margin: {{{desiredMargin}}}%
 - Overhead Rate: {{{overheadRate}}}% of total parts and labor cost.
 - GST (Goods and Services Tax): 10% on the final price before tax.
+{{#if quotingStandards}}
+- Use the following business-specific standards for costs and rates:
+  """
+  {{{quotingStandards}}}
+  """
+{{else}}
 - Use reasonable, typical industry costs for parts and labor if not specified. For labor, assume a standard hourly rate (e.g., $90/hour) unless the job implies a different skill level.
+{{/if}}
 
 Calculation Steps:
-1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Calculate the total cost for each line item.
+1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Calculate the total cost for each line item. Use the provided standards for costing where applicable.
 2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
 3.  **Calculate Overheads**: Apply the overhead rate to the subtotal.
 4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.

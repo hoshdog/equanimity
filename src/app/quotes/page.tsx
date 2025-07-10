@@ -38,8 +38,20 @@ const formSchema = z.object({
     .string()
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
-  overheadRate: z.coerce.number().min(0, "Overheads can't be negative.")
+  overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
+  quotingStandards: z.string().optional(),
 });
+
+// This would typically be loaded from a database where the user saves their standards.
+// For now, it's a mock value.
+const mockQuotingStandards = `Standard Labor Rate: $95/hour
+Apprentice Labor Rate: $55/hour
+Call-out Fee: $120 (includes first 30 minutes of labor)
+Standard GPO (Supply & Install): $85 per unit
+Standard Downlight (Supply & Install): $75 per unit
+Wire per meter: $2.50
+`;
+
 
 export default function QuotesPage() {
   const [loading, setLoading] = useState(false);
@@ -52,6 +64,7 @@ export default function QuotesPage() {
       prompt: '',
       desiredMargin: 25,
       overheadRate: 15,
+      quotingStandards: mockQuotingStandards,
     },
   });
 
@@ -143,6 +156,7 @@ export default function QuotesPage() {
                     )}
                   />
                 </div>
+                <input type="hidden" {...form.register("quotingStandards")} />
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? (
                     <>
