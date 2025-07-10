@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Briefcase } from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+
 
 export default function ProjectsPage() {
   const projects = [
-    { id: 1, name: 'Website Redesign', status: 'In Progress', manager: 'Alice', teamSize: 5 },
-    { id: 2, name: 'Mobile App Development', status: 'Planning', manager: 'Bob', teamSize: 8 },
-    { id: 3, name: 'Q3 Marketing Campaign', status: 'Completed', manager: 'Charlie', teamSize: 3 },
-    { id: 4, name: 'New Office Setup', status: 'On Hold', manager: 'Alice', teamSize: 4 },
+    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5 },
+    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8 },
+    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie', teamSize: 3 },
+    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice', teamSize: 4 },
   ];
 
   const getStatusColor = (status: string) => {
@@ -31,24 +34,26 @@ export default function ProjectsPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {projects.map((project) => (
-          <Card key={project.id} className="flex flex-col">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="h-5 w-5 text-primary" />
-                {project.name}
-              </CardTitle>
-              <CardDescription>Managed by {project.manager}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <div className="text-sm text-muted-foreground">
-                <span className="font-semibold">Status: </span>
-                <span className={getStatusColor(project.status)}>{project.status}</span>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <p className="text-sm text-muted-foreground">{project.teamSize} team members</p>
-            </CardFooter>
-          </Card>
+          <Link href={`/projects/${project.id}`} key={project.id}>
+            <Card className="flex flex-col h-full hover:border-primary transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  {project.name}
+                </CardTitle>
+                <CardDescription>Managed by {project.manager}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-semibold">Status: </span>
+                  <span className={cn(getStatusColor(project.status))}>{project.status}</span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <p className="text-sm text-muted-foreground">{project.teamSize} team members</p>
+              </CardFooter>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>
