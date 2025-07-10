@@ -10,23 +10,22 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
-import { Save } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual } from 'date-fns';
+import { Save, PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-type TimesheetEntry = {
-  date: Date;
+type TaskEntry = {
+  id: string; // Unique ID for React key
+  task: string;
   hours: string;
+};
+
+type DailyTimesheet = {
+  date: Date;
+  tasks: TaskEntry[];
 };
 
 function getWeekDays(date: Date): Date[] {
@@ -37,40 +36,84 @@ function getWeekDays(date: Date): Date[] {
 
 export default function TimesheetsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [timesheetEntries, setTimesheetEntries] = useState<TimesheetEntry[]>([]);
+  const [timesheet, setTimesheet] = useState<DailyTimesheet[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     const weekDays = getWeekDays(currentDate);
-    setTimesheetEntries(
+    setTimesheet(
       weekDays.map((day) => ({
         date: day,
-        hours: '',
+        tasks: [{ id: `task-${day.getTime()}-0`, task: '', hours: '' }],
       }))
     );
   }, [currentDate]);
 
-  const handleHoursChange = (date: Date, hours: string) => {
-    // Allow only numbers and a single decimal point
-    if (/^\d*\.?\d*$/.test(hours)) {
-      setTimesheetEntries((prevEntries) =>
-        prevEntries.map((entry) =>
-          entry.date.getTime() === date.getTime() ? { ...entry, hours } : entry
-        )
-      );
+  const handleTaskChange = (date: Date, taskId: string, field: 'task' | 'hours', value: string) => {
+    // For hours, allow only numbers and a single decimal point
+    if (field === 'hours' && !/^\d*\.?\d*$/.test(value)) {
+        return;
     }
+    
+    setTimesheet((prevTimesheet) =>
+      prevTimesheet.map((dailyEntry) => {
+        if (isEqual(dailyEntry.date, date)) {
+          return {
+            ...dailyEntry,
+            tasks: dailyEntry.tasks.map((task) =>
+              task.id === taskId ? { ...task, [field]: value } : task
+            ),
+          };
+        }
+        return dailyEntry;
+      })
+    );
+  };
+  
+  const addTask = (date: Date) => {
+      setTimesheet((prevTimesheet) => 
+        prevTimesheet.map((dailyEntry) => {
+            if(isEqual(dailyEntry.date, date)) {
+                const newTaskId = `task-${date.getTime()}-${dailyEntry.tasks.length}`;
+                return {
+                    ...dailyEntry,
+                    tasks: [...dailyEntry.tasks, { id: newTaskId, task: '', hours: ''}]
+                }
+            }
+            return dailyEntry;
+        })
+      )
   };
 
+  const removeTask = (date: Date, taskId: string) => {
+    setTimesheet((prevTimesheet) => 
+        prevTimesheet.map((dailyEntry) => {
+            if(isEqual(dailyEntry.date, date)) {
+                // Prevent removing the last task entry
+                if (dailyEntry.tasks.length <= 1) return dailyEntry;
+                return {
+                    ...dailyEntry,
+                    tasks: dailyEntry.tasks.filter(task => task.id !== taskId)
+                }
+            }
+            return dailyEntry;
+        })
+      )
+  }
+
   const totalHours = useMemo(() => {
-    return timesheetEntries.reduce((acc, entry) => acc + (parseFloat(entry.hours) || 0), 0);
-  }, [timesheetEntries]);
+    return timesheet.reduce((total, dailyEntry) => {
+        const dailyTotal = dailyEntry.tasks.reduce((acc, task) => acc + (parseFloat(task.hours) || 0), 0);
+        return total + dailyTotal;
+    }, 0);
+  }, [timesheet]);
 
   const handleSubmit = () => {
     // In a real app, this would submit the data to a backend.
     console.log("Submitting timesheet:", {
-      period: `${format(timesheetEntries[0].date, 'dd MMM yyyy')} - ${format(timesheetEntries[timesheetEntries.length - 1].date, 'dd MMM yyyy')}`,
+      period: `${format(timesheet[0].date, 'dd MMM yyyy')} - ${format(timesheet[timesheet.length - 1].date, 'dd MMM yyyy')}`,
       totalHours,
-      entries: timesheetEntries,
+      entries: timesheet,
     });
 
     toast({
@@ -78,6 +121,9 @@ export default function TimesheetsPage() {
       description: `You have successfully submitted ${totalHours.toFixed(2)} hours.`,
     });
   };
+
+  const today = new Date();
+  const defaultOpenValue = timesheet.find(d => isEqual(new Date(d.date.toDateString()), new Date(today.toDateString()))) ? format(today, 'yyyy-MM-dd') : undefined;
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -92,38 +138,66 @@ export default function TimesheetsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Day</TableHead>
-                  <TableHead className="text-right w-32">Hours Worked</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {timesheetEntries.map(({ date, hours }) => (
-                  <TableRow key={date.toISOString()}>
-                    <TableCell className="font-medium">{format(date, 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>{format(date, 'EEEE')}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="text"
-                        placeholder="0.0"
-                        value={hours}
-                        onChange={(e) => handleHoursChange(date, e.target.value)}
-                        className="max-w-[100px] ml-auto text-right"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <Accordion type="single" collapsible defaultValue={defaultOpenValue} className="w-full">
+            {timesheet.map(({ date, tasks }) => {
+                const dayTotal = tasks.reduce((acc, task) => acc + (parseFloat(task.hours) || 0), 0);
+                return (
+                    <AccordionItem value={format(date, 'yyyy-MM-dd')} key={date.toISOString()}>
+                        <AccordionTrigger>
+                            <div className="flex justify-between w-full pr-4">
+                                <span>{format(date, 'EEEE, MMM dd')}</span>
+                                <span className="text-muted-foreground">{dayTotal > 0 ? `${dayTotal.toFixed(2)} hrs` : 'No hours'}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                           <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
+                             {tasks.map((task, index) => (
+                                <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
+                                    <div className="col-span-12 sm:col-span-8">
+                                        <Input 
+                                            placeholder="Job or task description"
+                                            value={task.task}
+                                            onChange={(e) => handleTaskChange(date, task.id, 'task', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-span-8 sm:col-span-3">
+                                        <Input
+                                            type="text"
+                                            placeholder="Hours"
+                                            value={task.hours}
+                                            onChange={(e) => handleTaskChange(date, task.id, 'hours', e.target.value)}
+                                            className="text-right"
+                                        />
+                                    </div>
+                                    <div className="col-span-4 sm:col-span-1 flex justify-end">
+                                         <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => removeTask(date, task.id)}
+                                            disabled={tasks.length <= 1}
+                                            aria-label="Remove task"
+                                        >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </div>
+                             ))}
+                             <div className="pt-2">
+                                <Button variant="outline" size="sm" onClick={() => addTask(date)}>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Add Task
+                                </Button>
+                             </div>
+                           </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                )
+            })}
+          </Accordion>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-lg">
-                <span className="text-muted-foreground">Total Hours:</span>
+                <span className="text-muted-foreground">Total Weekly Hours:</span>
                 <span className="font-bold ml-2">{totalHours.toFixed(2)}</span>
             </div>
             <Button onClick={handleSubmit}>
