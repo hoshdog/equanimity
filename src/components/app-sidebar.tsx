@@ -24,7 +24,8 @@ import {
   Warehouse,
   ShieldCheck,
   Waves,
-  LogOut
+  LogOut,
+  BrainCircuit,
 } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -43,6 +44,7 @@ const navItems = [
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
+  { href: '/training', label: 'Training', icon: BrainCircuit },
 ];
 
 export function AppSidebar() {

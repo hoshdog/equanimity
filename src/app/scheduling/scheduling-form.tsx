@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -38,6 +39,7 @@ const formSchema = z.object({
 });
 
 const mockTechnicians = ["Alice", "Bob", "Charlie", "David", "Eve"];
+// This data is now managed on the Training page. This is kept for fallback.
 const mockPastTasks = JSON.stringify([
   { task: "Fix HVAC unit", technician: "Alice", efficiency: 0.9, accuracy: 0.95 },
   { task: "Repair plumbing leak", technician: "Bob", efficiency: 0.8, accuracy: 0.98 },
@@ -62,6 +64,8 @@ export function SchedulingForm() {
     setLoading(true);
     setResult(null);
     try {
+      // In a real app, you'd fetch the dynamic training data here.
+      // For now, we'll continue to use the mock data.
       const response = await suggestTechniciansForScheduling({
         ...values,
         pastTaskData: mockPastTasks,
