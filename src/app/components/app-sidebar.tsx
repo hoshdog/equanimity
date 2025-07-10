@@ -28,6 +28,7 @@ import {
   Building2,
   Receipt,
   User,
+  ClipboardList,
 } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,7 @@ import Link from 'next/link';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: Briefcase },
+  { href: '/jobs', label: 'Jobs', icon: ClipboardList },
   { href: '/customers', label: 'Customers', icon: User },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
