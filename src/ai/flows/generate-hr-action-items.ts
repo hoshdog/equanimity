@@ -12,9 +12,11 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateHrActionItemsInputSchema = z.object({
-  newRegulations: z
+  topic: z
     .string()
-    .describe('The text of the new labor laws and regulations.'),
+    .describe(
+      'A topic or query about Australian labor laws to research, e.g., "recent changes to Fair Work Act".'
+    ),
 });
 export type GenerateHrActionItemsInput = z.infer<
   typeof GenerateHrActionItemsInputSchema
@@ -24,6 +26,9 @@ const GenerateHrActionItemsOutputSchema = z.object({
   actionItems: z
     .array(z.string())
     .describe('A list of action items for the HR department.'),
+  summary: z
+    .string()
+    .describe('A brief summary of the discovered regulations.'),
 });
 export type GenerateHrActionItemsOutput = z.infer<
   typeof GenerateHrActionItemsOutputSchema
@@ -39,15 +44,18 @@ const prompt = ai.definePrompt({
   name: 'generateHrActionItemsPrompt',
   input: {schema: GenerateHrActionItemsInputSchema},
   output: {schema: GenerateHrActionItemsOutputSchema},
-  prompt: `You are an AI expert in Australian labor law compliance.
+  prompt: `You are an AI expert in Australian labor law compliance. Your task is to research a given topic and generate a list of actionable items for an HR department.
 
-  Based on the following new labor laws and regulations, generate a list of action items for the HR department to ensure compliance.
+  First, use your knowledge to research the web for the latest Australian labor laws and regulations related to the following topic:
+  "{{topic}}"
 
-  New Regulations:
-  {{newRegulations}}
+  After your research, provide a brief summary of the key findings.
 
-  Action Items:
-  `, config: {
+  Then, based on your findings, generate a clear, concise list of action items that an HR department should undertake to ensure compliance.
+
+  Format the output as a JSON object with 'summary' and 'actionItems' fields.
+  `,
+  config: {
     safetySettings: [
       {
         category: 'HARM_CATEGORY_HATE_SPEECH',
