@@ -1,21 +1,58 @@
 // src/app/payroll/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { automatePayroll, AutomatePayrollOutput } from '@/ai/flows/automate-payroll-calculations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2, Banknote, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const mockEmployees = {
+  'EMP001': {
+    details: 'Employee: Alice Johnson (TFN: 111 222 333)\nPay Rate: $35/hour\nAllowances: $50 for tools',
+    timesheet: JSON.stringify([
+      { date: '2024-05-20', hours: 8 },
+      { date: '2024-05-21', hours: 8 },
+      { date: '2024-05-22', hours: 9, overtime: 1 },
+      { date: '2024-05-23', hours: 8 },
+      { date: '2024-05-24', hours: 7 },
+    ], null, 2),
+  },
+  'EMP002': {
+    details: 'Employee: Bob Smith (TFN: 444 555 666)\nPay Rate: $45/hour',
+    timesheet: JSON.stringify([
+      { date: '2024-05-20', hours: 8 },
+      { date: '2024-05-21', hours: 8 },
+      { date: '2024-05-22', hours: 8 },
+      { date: '2024-05-23', hours: 10, overtime: 2 },
+      { date: '2024-05-24', hours: 8 },
+    ], null, 2),
+  },
+    'EMP003': {
+    details: 'Employee: Charlie Brown (TFN: 777 888 999)\nPay Rate: $28/hour',
+    timesheet: JSON.stringify([
+      { date: '2024-05-20', hours: 7.5 },
+      { date: '2024-05-21', hours: 7.5 },
+      { date: '2024-05-22', hours: 7.5 },
+      { date: '2024-05-23', hours: 7.5 },
+      { date: '2024-05-24', hours: 8, overtime: 0.5 },
+    ], null, 2),
+  },
+};
+
 
 const formSchema = z.object({
+  employeeId: z.string().nonempty('Please select an employee.'),
   employeeDetails: z.string().min(10, 'Employee details are required.'),
+  timesheetData: z.string().min(10, 'Timesheet data is required.'),
   payrollPeriod: z.string().min(5, 'Payroll period is required.'),
   companyPolicies: z.string().min(10, 'Company policies are required.'),
   australianFairWorkStandards: z.string().min(10, 'Fair Work standards are required.'),
@@ -33,12 +70,27 @@ export default function PayrollPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      employeeDetails: 'Employee: John Doe (TFN: 123 456 789)\nHours Worked: 40\nPay Rate: $30/hour\nAllowances: $100 for travel',
+      employeeId: '',
+      employeeDetails: '',
+      timesheetData: '',
       payrollPeriod: `Start: ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString()} - End: ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString()}`,
       companyPolicies: 'Leave is accrued at 0.0769 hours per hour worked. Overtime is paid at 1.5x the normal rate for hours over 38 per week.',
       australianFairWorkStandards: mockFairWorkStandards,
     },
   });
+
+  const selectedEmployeeId = form.watch('employeeId');
+
+  useEffect(() => {
+    if (selectedEmployeeId && mockEmployees[selectedEmployeeId as keyof typeof mockEmployees]) {
+        const employeeData = mockEmployees[selectedEmployeeId as keyof typeof mockEmployees];
+        form.setValue('employeeDetails', employeeData.details);
+        form.setValue('timesheetData', employeeData.timesheet);
+    } else {
+        form.setValue('employeeDetails', '');
+        form.setValue('timesheetData', '');
+    }
+  }, [selectedEmployeeId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -68,7 +120,7 @@ export default function PayrollPage() {
           <CardHeader>
             <CardTitle>Automated Payroll Calculator</CardTitle>
             <CardDescription>
-              Enter the details below to automate payroll calculations, tax deductions, and compliance with Australian Fair Work standards.
+              Select an employee to automatically load their timesheet data and calculate payroll.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -76,17 +128,30 @@ export default function PayrollPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="employeeDetails"
+                  name="employeeId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Employee Details</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter employee details, hours, pay rate..." {...field} rows={4} />
-                      </FormControl>
+                      <FormLabel>Employee</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="EMP001">Alice Johnson</SelectItem>
+                          <SelectItem value="EMP002">Bob Smith</SelectItem>
+                          <SelectItem value="EMP003">Charlie Brown</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                 {/* Hidden fields for data passed to the flow */}
+                <input type="hidden" {...form.register("employeeDetails")} />
+                <input type="hidden" {...form.register("timesheetData")} />
+
                 <FormField
                   control={form.control}
                   name="payrollPeriod"
@@ -122,11 +187,14 @@ export default function PayrollPage() {
                       <FormControl>
                         <Textarea placeholder="Paste relevant Fair Work standards..." {...field} rows={4} />
                       </FormControl>
+                      <FormDescription>
+                        Relevant standards are pre-filled for demonstration.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" disabled={loading} className="w-full">
+                <Button type="submit" disabled={loading || !selectedEmployeeId} className="w-full">
                   {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Calculating...</> : 'Run Payroll Calculation'}
                 </Button>
               </form>
@@ -138,7 +206,7 @@ export default function PayrollPage() {
                  <Card className="flex flex-col items-center justify-center text-center p-8 h-full">
                     <Banknote className="h-16 w-16 text-muted-foreground" />
                     <p className="mt-4 text-lg font-semibold">Payroll results will appear here</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Fill out the form and click "Run Payroll Calculation" to begin.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Select an employee and click "Run Payroll Calculation" to begin.</p>
                  </Card>
             )}
             {loading && (

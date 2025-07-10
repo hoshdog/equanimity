@@ -14,7 +14,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AutomatePayrollInputSchema = z.object({
-  employeeDetails: z.string().describe('Details of the employee, including hours worked, pay rate, and tax file number.'),
+  employeeDetails: z.string().describe('Details of the employee, including pay rate and tax file number.'),
+  timesheetData: z.string().describe('JSON string representing the employee\'s timesheet data for the period, including dates, hours worked, and any overtime.'),
   payrollPeriod: z.string().describe('The start and end date for the payroll period.'),
   companyPolicies: z.string().describe('The company policies related to payroll, leave, and benefits.'),
   australianFairWorkStandards: z.string().describe('Relevant standards from the Australian Fair Work Ombudsman.'),
@@ -41,7 +42,10 @@ const prompt = ai.definePrompt({
   output: {schema: AutomatePayrollOutputSchema},
   prompt: `You are an expert in Australian payroll and compliance. Calculate the payroll for an employee based on the provided details, considering Australian Fair Work standards.
 
+Use the timesheet data to determine the total hours worked, including any overtime.
+
 Employee Details: {{{employeeDetails}}}
+Timesheet Data: {{{timesheetData}}}
 Payroll Period: {{{payrollPeriod}}}
 Company Policies: {{{companyPolicies}}}
 Australian Fair Work Standards: {{{australianFairWorkStandards}}}
