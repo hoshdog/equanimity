@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
 import {
   Sidebar,
   SidebarContent,
@@ -28,16 +27,18 @@ import {
   BrainCircuit,
   Building2,
   Receipt,
+  User,
 } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: Briefcase },
-  { href: '/sites', label: 'Sites', icon: Building2 },
+  { href: '/customers', label: 'Customers', icon: User },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
   { href: '/payroll', label: 'Payroll', icon: Banknote },
@@ -69,7 +70,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
+               <SidebarMenuButton
                 asChild
                 isActive={pathname === item.href}
                 tooltip={item.label}
