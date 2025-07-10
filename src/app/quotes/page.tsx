@@ -14,6 +14,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -27,13 +28,17 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, FileText, Sparkles } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Loader2, FileText, Sparkles, Percent, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   prompt: z
     .string()
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
+  desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
+  overheadRate: z.coerce.number().min(0, "Overheads can't be negative.")
 });
 
 export default function QuotesPage() {
@@ -45,6 +50,8 @@ export default function QuotesPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       prompt: '',
+      desiredMargin: 25,
+      overheadRate: 15,
     },
   });
 
@@ -76,7 +83,7 @@ export default function QuotesPage() {
           <CardHeader>
             <CardTitle>AI Quote Generation</CardTitle>
             <CardDescription>
-              Describe the job, and the AI will generate a professional quote.
+              Describe the job, set your margin, and let the AI calculate the costs and generate a quote.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -102,6 +109,40 @@ export default function QuotesPage() {
                     </FormItem>
                   )}
                 />
+                <div className="grid grid-cols-2 gap-4">
+                   <FormField
+                    control={form.control}
+                    name="desiredMargin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Desired Margin</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                             <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                             <Input type="number" placeholder="25" className="pl-8" {...field} />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   <FormField
+                    control={form.control}
+                    name="overheadRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Overheads Rate</FormLabel>
+                         <FormControl>
+                          <div className="relative">
+                             <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                             <Input type="number" placeholder="15" className="pl-8" {...field} />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? (
                     <>
@@ -124,7 +165,7 @@ export default function QuotesPage() {
                 Your generated quote will appear here
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Enter a job description to get started.
+                Enter a job description and your desired margin to get started.
               </p>
             </Card>
           )}
@@ -135,7 +176,7 @@ export default function QuotesPage() {
                 AI is preparing your quote...
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                This may take a few moments.
+                Calculating costs and applying markup. This may take a few moments.
               </p>
             </Card>
           )}
@@ -146,11 +187,51 @@ export default function QuotesPage() {
                   <Sparkles className="text-primary" />
                   Generated Quote
                 </CardTitle>
+                <CardDescription>
+                    A detailed breakdown of the generated quote.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <pre className="text-sm p-4 rounded-md bg-muted whitespace-pre-wrap font-sans">
-                  {result.quote}
-                </pre>
+                <div className="space-y-4">
+                    <div>
+                        <h4 className="font-semibold mb-2">Cost Breakdown</h4>
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-center">QTY</TableHead>
+                                    <TableHead className="text-right">Unit Cost</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {result.lineItems.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{item.description}</TableCell>
+                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                        <TableCell className="text-right">${item.unitCost.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">${item.totalCost.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                         </Table>
+                    </div>
+                    <div className="space-y-2 rounded-lg border p-4">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${result.subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Overheads</span><span>${result.overheads.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Markup</span><span>${result.markupAmount.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Total (excl. GST)</span><span>${result.totalBeforeTax.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">GST (10%)</span><span>${result.taxAmount.toFixed(2)}</span></div>
+                        <div className="border-t my-2"></div>
+                        <div className="flex justify-between font-bold text-lg"><span >Quote Total</span><span className="text-primary">${result.totalAmount.toFixed(2)}</span></div>
+                    </div>
+                     <div>
+                        <h4 className="font-semibold mb-2">Formatted Quote</h4>
+                        <pre className="text-sm p-4 rounded-md bg-muted whitespace-pre-wrap font-sans">
+                            {result.quoteText}
+                        </pre>
+                    </div>
+                </div>
               </CardContent>
             </Card>
           )}
