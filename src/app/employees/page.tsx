@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlusCircle } from "lucide-react";
 
 export default function EmployeesPage() {
+    const router = useRouter();
     const employees = [
         { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active' },
         { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active' },
@@ -13,6 +18,13 @@ export default function EmployeesPage() {
         { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave' },
         { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Field Technician', status: 'Inactive' },
     ];
+
+    const handleRowClick = (id: string) => {
+        // In the future, this would navigate to an employee detail page
+        // For now, it will log to the console.
+        console.log(`Navigate to employee ${id}`);
+        // router.push(`/employees/${id}`);
+    };
   
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -34,12 +46,11 @@ export default function EmployeesPage() {
                         <TableHead>Employee</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {employees.map(employee => (
-                        <TableRow key={employee.id}>
+                        <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
                             <TableCell>
                                 <div className="flex items-center gap-3">
                                     <Avatar>
@@ -55,9 +66,6 @@ export default function EmployeesPage() {
                             <TableCell>{employee.role}</TableCell>
                             <TableCell>
                                 <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="sm">View</Button>
                             </TableCell>
                         </TableRow>
                     ))}

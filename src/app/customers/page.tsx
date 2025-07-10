@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -48,6 +49,7 @@ export default function CustomersPage() {
     const [isManageTypesDialogOpen, setIsManageTypesDialogOpen] = useState(false);
     const [newType, setNewType] = useState('');
     const { toast } = useToast();
+    const router = useRouter();
 
     const form = useForm<z.infer<typeof customerSchema>>({
         resolver: zodResolver(customerSchema),
@@ -84,6 +86,10 @@ export default function CustomersPage() {
     const handleDeleteType = (typeToDelete: string) => {
         setCustomerTypes(customerTypes.filter(type => type !== typeToDelete));
         toast({ title: "Type Removed", description: `"${typeToDelete}" has been removed.` });
+    };
+
+    const handleRowClick = (id: string) => {
+        router.push(`/customers/${id}`);
     };
   
   return (
@@ -243,22 +249,16 @@ export default function CustomersPage() {
                         <TableHead>Email</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {customers.map(customer => (
-                        <TableRow key={customer.id}>
+                        <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer">
                             <TableCell className="font-medium">{customer.name}</TableCell>
                             <TableCell>{customer.primaryContact}</TableCell>
                             <TableCell>{customer.email}</TableCell>
                             <TableCell>{customer.phone}</TableCell>
                             <TableCell><Badge variant="secondary">{customer.type}</Badge></TableCell>
-                            <TableCell>
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href={`/customers/${customer.id}`}>View</Link>
-                                </Button>
-                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

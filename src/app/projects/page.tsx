@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Briefcase, LayoutGrid, List } from "lucide-react";
@@ -12,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export default function ProjectsPage() {
   const [view, setView] = useState('grid');
+  const router = useRouter();
   const projects = [
     { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5 },
     { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8 },
@@ -28,6 +30,10 @@ export default function ProjectsPage() {
       default: return 'text-gray-500';
     }
   }
+
+  const handleRowClick = (id: number) => {
+    router.push(`/projects/${id}`);
+  };
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -82,12 +88,11 @@ export default function ProjectsPage() {
                         <TableHead>Manager</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Team Size</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {projects.map(project => (
-                        <TableRow key={project.id}>
+                        <TableRow key={project.id} onClick={() => handleRowClick(project.id)} className="cursor-pointer">
                             <TableCell className="font-medium">{project.name}</TableCell>
                             <TableCell>{project.manager}</TableCell>
                             <TableCell>
@@ -96,11 +101,6 @@ export default function ProjectsPage() {
                                 </span>
                             </TableCell>
                             <TableCell>{project.teamSize}</TableCell>
-                            <TableCell className="text-right">
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href={`/projects/${project.id}`}>View</Link>
-                                </Button>
-                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
