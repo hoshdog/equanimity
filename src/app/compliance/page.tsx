@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   generateComplianceHealthCheck,
   ComplianceHealthCheckOutput,
-  ComplianceArea,
 } from '@/ai/flows/generate-compliance-health-check';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,9 +14,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldCheck, ListChecks, FileText, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
+
+// The ComplianceArea type definition is implicitly part of ComplianceHealthCheckOutput
+type ComplianceArea = ComplianceHealthCheckOutput['complianceAreas'][number];
 
 export default function CompliancePage() {
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,7 @@ export default function CompliancePage() {
 
   useEffect(() => {
     fetchHealthCheck();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -87,7 +90,7 @@ export default function CompliancePage() {
           )}
           {result && (
              <Accordion type="multiple" defaultValue={result.complianceAreas.map(area => area.areaName)} className="w-full">
-              {result.complianceAreas.map((area) => (
+              {result.complianceAreas.map((area: ComplianceArea) => (
                 <AccordionItem value={area.areaName} key={area.areaName}>
                   <AccordionTrigger className="text-lg font-semibold">
                     <div className="flex items-center gap-3">

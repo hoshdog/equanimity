@@ -9,13 +9,11 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const ComplianceAreaSchema = z.object({
+const ComplianceAreaSchema = z.object({
     areaName: z.string().describe("The name of the compliance area (e.g., 'Fair Work Act', 'Work Health and Safety (WHS)')."),
     summary: z.string().describe("A brief, high-level summary of what this compliance area covers."),
     checklistItems: z.array(z.string()).describe("A list of actionable checklist items a business should consider to ensure compliance in this area."),
 });
-export type ComplianceArea = z.infer<typeof ComplianceAreaSchema>;
-
 
 const ComplianceHealthCheckOutputSchema = z.object({
   complianceAreas: z
