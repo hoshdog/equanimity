@@ -2,13 +2,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle, MapPin } from "lucide-react";
+import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle, MapPin, MinusCircle } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -23,8 +23,8 @@ const initialMockData = {
     '1': { 
         id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', type: 'Corporate Client',
         contacts: [
-            { id: 'C1A', name: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888' },
-            { id: 'C1B', name: 'Sarah Lee', email: 'sarah.lee@innovate.com', phone: '02 9999 8889' },
+            { id: 'C1A', name: 'John Doe', emails: ['john.doe@innovate.com'], phones: ['02 9999 8888'] },
+            { id: 'C1B', name: 'Sarah Lee', emails: ['sarah.lee@innovate.com', 's.lee.personal@email.com'], phones: ['02 9999 8889'] },
         ],
         sites: [
             { id: 'S1A', name: 'Sydney HQ', address: '123 Tech Park, Sydney NSW 2000', primaryContactId: 'C1A' },
@@ -39,7 +39,7 @@ const initialMockData = {
     '2': { 
         id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', type: 'Construction Partner',
          contacts: [
-            { id: 'C2A', name: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777' },
+            { id: 'C2A', name: 'Jane Smith', emails: ['jane.smith@builders.com'], phones: ['03 8888 7777'] },
         ],
         sites: [
             { id: 'S2A', name: 'Main Yard', address: '456 Construction Ave, Melbourne VIC 3000', primaryContactId: 'C2A'},
@@ -52,7 +52,7 @@ const initialMockData = {
     '3': { 
         id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', type: 'Small Business',
         contacts: [
-            { id: 'C3A', name: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666' },
+            { id: 'C3A', name: 'Peter Chen', emails: ['peter.chen@greenleaf.com'], phones: ['07 7777 6666'] },
         ],
         sites: [
              { id: 'S3A', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContactId: 'C3A'},
@@ -64,8 +64,8 @@ const initialMockData = {
     '4': { 
         id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', type: 'Government',
         contacts: [
-            { id: 'C4A', name: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555' },
-            { id: 'C4B', name: 'Mark Felton', email: 'm.felton@gov.au', phone: '02 6666 5566' },
+            { id: 'C4A', name: 'Susan Reid', emails: ['s.reid@gov.au'], phones: ['02 6666 5555'] },
+            { id: 'C4B', name: 'Mark Felton', emails: ['m.felton@gov.au'], phones: ['02 6666 5566'] },
         ],
         sites: [
              { id: 'S4A', name: 'Civic Building A', address: '101 Parliament Pl, Canberra ACT 2600', primaryContactId: 'C4A'},
@@ -92,8 +92,9 @@ const projectSchema = z.object({
 
 const contactSchema = z.object({
   name: z.string().min(2, "Contact name must be at least 2 characters."),
-  email: z.string().email("Please enter a valid email address."),
-  phone: z.string().min(8, "Phone number seems too short."),
+  emails: z.array(z.object({ value: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
+  phones: z.array(z.object({ value: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
+  siteId: z.string().optional(),
 });
 
 const getStatusColor = (status: string) => {
@@ -130,8 +131,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   const contactForm = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
-    defaultValues: { name: "", email: "", phone: "" },
+    defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" },
   });
+
+  const { fields: emailFields, append: appendEmail, remove: removeEmail } = useFieldArray({ control: contactForm.control, name: "emails" });
+  const { fields: phoneFields, append: appendPhone, remove: removePhone } = useFieldArray({ control: contactForm.control, name: "phones" });
+
 
   const handleAddSite = (values: z.infer<typeof siteSchema>) => {
     setMockData(prevData => {
@@ -163,7 +168,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   const handleAddContact = (values: z.infer<typeof contactSchema>) => {
     setMockData(prevData => {
-        const newContact = { ...values, id: `C${params.id}${Date.now()}` };
+        const newContact = { 
+            ...values, 
+            id: `C${params.id}${Date.now()}`,
+            emails: values.emails.map(e => e.value),
+            phones: values.phones.map(p => p.value),
+        };
         const updatedCustomer = {
             ...prevData[params.id as keyof typeof prevData],
             contacts: [...prevData[params.id as keyof typeof prevData].contacts, newContact]
@@ -172,7 +182,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     });
     toast({ title: "Contact Added", description: `"${values.name}" has been added.` });
     setIsContactDialogOpen(false);
-    contactForm.reset();
+    contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" });
   }
 
 
@@ -220,13 +230,17 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                 <User className="h-4 w-4 text-muted-foreground" />
                                 <span>{primaryContact.name}</span>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <a href={`mailto:${primaryContact.email}`} className="hover:underline break-all">{primaryContact.email}</a>
+                            <div className="flex items-start gap-3">
+                                <Mail className="h-4 w-4 text-muted-foreground mt-1" />
+                                <div className='flex flex-col'>
+                                  {primaryContact.emails.map(email => <a key={email} href={`mailto:${email}`} className="hover:underline break-all">{email}</a>)}
+                                </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{primaryContact.phone}</span>
+                            <div className="flex items-start gap-3">
+                                <Phone className="h-4 w-4 text-muted-foreground mt-1" />
+                                <div className='flex flex-col'>
+                                  {primaryContact.phones.map(phone => <span key={phone}>{phone}</span>)}
+                                </div>
                             </div>
                             <div>
                                <Badge variant="secondary">{customer.type}</Badge>
@@ -278,7 +292,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                             {contact && (
                                                 <div className="text-xs flex items-center gap-1 border-t pt-2 mt-2" onClick={(e) => e.stopPropagation()}>
                                                     <User className="h-3 w-3" />
-                                                    <a href={`mailto:${contact.email}`} className="hover:underline">{contact.name}</a>
+                                                    <span>{contact.name}</span>
                                                 </div>
                                             )}
                                         </button>
@@ -379,16 +393,62 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                     <CardTitle>Contacts at {customer.name}</CardTitle>
                                     <CardDescription>Manage all contact persons for this customer.</CardDescription>
                                 </div>
-                                <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+                                <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" }); }}>
                                     <DialogTrigger asChild><Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4"/>New Contact</Button></DialogTrigger>
-                                    <DialogContent>
+                                    <DialogContent className="sm:max-w-md">
                                         <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customer.name}.</DialogDescription></DialogHeader>
-                                        <Form {...contactForm}><form onSubmit={contactForm.handleSubmit(handleAddContact)} className="space-y-4">
+                                        <Form {...contactForm}>
+                                          <form onSubmit={contactForm.handleSubmit(handleAddContact)} className="space-y-4">
                                             <FormField control={contactForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                            <FormField control={contactForm.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="e.g., jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                            <FormField control={contactForm.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 0412 345 678" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            
+                                            <div>
+                                                <FormLabel>Email Addresses</FormLabel>
+                                                {emailFields.map((field, index) => (
+                                                  <FormField key={field.id} control={contactForm.control} name={`emails.${index}.value`} render={({ field }) => (
+                                                    <FormItem className="flex items-center gap-2 mt-1">
+                                                      <FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl>
+                                                      <Button type="button" variant="ghost" size="icon" disabled={emailFields.length <= 1} onClick={() => removeEmail(index)}>
+                                                        <MinusCircle className="h-5 w-5 text-destructive"/>
+                                                      </Button>
+                                                    </FormItem>
+                                                  )}/>
+                                                ))}
+                                                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmail({ value: "" })}>
+                                                    <PlusCircle className="mr-2 h-4 w-4"/>Add Email
+                                                </Button>
+                                            </div>
+
+                                            <div>
+                                                <FormLabel>Phone Numbers</FormLabel>
+                                                {phoneFields.map((field, index) => (
+                                                  <FormField key={field.id} control={contactForm.control} name={`phones.${index}.value`} render={({ field }) => (
+                                                    <FormItem className="flex items-center gap-2 mt-1">
+                                                      <FormControl><Input placeholder="0412 345 678" {...field} /></FormControl>
+                                                      <Button type="button" variant="ghost" size="icon" disabled={phoneFields.length <= 1} onClick={() => removePhone(index)}>
+                                                        <MinusCircle className="h-5 w-5 text-destructive"/>
+                                                      </Button>
+                                                    </FormItem>
+                                                  )}/>
+                                                ))}
+                                                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendPhone({ value: "" })}>
+                                                    <PlusCircle className="mr-2 h-4 w-4"/>Add Phone
+                                                </Button>
+                                            </div>
+
+                                            <FormField control={contactForm.control} name="siteId" render={({ field }) => (
+                                              <FormItem><FormLabel>Associate with Site (Optional)</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {customer.sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                              <FormMessage /></FormItem> 
+                                            )}/>
+                                            
                                             <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Contact</Button></DialogFooter>
-                                        </form></Form>
+                                          </form>
+                                        </Form>
                                     </DialogContent>
                                 </Dialog>
                             </CardHeader>
@@ -405,8 +465,16 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                         {customer.contacts.map(contact => (
                                             <TableRow key={contact.id}>
                                                 <TableCell className="font-medium">{contact.name}</TableCell>
-                                                <TableCell>{contact.email}</TableCell>
-                                                <TableCell>{contact.phone}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        {contact.emails.map(email => <span key={email}>{email}</span>)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        {contact.phones.map(phone => <span key={phone}>{phone}</span>)}
+                                                    </div>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
