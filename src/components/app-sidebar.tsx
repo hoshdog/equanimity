@@ -28,6 +28,7 @@ import {
   Building2,
   Receipt,
   User,
+  ClipboardList,
 } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,7 @@ import Link from 'next/link';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: Briefcase },
+  { href: '/jobs', label: 'Jobs', icon: ClipboardList },
   { href: '/customers', label: 'Customers', icon: User },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
@@ -54,7 +56,13 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -75,6 +83,7 @@ export function AppSidebar() {
                 isActive={pathname === item.href}
                 tooltip={item.label}
                 className="w-full"
+                onClick={handleLinkClick}
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5" />
