@@ -8,7 +8,7 @@ import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle } from "lucide-react";
+import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle, MapPin } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -17,13 +17,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const initialMockData = {
     '1': { 
-        id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', primaryContact: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888', type: 'Corporate Client',
+        id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', type: 'Corporate Client',
+        contacts: [
+            { id: 'C1A', name: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888' },
+            { id: 'C1B', name: 'Sarah Lee', email: 'sarah.lee@innovate.com', phone: '02 9999 8889' },
+        ],
         sites: [
-            { id: 'S1A', name: 'Sydney HQ', address: '123 Tech Park, Sydney NSW 2000'},
-            { id: 'S1B', name: 'Melbourne Office', address: '55 Collins St, Melbourne VIC 3000'},
+            { id: 'S1A', name: 'Sydney HQ', address: '123 Tech Park, Sydney NSW 2000', primaryContactId: 'C1A' },
+            { id: 'S1B', name: 'Melbourne Office', address: '55 Collins St, Melbourne VIC 3000', primaryContactId: 'C1B' },
         ],
         projects: [
             { id: 'P1A1', siteId: 'S1A', name: 'Website Redesign', status: 'In Progress' },
@@ -32,9 +37,12 @@ const initialMockData = {
         ]
     },
     '2': { 
-        id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', primaryContact: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777', type: 'Construction Partner',
+        id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', type: 'Construction Partner',
+         contacts: [
+            { id: 'C2A', name: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777' },
+        ],
         sites: [
-            { id: 'S2A', name: 'Main Yard', address: '456 Construction Ave, Melbourne VIC 3000'},
+            { id: 'S2A', name: 'Main Yard', address: '456 Construction Ave, Melbourne VIC 3000', primaryContactId: 'C2A'},
         ],
         projects: [
             { id: 'P2A1', siteId: 'S2A', name: 'New Apartment Complex Wiring', status: 'In Progress' },
@@ -42,19 +50,26 @@ const initialMockData = {
         ]
      },
     '3': { 
-        id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContact: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666', type: 'Small Business',
+        id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', type: 'Small Business',
+        contacts: [
+            { id: 'C3A', name: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666' },
+        ],
         sites: [
-             { id: 'S3A', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000'},
+             { id: 'S3A', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContactId: 'C3A'},
         ],
         projects: [
             { id: 'P3A1', siteId: 'S3A', name: 'Kitchen Appliance Testing', status: 'Completed' },
         ]
      },
     '4': { 
-        id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', primaryContact: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555', type: 'Government',
+        id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', type: 'Government',
+        contacts: [
+            { id: 'C4A', name: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555' },
+            { id: 'C4B', name: 'Mark Felton', email: 'm.felton@gov.au', phone: '02 6666 5566' },
+        ],
         sites: [
-             { id: 'S4A', name: 'Civic Building A', address: '101 Parliament Pl, Canberra ACT 2600'},
-             { id: 'S4B', name: 'Barton Office Complex', address: '4 National Circuit, Barton ACT 2600'},
+             { id: 'S4A', name: 'Civic Building A', address: '101 Parliament Pl, Canberra ACT 2600', primaryContactId: 'C4A'},
+             { id: 'S4B', name: 'Barton Office Complex', address: '4 National Circuit, Barton ACT 2600', primaryContactId: 'C4B'},
         ],
         projects: [
              { id: 'P4A1', siteId: 'S4A', name: 'Accessibility Ramp Electrics', status: 'On Hold' },
@@ -66,12 +81,19 @@ const initialMockData = {
 const siteSchema = z.object({
   name: z.string().min(2, "Site name must be at least 2 characters."),
   address: z.string().min(10, "Address must be at least 10 characters."),
+  primaryContactId: z.string().min(1, "You must select a primary contact."),
 });
 
 const projectSchema = z.object({
   name: z.string().min(3, "Project name must be at least 3 characters."),
   siteId: z.string().min(1, "You must select a site for the project."),
   status: z.string().min(2, "Please select a status."),
+});
+
+const contactSchema = z.object({
+  name: z.string().min(2, "Contact name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address."),
+  phone: z.string().min(8, "Phone number seems too short."),
 });
 
 const getStatusColor = (status: string) => {
@@ -86,16 +108,19 @@ const getStatusColor = (status: string) => {
 
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
   const { toast } = useToast();
-  const [mockCustomerData, setMockCustomerData] = useState(initialMockData);
-  const customer = mockCustomerData[params.id as keyof typeof mockCustomerData];
+  const [mockData, setMockData] = useState(initialMockData);
+  const customer = mockData[params.id as keyof typeof mockData];
+  const primaryContact = customer?.contacts.find(c => c.id === customer.sites.find(s => s.primaryContactId)?.primaryContactId) || customer?.contacts[0];
+
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(customer?.sites[0]?.id || null);
 
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
 
   const siteForm = useForm<z.infer<typeof siteSchema>>({
     resolver: zodResolver(siteSchema),
-    defaultValues: { name: "", address: "" },
+    defaultValues: { name: "", address: "", primaryContactId: "" },
   });
 
   const projectForm = useForm<z.infer<typeof projectSchema>>({
@@ -103,9 +128,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     defaultValues: { name: "", siteId: "", status: "Planning" },
   });
 
+  const contactForm = useForm<z.infer<typeof contactSchema>>({
+    resolver: zodResolver(contactSchema),
+    defaultValues: { name: "", email: "", phone: "" },
+  });
+
   const handleAddSite = (values: z.infer<typeof siteSchema>) => {
-    setMockCustomerData(prevData => {
-        const newSite = { ...values, id: `S${params.id}${prevData[params.id as keyof typeof prevData].sites.length + 1}` };
+    setMockData(prevData => {
+        const newSite = { ...values, id: `S${params.id}${Date.now()}` };
         const updatedCustomer = {
             ...prevData[params.id as keyof typeof prevData],
             sites: [...prevData[params.id as keyof typeof prevData].sites, newSite]
@@ -118,8 +148,8 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   };
 
   const handleAddProject = (values: z.infer<typeof projectSchema>) => {
-     setMockCustomerData(prevData => {
-        const newProject = { ...values, id: `P${params.id}${prevData[params.id as keyof typeof prevData].projects.length + 1}` };
+     setMockData(prevData => {
+        const newProject = { ...values, id: `P${params.id}${Date.now()}` };
         const updatedCustomer = {
             ...prevData[params.id as keyof typeof prevData],
             projects: [...prevData[params.id as keyof typeof prevData].projects, newProject]
@@ -130,6 +160,21 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     setIsProjectDialogOpen(false);
     projectForm.reset();
   }
+
+  const handleAddContact = (values: z.infer<typeof contactSchema>) => {
+    setMockData(prevData => {
+        const newContact = { ...values, id: `C${params.id}${Date.now()}` };
+        const updatedCustomer = {
+            ...prevData[params.id as keyof typeof prevData],
+            contacts: [...prevData[params.id as keyof typeof prevData].contacts, newContact]
+        };
+        return { ...prevData, [params.id]: updatedCustomer };
+    });
+    toast({ title: "Contact Added", description: `"${values.name}" has been added.` });
+    setIsContactDialogOpen(false);
+    contactForm.reset();
+  }
+
 
   if (!customer) {
     return (
@@ -167,32 +212,37 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             <div className="lg:col-span-1">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Admin & Contact Details</CardTitle>
+                        <CardTitle>Admin & Primary Contact</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="flex items-center gap-3">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span>{customer.primaryContact}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                             <a href={`mailto:${customer.email}`} className="hover:underline break-all">{customer.email}</a>
-                        </div>
-                         <div className="flex items-center gap-3">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{customer.phone}</span>
-                        </div>
-                        <div>
-                           <Badge variant="secondary">{customer.type}</Badge>
-                        </div>
-                    </CardContent>
+                    {primaryContact ? (
+                        <CardContent className="space-y-4 text-sm">
+                            <div className="flex items-center gap-3">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span>{primaryContact.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                <a href={`mailto:${primaryContact.email}`} className="hover:underline break-all">{primaryContact.email}</a>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                <span>{primaryContact.phone}</span>
+                            </div>
+                            <div>
+                               <Badge variant="secondary">{customer.type}</Badge>
+                            </div>
+                        </CardContent>
+                    ) : (
+                         <CardContent><p className="text-sm text-muted-foreground">No primary contact assigned.</p></CardContent>
+                    )}
                 </Card>
             </div>
             <div className="lg:col-span-2">
                  <Tabs defaultValue="sites" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="sites">Sites</TabsTrigger>
                         <TabsTrigger value="projects">All Projects</TabsTrigger>
+                        <TabsTrigger value="contacts">Contacts</TabsTrigger>
                     </TabsList>
                     <TabsContent value="sites">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -205,17 +255,35 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                             <Form {...siteForm}><form onSubmit={siteForm.handleSubmit(handleAddSite)} className="space-y-4">
                                                 <FormField control={siteForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Melbourne Office" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={siteForm.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                                <FormField control={siteForm.control} name="primaryContactId" render={({ field }) => (
+                                                  <FormItem><FormLabel>Primary Contact</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger></FormControl>
+                                                        <SelectContent>
+                                                            {customer.contacts.map(contact => <SelectItem key={contact.id} value={contact.id}>{contact.name}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                  <FormMessage /></FormItem> )}/>
                                                 <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Site</Button></DialogFooter>
                                             </form></Form>
                                         </DialogContent>
                                     </Dialog>
                                 </div>
-                                {customer.sites.map(site => (
-                                    <button key={site.id} onClick={() => setSelectedSiteId(site.id)} className={cn("w-full text-left p-3 rounded-md border", selectedSiteId === site.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent")}>
-                                        <div className="font-semibold">{site.name}</div>
-                                        <div className={cn("text-xs", selectedSiteId === site.id ? "text-primary-foreground/80" : "text-muted-foreground")}>{site.address}</div>
-                                    </button>
-                                ))}
+                                {customer.sites.map(site => {
+                                    const contact = customer.contacts.find(c => c.id === site.primaryContactId);
+                                    return (
+                                        <button key={site.id} onClick={() => setSelectedSiteId(site.id)} className={cn("w-full text-left p-3 rounded-md border", selectedSiteId === site.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent")}>
+                                            <div className="font-semibold">{site.name}</div>
+                                            <div className={cn("text-xs mb-2", selectedSiteId === site.id ? "text-primary-foreground/80" : "text-muted-foreground")}>{site.address}</div>
+                                            {contact && (
+                                                <div className="text-xs flex items-center gap-1 border-t pt-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                                                    <User className="h-3 w-3" />
+                                                    <a href={`mailto:${contact.email}`} className="hover:underline">{contact.name}</a>
+                                                </div>
+                                            )}
+                                        </button>
+                                    )
+                                })}
                             </div>
                             <div className="md:col-span-2">
                                 <div className="flex justify-between items-center mb-2">
@@ -304,11 +372,51 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                             </CardContent>
                         </Card>
                     </TabsContent>
+                     <TabsContent value="contacts">
+                        <Card>
+                             <CardHeader className="flex flex-row items-center justify-between">
+                                <div className="space-y-1.5">
+                                    <CardTitle>Contacts at {customer.name}</CardTitle>
+                                    <CardDescription>Manage all contact persons for this customer.</CardDescription>
+                                </div>
+                                <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+                                    <DialogTrigger asChild><Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4"/>New Contact</Button></DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customer.name}.</DialogDescription></DialogHeader>
+                                        <Form {...contactForm}><form onSubmit={contactForm.handleSubmit(handleAddContact)} className="space-y-4">
+                                            <FormField control={contactForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={contactForm.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="e.g., jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={contactForm.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 0412 345 678" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Contact</Button></DialogFooter>
+                                        </form></Form>
+                                    </DialogContent>
+                                </Dialog>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Phone</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {customer.contacts.map(contact => (
+                                            <TableRow key={contact.id}>
+                                                <TableCell className="font-medium">{contact.name}</TableCell>
+                                                <TableCell>{contact.email}</TableCell>
+                                                <TableCell>{contact.phone}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                 </Tabs>
             </div>
         </div>
     </div>
   );
 }
-
-    
