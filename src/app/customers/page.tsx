@@ -2,23 +2,66 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { PlusCircle, Building2, Phone, Mail, User, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
+const initialCustomers = [
+    { id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', primaryContact: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888', type: 'Corporate Client' },
+    { id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', primaryContact: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777', type: 'Construction Partner' },
+    { id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContact: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666', type: 'Small Business' },
+    { id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', primaryContact: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555', type: 'Government' },
+];
+
+const customerSchema = z.object({
+    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
+    primaryContact: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
+    email: z.string().email({ message: "Please enter a valid email address." }),
+    phone: z.string().min(8, { message: "Phone number seems too short." }),
+    type: z.string().min(2, { message: "Customer type must be at least 2 characters." }),
+});
 
 export default function CustomersPage() {
     const [view, setView] = useState('grid');
+    const [customers, setCustomers] = useState(initialCustomers);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const { toast } = useToast();
 
-    const customers = [
-        { id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', primaryContact: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888', type: 'Corporate Client' },
-        { id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', primaryContact: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777', type: 'Construction Partner' },
-        { id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContact: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666', type: 'Small Business' },
-        { id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', primaryContact: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555', type: 'Government' },
-    ];
+    const form = useForm<z.infer<typeof customerSchema>>({
+        resolver: zodResolver(customerSchema),
+        defaultValues: {
+            name: "",
+            address: "",
+            primaryContact: "",
+            email: "",
+            phone: "",
+            type: "",
+        },
+    });
+
+    function onSubmit(values: z.infer<typeof customerSchema>) {
+        const newCustomer = { ...values, id: `C${customers.length + 1}` };
+        setCustomers([...customers, newCustomer]);
+        toast({
+            title: "Customer Added",
+            description: `${values.name} has been successfully added.`,
+        });
+        console.log("New Customer Added:", newCustomer);
+        setIsDialogOpen(false); 
+        form.reset();
+    }
   
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -33,10 +76,47 @@ export default function CustomersPage() {
                         <List className="h-5 w-5" />
                     </Button>
                 </div>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add New Customer
-                </Button>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button onClick={() => setIsDialogOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add New Customer
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Add New Customer</DialogTitle>
+                            <DialogDescription>
+                                Fill in the details below to add a new customer to the system.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField control={form.control} name="name" render={({ field }) => (
+                                    <FormItem><FormLabel>Customer Name</FormLabel><FormControl><Input placeholder="e.g., Innovate Corp" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={form.control} name="address" render={({ field }) => (
+                                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="primaryContact" render={({ field }) => (
+                                    <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="email" render={({ field }) => (
+                                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="phone" render={({ field }) => (
+                                    <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="type" render={({ field }) => (
+                                    <FormItem><FormLabel>Customer Type</FormLabel><FormControl><Input placeholder="e.g., Corporate Client" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <DialogFooter>
+                                    <Button type="submit">Add Customer</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
             </div>
       </div>
       {view === 'grid' ? (
