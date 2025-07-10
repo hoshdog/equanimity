@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Building2, Phone, Mail, User, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
@@ -30,12 +31,19 @@ const customerSchema = z.object({
     primaryContact: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
     email: z.string().email({ message: "Please enter a valid email address." }),
     phone: z.string().min(8, { message: "Phone number seems too short." }),
-    type: z.string().min(2, { message: "Customer type must be at least 2 characters." }),
+    type: z.string().min(2, { message: "Please select a customer type." }),
 });
 
 export default function CustomersPage() {
     const [view, setView] = useState('grid');
     const [customers, setCustomers] = useState(initialCustomers);
+    const [customerTypes, setCustomerTypes] = useState([
+        'Corporate Client', 
+        'Construction Partner', 
+        'Small Business', 
+        'Government',
+        'Private'
+    ]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const { toast } = useToast();
 
@@ -107,9 +115,28 @@ export default function CustomersPage() {
                                 <FormField control={form.control} name="phone" render={({ field }) => (
                                     <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
-                                <FormField control={form.control} name="type" render={({ field }) => (
-                                    <FormItem><FormLabel>Customer Type</FormLabel><FormControl><Input placeholder="e.g., Corporate Client" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
+                                <FormField
+                                    control={form.control}
+                                    name="type"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Customer Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a customer type" />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {customerTypes.map(type => (
+                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <DialogFooter>
                                     <Button type="submit">Add Customer</Button>
                                 </DialogFooter>
