@@ -1,0 +1,31 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, PlusCircle } from "lucide-react";
+
+export default function QuotesPage() {
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+       <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Quotes</h2>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New Quote
+        </Button>
+      </div>
+       <Card>
+        <CardHeader>
+          <CardTitle>AI Quote Generation</CardTitle>
+          <CardDescription>
+            Generate professional quotes using AI, based on text/voice prompts or past jobs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg">
+            <FileText className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 text-sm text-muted-foreground">AI quote generation feature coming soon.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
