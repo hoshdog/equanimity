@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle } from "lucide-react";
 import Link from "next/link";
@@ -100,7 +100,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   const projectForm = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", siteId: selectedSiteId || "", status: "Planning" },
+    defaultValues: { name: "", siteId: "", status: "Planning" },
   });
 
   const handleAddSite = (values: z.infer<typeof siteSchema>) => {
@@ -220,23 +220,6 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                             <div className="md:col-span-2">
                                 <div className="flex justify-between items-center mb-2">
                                     <h3 className="font-semibold text-lg">Projects for {customer.sites.find(s => s.id === selectedSiteId)?.name || 'Selected Site'}</h3>
-                                    <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
-                                        <DialogTrigger asChild><Button variant="outline" size="sm" disabled={!selectedSiteId}><PlusCircle className="mr-2 h-4 w-4"/>New Project</Button></DialogTrigger>
-                                        <DialogContent><DialogHeader><DialogTitle>Add New Project</DialogTitle><DialogDescription>Create a new project for {customer.name} at {customer.sites.find(s => s.id === selectedSiteId)?.name}.</DialogDescription></DialogHeader>
-                                            <Form {...projectForm}><form onSubmit={projectForm.handleSubmit(handleAddProject)} className="space-y-4">
-                                                <input type="hidden" {...projectForm.register("siteId", { value: selectedSiteId || "" })} />
-                                                <FormField control={projectForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Project Name</FormLabel><FormControl><Input placeholder="e.g., Office Network Setup" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                                <FormField control={projectForm.control} name="status" render={({ field }) => (
-                                                  <FormItem><FormLabel>Status</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger></FormControl>
-                                                        <SelectContent><SelectItem value="Planning">Planning</SelectItem><SelectItem value="In Progress">In Progress</SelectItem><SelectItem value="On Hold">On Hold</SelectItem><SelectItem value="Completed">Completed</SelectItem></SelectContent>
-                                                    </Select>
-                                                  <FormMessage /></FormItem> )}/>
-                                                <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Project</Button></DialogFooter>
-                                            </form></Form>
-                                        </DialogContent>
-                                    </Dialog>
                                 </div>
                                 {filteredProjects.length > 0 ? (
                                     <div className="space-y-2">
@@ -265,10 +248,42 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                              <CardHeader className="flex flex-row items-center justify-between">
                                 <div className="space-y-1.5">
                                     <CardTitle>All Projects for {customer.name}</CardTitle>
+                                    <CardDescription>A list of all projects across all sites for this customer.</CardDescription>
                                 </div>
+                                <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+                                    <DialogTrigger asChild><Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4"/>New Project</Button></DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Add New Project</DialogTitle>
+                                            <DialogDescription>Create a new project for {customer.name}.</DialogDescription>
+                                        </DialogHeader>
+                                        <Form {...projectForm}>
+                                            <form onSubmit={projectForm.handleSubmit(handleAddProject)} className="space-y-4">
+                                                <FormField control={projectForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Project Name</FormLabel><FormControl><Input placeholder="e.g., Office Network Setup" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                                <FormField control={projectForm.control} name="siteId" render={({ field }) => (
+                                                  <FormItem><FormLabel>Site</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                                        <SelectContent>
+                                                            {customer.sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                  <FormMessage /></FormItem> )}/>
+                                                <FormField control={projectForm.control} name="status" render={({ field }) => (
+                                                  <FormItem><FormLabel>Status</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger></FormControl>
+                                                        <SelectContent><SelectItem value="Planning">Planning</SelectItem><SelectItem value="In Progress">In Progress</SelectItem><SelectItem value="On Hold">On Hold</SelectItem><SelectItem value="Completed">Completed</SelectItem></SelectContent>
+                                                    </Select>
+                                                  <FormMessage /></FormItem> )}/>
+                                                <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Project</Button></DialogFooter>
+                                            </form>
+                                        </Form>
+                                    </DialogContent>
+                                </Dialog>
                             </CardHeader>
                             <CardContent className="space-y-2">
-                                {customer.projects.map(project => (
+                                {customer.projects.length > 0 ? customer.projects.map(project => (
                                     <Link href={`/projects/${project.id.replace('P', '')}`} key={project.id}>
                                         <Card className="hover:border-primary transition-colors">
                                              <CardContent className="p-4 flex justify-between items-center">
@@ -280,7 +295,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                              </CardContent>
                                         </Card>
                                     </Link>
-                                ))}
+                                )) : (
+                                     <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
+                                        <Briefcase className="h-12 w-12 text-muted-foreground" />
+                                        <p className="mt-4 text-sm text-muted-foreground">This customer has no projects yet.</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -290,3 +310,5 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     </div>
   );
 }
+
+    
