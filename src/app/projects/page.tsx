@@ -1,11 +1,17 @@
+
+'use client';
+
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Briefcase } from "lucide-react";
+import { PlusCircle, Briefcase, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 export default function ProjectsPage() {
+  const [view, setView] = useState('grid');
   const projects = [
     { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5 },
     { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8 },
@@ -27,35 +33,80 @@ export default function ProjectsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Project
-        </Button>
+        <div className="flex items-center space-x-2">
+            <div className="flex items-center">
+                <Button variant={view === 'grid' ? 'default' : 'ghost'} size="icon" onClick={() => setView('grid')}>
+                    <LayoutGrid className="h-5 w-5" />
+                </Button>
+                <Button variant={view === 'list' ? 'default' : 'ghost'} size="icon" onClick={() => setView('list')}>
+                    <List className="h-5 w-5" />
+                </Button>
+            </div>
+            <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Project
+            </Button>
+        </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {projects.map((project) => (
-          <Link href={`/projects/${project.id}`} key={project.id}>
-            <Card className="flex flex-col h-full hover:border-primary transition-colors">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
-                  {project.name}
-                </CardTitle>
-                <CardDescription>Managed by {project.manager}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <div className="text-sm text-muted-foreground">
-                  <span className="font-semibold">Status: </span>
-                  <span className={cn(getStatusColor(project.status))}>{project.status}</span>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <p className="text-sm text-muted-foreground">{project.teamSize} team members</p>
-              </CardFooter>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {view === 'grid' ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {projects.map((project) => (
+            <Link href={`/projects/${project.id}`} key={project.id}>
+                <Card className="flex flex-col h-full hover:border-primary transition-colors">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    {project.name}
+                    </CardTitle>
+                    <CardDescription>Managed by {project.manager}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                    <div className="text-sm text-muted-foreground">
+                    <span className="font-semibold">Status: </span>
+                    <span className={cn(getStatusColor(project.status))}>{project.status}</span>
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <p className="text-sm text-muted-foreground">{project.teamSize} team members</p>
+                </CardFooter>
+                </Card>
+            </Link>
+            ))}
+        </div>
+      ) : (
+        <Card>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Project Name</TableHead>
+                        <TableHead>Manager</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Team Size</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {projects.map(project => (
+                        <TableRow key={project.id}>
+                            <TableCell className="font-medium">{project.name}</TableCell>
+                            <TableCell>{project.manager}</TableCell>
+                            <TableCell>
+                                <span className={cn('font-semibold', getStatusColor(project.status))}>
+                                    {project.status}
+                                </span>
+                            </TableCell>
+                            <TableCell>{project.teamSize}</TableCell>
+                            <TableCell className="text-right">
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href={`/projects/${project.id}`}>View</Link>
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </Card>
+      )}
     </div>
   );
 }
