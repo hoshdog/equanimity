@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users } from "lucide-react";
+import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt } from "lucide-react";
 import Link from "next/link";
 
 const projects = [
@@ -56,6 +56,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
           <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
+          <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
@@ -78,6 +79,9 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </TabsContent>
         <TabsContent value="purchase-orders">
             <PlaceholderContent title="Purchase Orders" icon={ShoppingCart} />
+        </TabsContent>
+        <TabsContent value="invoicing">
+            <PlaceholderContent title="Invoices" icon={Receipt} />
         </TabsContent>
         <TabsContent value="team">
             <PlaceholderContent title="Team Members" icon={Users} />

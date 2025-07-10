@@ -26,6 +26,8 @@ import {
   Waves,
   LogOut,
   BrainCircuit,
+  Building2,
+  Receipt,
 } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,6 +37,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: Briefcase },
+  { href: '/sites', label: 'Sites', icon: Building2 },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
   { href: '/payroll', label: 'Payroll', icon: Banknote },
@@ -42,6 +45,7 @@ const navItems = [
   { href: '/leave', label: 'Leave', icon: Plane },
   { href: '/quotes', label: 'Quotes', icon: FileText },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+  { href: '/invoicing', label: 'Invoicing', icon: Receipt },
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
   { href: '/training', label: 'Training', icon: BrainCircuit },
