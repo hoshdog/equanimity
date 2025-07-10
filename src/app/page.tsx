@@ -103,24 +103,29 @@ export default function Dashboard() {
             <CardDescription>A log of recent activities across the platform.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableBody>
-                {recentActivities.map((activity) => (
-                  <TableRow key={activity.id}>
-                    <TableCell>
-                      <div className="font-medium">{activity.user}</div>
-                      <div className="hidden text-sm text-muted-foreground md:inline">
-                        {activity.action}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <Badge variant={badgeVariant(activity.type)}>{activity.type}</Badge>
-                    </TableCell>
-                     <TableCell className="text-right text-muted-foreground">{activity.time}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="relative w-full overflow-auto">
+              <Table>
+                <TableBody>
+                  {recentActivities.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell>
+                        <div className="font-medium">{activity.user}</div>
+                        <div className="text-sm text-muted-foreground md:hidden">
+                          {activity.action.split(' ').slice(0, 3).join(' ')}...
+                        </div>
+                        <div className="hidden text-sm text-muted-foreground md:inline">
+                          {activity.action}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                         <Badge variant={badgeVariant(activity.type)}>{activity.type}</Badge>
+                      </TableCell>
+                       <TableCell className="text-right text-muted-foreground hidden sm:table-cell">{activity.time}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

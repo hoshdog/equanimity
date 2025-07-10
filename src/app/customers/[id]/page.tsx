@@ -86,16 +86,16 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex items-center space-x-4 mb-4">
-             <Button asChild variant="outline" size="icon">
+        <div className="flex items-start md:items-center space-x-4 mb-4">
+             <Button asChild variant="outline" size="icon" className="shrink-0">
                 <Link href="/customers">
                     <ArrowLeft className="h-4 w-4"/>
                     <span className="sr-only">Back to Customers</span>
                 </Link>
             </Button>
             <div>
-                <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                    <Building2 className="h-8 w-8 text-primary"/>
+                <h2 className="text-3xl font-bold tracking-tight flex items-start md:items-center gap-3">
+                    <Building2 className="h-8 w-8 text-primary mt-1 md:mt-0 shrink-0"/>
                     {customer.name}
                 </h2>
                 <p className="text-muted-foreground">{customer.address}</p>
@@ -115,7 +115,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                         </div>
                         <div className="flex items-center gap-3">
                             <Mail className="h-4 w-4 text-muted-foreground" />
-                             <a href={`mailto:${customer.email}`} className="hover:underline">{customer.email}</a>
+                             <a href={`mailto:${customer.email}`} className="hover:underline break-all">{customer.email}</a>
                         </div>
                          <div className="flex items-center gap-3">
                             <Phone className="h-4 w-4 text-muted-foreground" />
@@ -128,7 +128,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                 <Tabs defaultValue="sites">
+                 <Tabs defaultValue="sites" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="sites">Sites</TabsTrigger>
                         <TabsTrigger value="projects">All Projects</TabsTrigger>

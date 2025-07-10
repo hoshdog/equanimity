@@ -94,10 +94,10 @@ export default function CustomersPage() {
   
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-       <div className="flex items-center justify-between space-y-2">
+       <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
             <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
             <div className="flex items-center space-x-2">
-                 <div className="flex items-center">
+                 <div className="hidden md:flex items-center">
                     <Button variant={view === 'grid' ? 'default' : 'ghost'} size="icon" onClick={() => setView('grid')}>
                         <LayoutGrid className="h-5 w-5" />
                     </Button>
@@ -202,7 +202,7 @@ export default function CustomersPage() {
                 </Dialog>
             </div>
       </div>
-      {view === 'grid' ? (
+      {view === 'grid' || (view === 'list' && customers.length === 0) ? (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
             {customers.map(customer => (
                 <Link href={`/customers/${customer.id}`} key={customer.id}>
@@ -227,7 +227,7 @@ export default function CustomersPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Mail className="h-4 w-4" />
-                                    <span className="hover:underline">{customer.email}</span>
+                                    <span className="hover:underline break-all">{customer.email}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Phone className="h-4 w-4" />
@@ -240,31 +240,49 @@ export default function CustomersPage() {
             ))}
         </div>
       ) : (
-        <Card>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Primary Contact</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Type</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {customers.map(customer => (
-                        <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer">
-                            <TableCell className="font-medium">{customer.name}</TableCell>
-                            <TableCell>{customer.primaryContact}</TableCell>
-                            <TableCell>{customer.email}</TableCell>
-                            <TableCell>{customer.phone}</TableCell>
-                            <TableCell><Badge variant="secondary">{customer.type}</Badge></TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+        <Card className="block md:hidden">
+             {customers.map(customer => (
+                <Link href={`/customers/${customer.id}`} key={customer.id}>
+                    <div className="border-b p-4">
+                         <div className="flex items-start justify-between">
+                            <div>
+                                <div className="font-semibold flex items-center gap-2">
+                                    <Building2 className="h-5 w-5 text-primary"/>
+                                    {customer.name}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{customer.primaryContact}</div>
+                            </div>
+                            <Badge variant="secondary">{customer.type}</Badge>
+                        </div>
+                    </div>
+                </Link>
+             ))}
         </Card>
       )}
+      <Card className="hidden md:block">
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Primary Contact</TableHead>
+                    <TableHead className="hidden lg:table-cell">Email</TableHead>
+                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
+                    <TableHead>Type</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {customers.map(customer => (
+                    <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer">
+                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell>{customer.primaryContact}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{customer.email}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{customer.phone}</TableCell>
+                        <TableCell><Badge variant="secondary">{customer.type}</Badge></TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }

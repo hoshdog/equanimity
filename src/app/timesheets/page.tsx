@@ -153,14 +153,14 @@ export default function TimesheetsPage() {
                            <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
                              {tasks.map((task, index) => (
                                 <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
-                                    <div className="col-span-12 sm:col-span-8">
+                                    <div className="col-span-12 md:col-span-8">
                                         <Input 
                                             placeholder="Job or task description"
                                             value={task.task}
                                             onChange={(e) => handleTaskChange(date, task.id, 'task', e.target.value)}
                                         />
                                     </div>
-                                    <div className="col-span-8 sm:col-span-3">
+                                    <div className="col-span-8 md:col-span-3">
                                         <Input
                                             type="text"
                                             placeholder="Hours"
@@ -169,7 +169,7 @@ export default function TimesheetsPage() {
                                             className="text-right"
                                         />
                                     </div>
-                                    <div className="col-span-4 sm:col-span-1 flex justify-end">
+                                    <div className="col-span-4 md:col-span-1 flex justify-end">
                                          <Button 
                                             variant="ghost" 
                                             size="icon" 

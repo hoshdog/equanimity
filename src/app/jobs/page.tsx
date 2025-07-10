@@ -51,32 +51,34 @@ export default function JobsPage() {
                     <CardDescription>A list of all jobs across all projects.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Job ID</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Project</TableHead>
-                                <TableHead>Technician</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {jobs.map(job => (
-                                <TableRow key={job.id} onClick={() => handleRowClick(job.id)} className="cursor-pointer">
-                                    <TableCell className="font-medium">{job.id}</TableCell>
-                                    <TableCell>{job.description}</TableCell>
-                                    <TableCell>{job.project}</TableCell>
-                                    <TableCell>{job.technician}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={cn(getStatusColor(job.status))}>
-                                            {job.status}
-                                        </Badge>
-                                    </TableCell>
+                    <div className="relative w-full overflow-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Job ID</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Project</TableHead>
+                                    <TableHead>Technician</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {jobs.map(job => (
+                                    <TableRow key={job.id} onClick={() => handleRowClick(job.id)} className="cursor-pointer">
+                                        <TableCell className="font-medium">{job.id}</TableCell>
+                                        <TableCell>{job.description}</TableCell>
+                                        <TableCell>{job.project}</TableCell>
+                                        <TableCell>{job.technician}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={cn(getStatusColor(job.status))}>
+                                                {job.status}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
