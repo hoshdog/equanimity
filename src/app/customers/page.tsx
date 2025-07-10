@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Building2, Phone, Mail, User, LayoutGrid, List } from "lucide-react";
+import { PlusCircle, Building2, Phone, Mail, User, LayoutGrid, List, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -44,7 +44,9 @@ export default function CustomersPage() {
         'Government',
         'Private'
     ]);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = useState(false);
+    const [isManageTypesDialogOpen, setIsManageTypesDialogOpen] = useState(false);
+    const [newType, setNewType] = useState('');
     const { toast } = useToast();
 
     const form = useForm<z.infer<typeof customerSchema>>({
@@ -67,9 +69,22 @@ export default function CustomersPage() {
             description: `${values.name} has been successfully added.`,
         });
         console.log("New Customer Added:", newCustomer);
-        setIsDialogOpen(false); 
+        setIsAddCustomerDialogOpen(false); 
         form.reset();
     }
+
+    const handleAddType = () => {
+        if (newType && !customerTypes.includes(newType)) {
+            setCustomerTypes([...customerTypes, newType]);
+            setNewType('');
+            toast({ title: "Type Added", description: `"${newType}" has been added to the list.` });
+        }
+    };
+
+    const handleDeleteType = (typeToDelete: string) => {
+        setCustomerTypes(customerTypes.filter(type => type !== typeToDelete));
+        toast({ title: "Type Removed", description: `"${typeToDelete}" has been removed.` });
+    };
   
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -84,9 +99,9 @@ export default function CustomersPage() {
                         <List className="h-5 w-5" />
                     </Button>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog open={isAddCustomerDialogOpen} onOpenChange={setIsAddCustomerDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={() => setIsDialogOpen(true)}>
+                        <Button onClick={() => setIsAddCustomerDialogOpen(true)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add New Customer
                         </Button>
@@ -120,28 +135,63 @@ export default function CustomersPage() {
                                     name="type"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <FormLabel>Customer Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a customer type" />
-                                            </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customerTypes.map(type => (
-                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
+                                            <div className="flex items-center justify-between">
+                                                <FormLabel>Customer Type</FormLabel>
+                                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsManageTypesDialogOpen(true)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a customer type" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {customerTypes.map(type => (
+                                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
                                         </FormItem>
                                     )}
                                 />
                                 <DialogFooter>
+                                     <DialogClose asChild>
+                                        <Button type="button" variant="secondary">Cancel</Button>
+                                     </DialogClose>
                                     <Button type="submit">Add Customer</Button>
                                 </DialogFooter>
                             </form>
                         </Form>
+                    </DialogContent>
+                </Dialog>
+                <Dialog open={isManageTypesDialogOpen} onOpenChange={setIsManageTypesDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Manage Customer Types</DialogTitle>
+                            <DialogDescription>Add or remove customer types from the list.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <div className="flex gap-2">
+                                <Input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="New type name..." />
+                                <Button onClick={handleAddType}>Add Type</Button>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                {customerTypes.map(type => (
+                                    <div key={type} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                        <span className="text-sm">{type}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteType(type)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                         <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsManageTypesDialogOpen(false)}>Done</Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             </div>
