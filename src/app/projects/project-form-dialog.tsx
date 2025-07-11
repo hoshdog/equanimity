@@ -20,7 +20,6 @@ import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Combobox } from '@/components/ui/combobox';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -87,8 +86,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     return customerDetails[watchedCustomerId]?.contacts.map(c => ({ label: c.name, value: c.id })) || [];
   }, [watchedCustomerId, customerDetails]);
   
-  const roleOptions = React.useMemo(() => commonRoles.map(role => ({ label: role, value: role })), [commonRoles]);
-
   React.useEffect(() => {
     const matchingCustomer = customerOptions.find(c => c.label.toLowerCase() === watchedCustomerName.toLowerCase());
     if (matchingCustomer) {
@@ -242,61 +239,41 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <FormLabel>Project Contacts</FormLabel>
-                            <div className="flex items-center gap-2">
-                                <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
-                                    <TooltipProvider><Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <DialogTrigger asChild>
-                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
-                                            </DialogTrigger>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>Manage Roles</p></TooltipContent>
-                                    </Tooltip></TooltipProvider>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Manage Contact Roles</DialogTitle>
-                                            <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4">
-                                            <div className="flex gap-2">
-                                                <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
-                                                <Button onClick={handleAddRole}>Add Role</Button>
-                                            </div>
-                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                                {commonRoles.map(role => (
-                                                    <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                                        <span className="text-sm">{role}</span>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                         <DialogFooter>
-                                            <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                                <TooltipProvider>
-                                  <Tooltip>
+                            <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                                <TooltipProvider><Tooltip>
                                     <TooltipTrigger asChild>
-                                      <AddContactDialog 
-                                          customerId={watchedCustomerId}
-                                          setCustomerDetails={setCustomerDetails} 
-                                          onContactAdded={handleContactAdded}
-                                      >
-                                          <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
-                                              <Plus className="h-4 w-4"/>
-                                          </Button>
-                                      </AddContactDialog>
+                                        <DialogTrigger asChild>
+                                            <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                        </DialogTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Add New Contact</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                            </div>
+                                    <TooltipContent><p>Manage Roles</p></TooltipContent>
+                                </Tooltip></TooltipProvider>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Manage Contact Roles</DialogTitle>
+                                        <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                        <div className="flex gap-2">
+                                            <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                                            <Button onClick={handleAddRole}>Add Role</Button>
+                                        </div>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                            {commonRoles.map(role => (
+                                                <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                    <span className="text-sm">{role}</span>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                     <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                          {fields.map((field, index) => (
                             <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
@@ -306,16 +283,36 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.contactId`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select contact" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
+                                                <div className="flex items-center gap-1">
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select contact" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                     <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                            <AddContactDialog 
+                                                                customerId={watchedCustomerId}
+                                                                setCustomerDetails={setCustomerDetails} 
+                                                                onContactAdded={handleContactAdded}
+                                                            >
+                                                                <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                                                    <Plus className="h-4 w-4"/>
+                                                                </Button>
+                                                            </AddContactDialog>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Add New Contact</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                        </TooltipProvider>
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -325,13 +322,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.role`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <Combobox
-                                                    isEditable
-                                                    options={roleOptions}
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    placeholder="Role (e.g., Site Contact)"
-                                                />
+                                                <FormControl>
+                                                    <>
+                                                        <Input list="common-roles" placeholder="Role (e.g., Site Contact)" {...field} />
+                                                        <datalist id="common-roles">
+                                                            {commonRoles.map(role => <option key={role} value={role} />)}
+                                                        </datalist>
+                                                    </>
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -389,5 +387,3 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
-
-    
