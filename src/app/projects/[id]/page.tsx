@@ -21,6 +21,7 @@ import { JobFormDialog } from '@/app/jobs/job-form-dialog';
 import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
 import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -319,7 +320,41 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             <PlaceholderContent title="Invoices" icon={Receipt} />
         </TabsContent>
         <TabsContent value="team">
-            <PlaceholderContent title="Team Members" icon={Users} />
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="space-y-1.5">
+                        <CardTitle>Project Team</CardTitle>
+                        <CardDescription>The team members assigned to this project.</CardDescription>
+                    </div>
+                    <Button variant="outline">Manage Team</Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(project.assignedStaff && project.assignedStaff.length > 0) ? (
+                            project.assignedStaff.map(staff => {
+                                const employee = employees.find(e => e.id === staff.employeeId);
+                                if (!employee) return null;
+                                return (
+                                    <Card key={staff.employeeId} className="p-4 flex items-center gap-4">
+                                        <Avatar>
+                                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
+                                            <AvatarFallback>{employee.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold">{employee.name}</p>
+                                            <p className="text-sm text-muted-foreground">{staff.role}</p>
+                                        </div>
+                                    </Card>
+                                )
+                            })
+                        ) : (
+                            <div className="col-span-full">
+                                <PlaceholderContent title="No team members assigned" icon={Users} />
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
         </TabsContent>
       </Tabs>
     </div>
