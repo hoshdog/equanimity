@@ -40,7 +40,7 @@ const employeeFormSchema = z.object({
   wage: z.coerce.number().min(0, "Wage must be a positive number.").optional(),
   annualSalary: z.coerce.number().min(0, "Salary must be a positive number.").optional(),
   calculatedCostRate: z.coerce.number().min(0).default(0),
-  estimatedNonBillableHours: z.coerce.number().min(0).optional(),
+  estimatedNonBillableHours: z.coerce.number().min(0).default(0),
   award: z.string().optional(),
   isOverhead: z.boolean().default(false),
   tfn: z.string().optional(),
@@ -106,7 +106,7 @@ function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open:
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                         {roles.map(role => (
                             <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                <span className="text-sm">{role}</span>
+                                <span className="text-sm">{type}</span>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -145,6 +145,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
       wage: 0,
       annualSalary: 0,
       calculatedCostRate: 0,
+      estimatedNonBillableHours: 0,
       award: '',
       isOverhead: false,
       tfn: '',
