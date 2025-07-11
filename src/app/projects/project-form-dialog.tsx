@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Project, CustomerDetails } from '@/lib/types';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
-import { Plus } from 'lucide-react';
+import { AddContactDialog } from './add-contact-dialog';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -107,6 +107,10 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     form.setValue('siteId', siteId);
   }
 
+  const handleSetContact = (contactId: string) => {
+    form.setValue('contactId', contactId);
+  }
+
   return (
     <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) form.reset(); }}>
         <DialogTrigger asChild>
@@ -181,14 +185,23 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="contactId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Primary Contact</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                <FormControl>
-                                    <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex gap-2">
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <AddContactDialog 
+                                    customerId={watchedCustomerId} 
+                                    setCustomerDetails={setCustomerDetails} 
+                                    onContactAdded={handleSetContact}
+                                >
+                                   <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
+                                </AddContactDialog>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}/>
