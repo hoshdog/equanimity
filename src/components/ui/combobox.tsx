@@ -54,10 +54,13 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
                 {options.map((option) => (
                 <CommandItem
                     key={option.value}
-                    value={option.label} // Value for search/filter
-                    onSelect={() => {
-                        onChange(option.value)
-                        setOpen(false)
+                    value={option.label}
+                    onSelect={(currentValue) => {
+                      const selectedOption = options.find(opt => opt.label.toLowerCase() === currentValue.toLowerCase());
+                      if (selectedOption) {
+                        onChange(selectedOption.value === value ? "" : selectedOption.value)
+                      }
+                      setOpen(false)
                     }}
                 >
                     <Check
