@@ -40,6 +40,10 @@ export interface CustomerDetails {
     [key: string]: Customer;
 }
 
+export interface ProjectContact {
+    contactId: string;
+    role: string;
+}
 
 export interface Project {
     id: number;
@@ -49,5 +53,5 @@ export interface Project {
     assignedStaff: OptionType[];
     customerId: string;
     siteId: string;
-    contactId: string;
+    projectContacts: ProjectContact[];
 }

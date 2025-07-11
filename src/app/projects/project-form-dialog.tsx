@@ -2,11 +2,11 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus } from "lucide-react";
+import { PlusCircle, Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { mockEmployees } from '@/lib/mock-data';
-import type { Project, CustomerDetails } from '@/lib/types';
+import type { Project, CustomerDetails, ProjectContact } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
@@ -32,7 +32,12 @@ const projectSchema = z.object({
     customerName: z.string({ required_error: "Please select or enter a customer."}).min(1, "Please select or enter a customer."),
     customerId: z.string().optional(),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
-    contactId: z.string({ required_error: "Please select a primary contact."}).min(1, "Please select a primary contact."),
+    projectContacts: z.array(
+        z.object({
+            contactId: z.string().min(1, "Please select a contact."),
+            role: z.string().min(2, "Role is required."),
+        })
+    ).min(1, "At least one project contact is required."),
     assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
 });
 
@@ -44,7 +49,12 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerName: "", customerId: "", siteId: "", contactId: "", assignedStaff: [] },
+    defaultValues: { name: "", description: "", customerName: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
+  });
+  
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "projectContacts",
   });
   
   const watchedCustomerName = form.watch('customerName');
@@ -79,7 +89,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
   React.useEffect(() => {
     form.resetField('siteId', { defaultValue: '' });
-    form.resetField('contactId', { defaultValue: '' });
+    form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
   }, [watchedCustomerId, form]);
 
 
@@ -114,7 +124,11 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   };
   
   const handleContactAdded = (contactId: string) => {
-    form.setValue('contactId', contactId, { shouldValidate: true });
+    // When a new contact is added to the customer, we can set it as the selection in the *first* project contact row
+    const currentProjectContacts = form.getValues('projectContacts');
+    if (currentProjectContacts.length > 0 && !currentProjectContacts[0].contactId) {
+        form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
+    }
   }
 
   return (
@@ -196,31 +210,80 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                             <FormMessage />
                         </FormItem>
                     )}/>
-                    <FormField control={form.control} name="contactId" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Primary Contact</FormLabel>
-                             <div className="flex gap-2 items-center">
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <AddContactDialog 
-                                    customerId={watchedCustomerId}
-                                    setCustomerDetails={setCustomerDetails} 
-                                    onContactAdded={handleContactAdded}
-                                >
-                                     <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
-                                        <Plus className="h-4 w-4"/>
-                                    </Button>
-                                </AddContactDialog>
+                   
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <FormLabel>Project Contacts</FormLabel>
+                             <AddContactDialog 
+                                customerId={watchedCustomerId}
+                                setCustomerDetails={setCustomerDetails} 
+                                onContactAdded={handleContactAdded}
+                            >
+                                <Button type="button" variant="outline" size="sm" disabled={!watchedCustomerId}>
+                                    <Plus className="h-4 w-4 mr-2"/>
+                                    Add New Person
+                                </Button>
+                            </AddContactDialog>
+                        </div>
+                         {fields.map((field, index) => (
+                            <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
+                                <div className="grid grid-cols-2 gap-2 flex-1">
+                                    <FormField
+                                        control={form.control}
+                                        name={`projectContacts.${index}.contactId`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select contact" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`projectContacts.${index}.role`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <Input placeholder="Role (e.g., Site Contact)" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                             </div>
-                            <FormMessage />
-                        </FormItem>
-                    )}/>
+                        ))}
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => append({ contactId: '', role: '' })}
+                            disabled={!watchedCustomerId}
+                        >
+                           <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
+                        </Button>
+                        <FormMessage>
+                            {form.formState.errors.projectContacts && (
+                                <p className="text-sm font-medium text-destructive">
+                                    {form.formState.errors.projectContacts.message ||
+                                    (form.formState.errors.projectContacts as any)?.root?.message}
+                                </p>
+                            )}
+                        </FormMessage>
+                    </div>
+
 
                     <FormField
                         control={form.control}
@@ -249,3 +312,4 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
+

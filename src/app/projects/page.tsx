@@ -30,10 +30,10 @@ type ColumnVisibilityState = {
 };
 
 const initialProjects: Project[] = [
-    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', assignedStaff: [mockEmployees[0], mockEmployees[2]], customerId: '1', siteId: 'S1A', contactId: 'C1A' },
-    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', assignedStaff: [mockEmployees[1]], customerId: '2', siteId: 'S2A', contactId: 'C2A' },
-    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', assignedStaff: [mockEmployees[2], mockEmployees[3]], customerId: '3', siteId: 'S3A', contactId: 'C3A' },
-    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', assignedStaff: [mockEmployees[0], mockEmployees[4]], customerId: '1', siteId: 'S1B', contactId: 'C1B' },
+    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', assignedStaff: [mockEmployees[0], mockEmployees[2]], customerId: '1', siteId: 'S1A', projectContacts: [{ contactId: 'C1A', role: 'Primary' }] },
+    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', assignedStaff: [mockEmployees[1]], customerId: '2', siteId: 'S2A', projectContacts: [{ contactId: 'C2A', role: 'Client' }] },
+    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', assignedStaff: [mockEmployees[2], mockEmployees[3]], customerId: '3', siteId: 'S3A', projectContacts: [{ contactId: 'C3A', role: 'Marketing Head' }] },
+    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', assignedStaff: [mockEmployees[0], mockEmployees[4]], customerId: '1', siteId: 'S1B', projectContacts: [{ contactId: 'C1B', role: 'Site Manager' }] },
 ];
 
 export default function ProjectsPage() {
