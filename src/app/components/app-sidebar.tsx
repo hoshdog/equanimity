@@ -35,28 +35,42 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 const navItems = [
+  // Core
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/customers', label: 'Customers', icon: Building2 },
   { href: '/projects', label: 'Projects', icon: Briefcase },
   { href: '/jobs', label: 'Jobs', icon: ClipboardList },
-  { href: '/customers', label: 'Customers', icon: User },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
-  { href: '/payroll', label: 'Payroll', icon: Banknote },
-  { href: '/employees', label: 'Employees', icon: Users },
-  { href: '/leave', label: 'Leave', icon: Plane },
+  // Financial
   { href: '/quotes', label: 'Quotes', icon: FileText },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
   { href: '/invoicing', label: 'Invoicing', icon: Receipt },
-  { href: '/inventory', label: 'Inventory', icon: Warehouse },
+  { href: '/payroll', label: 'Payroll', icon: Banknote },
+  // Company & HR
+  { href: '/employees', label: 'Employees', icon: Users },
+  { href: '/leave', label: 'Leave', icon: Plane },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
-  { href: '/training', label: 'Training', icon: BrainCircuit },
+  { href: '/training', label: 'AI Training', icon: BrainCircuit },
+  // Assets
+  { href: '/inventory', label: 'Inventory', icon: Warehouse },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -77,6 +91,7 @@ export function AppSidebar() {
                 isActive={pathname === item.href}
                 tooltip={item.label}
                 className="w-full"
+                onClick={handleLinkClick}
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5" />
