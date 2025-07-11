@@ -169,16 +169,18 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
     const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19; // simplified for part-time
     const annualHours = weeklyHours * 52;
     
-    let nonProductiveHours;
-    if (watchedEstimatedNonBillable !== undefined && watchedEstimatedNonBillable > 0) {
-        nonProductiveHours = watchedEstimatedNonBillable;
-    } else {
-        const annualLeaveHours = 4 * weeklyHours; // 4 weeks
-        const sickLeaveHours = 10 * (weeklyHours / 5); // 10 days at daily hours
-        nonProductiveHours = annualLeaveHours + sickLeaveHours;
-    }
+    // Calculate leave hours based on employment type
+    const annualLeaveHours = 4 * weeklyHours; // 4 weeks
+    const sickLeaveHours = 10 * (weeklyHours / 5); // 10 days at daily hours
+    const leaveHours = annualLeaveHours + sickLeaveHours;
 
-    const productiveHours = annualHours - nonProductiveHours;
+    // Calculate additional non-billable hours from weekly input
+    const additionalWeeklyHours = parseFloat(String(watchedEstimatedNonBillable)) || 0;
+    const additionalAnnualHours = additionalWeeklyHours * 52;
+
+    const totalNonProductiveHours = leaveHours + additionalAnnualHours;
+    
+    const productiveHours = annualHours - totalNonProductiveHours;
     if (productiveHours <= 0) return payRate;
 
     const totalAnnualCost = annualHours * payRate;
@@ -188,12 +190,16 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   }, [watchedPayType, watchedWage, watchedAnnualSalary, watchedEmploymentType, watchedEstimatedNonBillable]);
   
   const defaultNonProductiveHours = React.useMemo(() => {
-    if (watchedEmploymentType === 'Casual') return 0;
+    if (watchedEmploymentType === 'Casual') return { total: 0, leave: 0 };
     const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19;
-    const annualLeaveHours = 4 * weeklyHours;
-    const sickLeaveHours = 10 * (weeklyHours / 5);
-    return annualLeaveHours + sickLeaveHours;
-  }, [watchedEmploymentType]);
+    
+    const leaveHours = (4 * weeklyHours) + (10 * (weeklyHours / 5)); // 4 weeks annual, 10 days sick
+    
+    const additionalWeeklyHours = parseFloat(String(watchedEstimatedNonBillable)) || 0;
+    const additionalAnnualHours = additionalWeeklyHours * 52;
+
+    return { total: leaveHours + additionalAnnualHours, leave: leaveHours };
+  }, [watchedEmploymentType, watchedEstimatedNonBillable]);
 
 
   React.useEffect(() => {
@@ -389,12 +395,12 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                                 name="estimatedNonBillableHours"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Estimated Non-Billable Hours (Annual)</FormLabel>
+                                    <FormLabel>Additional Weekly Non-Billable Hours</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="Leave blank for default" {...field} />
+                                        <Input type="number" placeholder="e.g., 2 hours for meetings" {...field} />
                                     </FormControl>
                                      <FormDescription>
-                                        Overrides the default leave calculation if provided. This will be auto-updated in the future.
+                                        Enter any regular non-billable time (e.g., meetings, training) not covered by leave.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -408,11 +414,11 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                                     <p className="text-xs text-muted-foreground">per hour</p>
                                 </div>
                                 <div className="rounded-md border p-3">
-                                    <p className="text-sm font-medium text-muted-foreground">Non-Productive</p>
+                                    <p className="text-sm font-medium text-muted-foreground">Total Non-Productive</p>
                                     <p className="text-2xl font-bold">
-                                        {(watchedEstimatedNonBillable !== undefined && watchedEstimatedNonBillable > 0) ? watchedEstimatedNonBillable.toFixed(0) : defaultNonProductiveHours.toFixed(0)}
+                                        {defaultNonProductiveHours.total.toFixed(0)}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">hours/year (Leave)</p>
+                                    <p className="text-xs text-muted-foreground">hours/year</p>
                                 </div>
                                  <div className="rounded-md border bg-primary/10 border-primary p-3">
                                     <p className="text-sm font-medium text-primary">Calculated Cost Rate</p>
