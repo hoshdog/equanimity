@@ -32,7 +32,7 @@ const projectSchema = z.object({
     customerId: z.string({ required_error: "Please select a customer."}).min(1, "Please select a customer."),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
     contactId: z.string({ required_error: "Please select a primary contact."}).min(1, "Please select a primary contact."),
-    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).min(1, "At least one staff member must be assigned."),
+    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
