@@ -5,7 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/app/components/app-sidebar';
 import { cn } from '@/lib/utils';
-import { Menu, Waves } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -25,16 +26,14 @@ export default function RootLayout({
         <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
-              <header className="sticky top-0 z-10 md:hidden flex items-center justify-between p-2 border-b bg-background/80 backdrop-blur-sm">
-                 <div className="flex items-center gap-2 text-lg font-semibold text-primary">
-                  <Waves className="h-5 w-5" />
-                  Equanimity
-                 </div>
-                 <SidebarTrigger>
-                    <Menu />
-                 </SidebarTrigger>
-              </header>
               {children}
+               <div className="md:hidden fixed bottom-4 left-4 z-20">
+                <SidebarTrigger asChild>
+                    <Button size="lg" className="rounded-full h-14 w-14 shadow-lg">
+                        <Menu className="h-6 w-6" />
+                    </Button>
+                </SidebarTrigger>
+              </div>
             </SidebarInset>
         </SidebarProvider>
         <Toaster />
