@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Briefcase, LayoutGrid, List, Columns } from "lucide-react";
+import { PlusCircle, Briefcase, LayoutGrid, List, Columns, User, Users } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,25 +25,37 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
 };
 
+// Mock data, in a real app this would come from a database
+const mockEmployees = [
+    { value: 'EMP001', label: 'Alice Johnson' },
+    { value: 'EMP002', label: 'Bob Smith' },
+    { value: 'EMP003', label: 'Charlie Brown' },
+    { value: 'EMP004', label: 'Diana Prince' },
+    { value: 'EMP005', label: 'Ethan Hunt' },
+];
+
 const initialProjects = [
-    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5 },
-    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8 },
-    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie', teamSize: 3 },
-    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice', teamSize: 4 },
+    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', assignedStaff: [mockEmployees[0], mockEmployees[2]] },
+    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', assignedStaff: [mockEmployees[1]] },
+    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', assignedStaff: [mockEmployees[2], mockEmployees[3]] },
+    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', assignedStaff: [mockEmployees[0], mockEmployees[4]] },
 ];
 
 const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
-    manager: z.string().min(2, "Manager name is required."),
+    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).min(1, "At least one staff member must be assigned."),
 });
 
-type Project = Omit<typeof initialProjects[0], 'id' | 'status' | 'teamSize'> & { id?: number; status?: string };
+type Project = Omit<typeof initialProjects[0], 'id' | 'status'> & { id?: number; status?: string };
 
 
 export default function ProjectsPage() {
@@ -55,7 +67,7 @@ export default function ProjectsPage() {
 
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", manager: "" },
+    defaultValues: { name: "", description: "", assignedStaff: [] },
   });
 
   function onSubmit(values: z.infer<typeof projectSchema>) {
@@ -63,7 +75,6 @@ export default function ProjectsPage() {
         ...values, 
         id: Date.now(),
         status: 'Planning',
-        teamSize: 1 // Defaulting team size, as it's not in the form anymore
     };
     setProjects([...projects, newProject]);
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
@@ -73,9 +84,8 @@ export default function ProjectsPage() {
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
     'Project Name': true,
-    'Manager': true,
+    'Assigned Staff': true,
     'Status': true,
-    'Team Size': false, // Hidden by default now
   });
 
   const getStatusColor = (status: string) => {
@@ -135,7 +145,7 @@ export default function ProjectsPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) form.reset(); }}>
                 <DialogTrigger asChild>
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -163,13 +173,23 @@ export default function ProjectsPage() {
                                     <FormMessage />
                                 </FormItem>
                             )}/>
-                            <FormField control={form.control} name="manager" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Manager</FormLabel>
-                                    <FormControl><Input placeholder="e.g., Alice Johnson" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
+                            <FormField
+                                control={form.control}
+                                name="assignedStaff"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Assign Staff</FormLabel>
+                                        <MultiSelect
+                                            options={mockEmployees}
+                                            selected={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Select staff..."
+                                            className="w-full"
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <DialogFooter>
                                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                                 <Button type="submit">Create Project</Button>
@@ -190,16 +210,32 @@ export default function ProjectsPage() {
                     <Briefcase className="h-5 w-5 text-primary" />
                     {project.name}
                     </CardTitle>
-                    <CardDescription>Managed by {project.manager}</CardDescription>
+                    <CardDescription className="line-clamp-2">{project.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                    <div className="text-sm text-muted-foreground">
-                    <span className="font-semibold">Status: </span>
-                    <span className={cn(getStatusColor(project.status))}>{project.status}</span>
+                     <div className="text-sm text-muted-foreground mb-4">
+                        <span className="font-semibold">Status: </span>
+                        <span className={cn(getStatusColor(project.status))}>{project.status}</span>
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <p className="text-sm text-muted-foreground">Managed by {project.manager}</p>
+                    <div className="flex flex-col w-full">
+                        <div className="text-xs text-muted-foreground mb-2">Team</div>
+                         <div className="flex items-center -space-x-2">
+                            <TooltipProvider>
+                            {project.assignedStaff.map(staff => (
+                                <Tooltip key={staff.value}>
+                                    <TooltipTrigger asChild>
+                                        <Avatar className="h-8 w-8 border-2 border-background">
+                                            <AvatarFallback>{staff.label.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{staff.label}</TooltipContent>
+                                </Tooltip>
+                            ))}
+                            </TooltipProvider>
+                         </div>
+                    </div>
                 </CardFooter>
                 </Card>
             </Link>
@@ -211,16 +247,30 @@ export default function ProjectsPage() {
                 <TableHeader>
                     <TableRow>
                         {visibleColumns.includes('Project Name') && <TableHead>Project Name</TableHead>}
-                        {visibleColumns.includes('Manager') && <TableHead>Manager</TableHead>}
+                        {visibleColumns.includes('Assigned Staff') && <TableHead>Assigned Staff</TableHead>}
                         {visibleColumns.includes('Status') && <TableHead>Status</TableHead>}
-                        {visibleColumns.includes('Team Size') && <TableHead>Team Size</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {projects.map(project => (
                         <TableRow key={project.id} onClick={() => handleRowClick(project.id)} className="cursor-pointer">
                            {visibleColumns.includes('Project Name') && <TableCell className="font-medium">{project.name}</TableCell>}
-                           {visibleColumns.includes('Manager') && <TableCell>{project.manager}</TableCell>}
+                           {visibleColumns.includes('Assigned Staff') && <TableCell>
+                             <div className="flex items-center -space-x-2">
+                                <TooltipProvider>
+                                {project.assignedStaff.map(staff => (
+                                    <Tooltip key={staff.value}>
+                                        <TooltipTrigger asChild>
+                                            <Avatar className="h-8 w-8 border-2 border-background">
+                                                <AvatarFallback>{staff.label.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{staff.label}</TooltipContent>
+                                    </Tooltip>
+                                ))}
+                                </TooltipProvider>
+                             </div>
+                           </TableCell>}
                            {visibleColumns.includes('Status') &&
                             <TableCell>
                                 <span className={cn('font-semibold', getStatusColor(project.status))}>
@@ -228,7 +278,6 @@ export default function ProjectsPage() {
                                 </span>
                             </TableCell>
                            }
-                           {visibleColumns.includes('Team Size') && <TableCell>{project.teamSize}</TableCell>}
                         </TableRow>
                     ))}
                 </TableBody>
