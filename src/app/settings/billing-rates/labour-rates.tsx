@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, DollarSign, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getEmployeesWithWageData } from '@/lib/employees';
 import { cn } from '@/lib/utils';
@@ -271,10 +271,62 @@ function LaborRateDialog({
 
 export function LabourRates() {
     const { toast } = useToast();
-    const [labourRates, setLabourRates] = React.useState<LaborRateFormValues[]>([
-        { id: 'labour-1', name: 'Electrician (OT/First 3hrs Sat)', isDefault: false, standardRate: 146.30, overtimeRate: 146.30, doubleTimeRate: 146.30, costRate: 65.50 },
-        { id: 'labour-2', name: 'Electrician', isDefault: true, standardRate: 110.00, overtimeRate: 146.30, doubleTimeRate: 182.60, costRate: 65.50 },
-    ]);
+    const [labourRates, setLabourRates] = React.useState<LaborRateFormValues[]>([]);
+    const [loading, setLoading] = React.useState(true);
+
+    const calculateCostRate = React.useCallback((roleName: string, employees: Employee[]) => {
+        if (!roleName || !employees.length) return 0;
+        
+        const relevantEmployees = employees.filter(e => e.role === roleName && e.payType === 'Hourly');
+        const maxWage = relevantEmployees.length > 0 ? Math.max(...relevantEmployees.map(e => e.wage || 0)) : 0;
+        
+        if (maxWage === 0) return 0;
+
+        const FULL_TIME_ANNUAL_HOURS = 1976; // 38 hours * 52 weeks
+        const nonProductiveHours = (10 + 20) * 7.6; // 10 sick, 20 annual leave
+        const productiveHours = FULL_TIME_ANNUAL_HOURS - nonProductiveHours;
+
+        if (productiveHours <= 0) return 0;
+        
+        const annualCost = FULL_TIME_ANNUAL_HOURS * maxWage; 
+        const actualCostRate = annualCost / productiveHours;
+        
+        return parseFloat(actualCostRate.toFixed(2));
+    }, []);
+
+    React.useEffect(() => {
+        async function fetchAndGenerateRates() {
+            setLoading(true);
+            try {
+                const employees = await getEmployeesWithWageData();
+                const uniqueRoles = [...new Set(employees.map(e => e.role))];
+                
+                const generatedRates = uniqueRoles.map(role => {
+                    const costRate = calculateCostRate(role, employees);
+                    const standardRate = costRate / (1 - 0.40); // Target 40% margin
+
+                    return {
+                        id: `role-${role.replace(/\s+/g, '-').toLowerCase()}`,
+                        name: role,
+                        isDefault: role === 'Technician', // Example default logic
+                        costRate: costRate,
+                        standardRate: parseFloat(standardRate.toFixed(2)),
+                        overtimeRate: parseFloat((standardRate * 1.5).toFixed(2)),
+                        doubleTimeRate: parseFloat((standardRate * 2).toFixed(2)),
+                    };
+                });
+
+                setLabourRates(generatedRates);
+            } catch (error) {
+                console.error("Failed to generate labour rates:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load employee data to generate rates.' });
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchAndGenerateRates();
+    }, [toast, calculateCostRate]);
+
 
     const handleSave = (data: LaborRateFormValues) => {
         setLabourRates(prev => {
@@ -299,13 +351,29 @@ export function LabourRates() {
         }
     };
 
+    if (loading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Labour Rates</CardTitle>
+                    <CardDescription>
+                        Manage billable rates for different types of labour and overtime conditions.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </CardContent>
+            </Card>
+        )
+    }
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <CardTitle>Labour Rates</CardTitle>
                     <CardDescription>
-                        Manage billable rates for different types of labour and overtime conditions.
+                        Manage billable rates for different types of labour and overtime conditions. These are auto-generated from your employee roles.
                     </CardDescription>
                 </div>
                  <LaborRateDialog onSave={handleSave}>
