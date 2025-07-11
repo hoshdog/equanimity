@@ -36,19 +36,6 @@ interface ComboboxProps {
 
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [internalValue, setInternalValue] = React.useState(value || "");
-
-  // Sync internal state with external prop changes
-  React.useEffect(() => {
-    setInternalValue(value || "");
-  }, [value]);
-
-  const handleSelect = (currentValue: string) => {
-    const newValue = currentValue === internalValue ? "" : currentValue;
-    setInternalValue(newValue);
-    onChange(newValue);
-    setOpen(false)
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -59,8 +46,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
         >
-          {internalValue
-            ? options.find((option) => option.value === internalValue)?.label
+          {value
+            ? options.find((option) => option.value === value)?.label
             : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -75,12 +62,15 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                         <CommandItem
                             key={option.value}
                             value={option.value}
-                            onSelect={handleSelect}
+                            onSelect={(currentValue) => {
+                                onChange(currentValue === value ? "" : currentValue)
+                                setOpen(false)
+                            }}
                         >
                             <Check
                                 className={cn(
                                     "mr-2 h-4 w-4",
-                                    internalValue === option.value ? "opacity-100" : "opacity-0"
+                                    value === option.value ? "opacity-100" : "opacity-0"
                                 )}
                             />
                             {option.label}
