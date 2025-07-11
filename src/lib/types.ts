@@ -1,4 +1,5 @@
 
+
 import type { OptionType } from "@/components/ui/multi-select";
 
 export interface Contact {
@@ -46,12 +47,17 @@ export interface ProjectContact {
     role: string;
 }
 
+export interface AssignedStaff {
+    value: string;
+    label: string;
+}
+
 export interface Project {
     id: number;
     name: string;
     description: string;
     status: string;
-    assignedStaff: OptionType[];
+    assignedStaff: AssignedStaff[];
     customerId: string;
     siteId: string;
     projectContacts: ProjectContact[];

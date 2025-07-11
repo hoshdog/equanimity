@@ -38,7 +38,7 @@ const projectSchema = z.object({
             role: z.string().min(2, "Role is required."),
         })
     ).min(1, "At least one project contact is required."),
-    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+    assignedStaff: z.array(z.object({ value: z.string().min(1, "Please select a staff member.") })).min(1, "At least one staff member must be assigned."),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -60,12 +60,16 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
+    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [{ value: '' }] },
   });
   
-  const { fields, append, remove } = useFieldArray({
+  const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
     control: form.control,
     name: "projectContacts",
+  });
+  const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({
+    control: form.control,
+    name: "assignedStaff",
   });
   
   const watchedCustomerId = form.watch('customerId');
@@ -106,7 +110,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   function onSubmit(values: ProjectFormValues) {
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
-        return mockEmployees.find(e => e.value === s.value) || { label: s.label, value: s.value };
+        return mockEmployees.find(e => e.value === s.value) || { label: 'Unknown', value: s.value };
     }) || [];
 
     onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
@@ -198,11 +202,12 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                <FormControl>
                                   <div>
                                       <Input
-                                          {...field}
                                           list="customer-options"
                                           placeholder="Select or type a customer name..."
                                           value={customerInputValue}
                                           onChange={handleCustomerInputChange}
+                                          onBlur={field.onBlur}
+                                          name={field.name}
                                           autoComplete="off"
                                       />
                                       <datalist id="customer-options">
@@ -282,7 +287,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 </DialogContent>
                             </Dialog>
                           </div>
-                          {fields.map((field, index) => (
+                          {contactFields.map((field, index) => (
                             <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
                                 <div className="grid grid-cols-2 gap-2 flex-1">
                                     <FormField
@@ -342,7 +347,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         )}
                                     />
                                 </div>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)} disabled={contactFields.length <= 1}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </div>
@@ -351,7 +356,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                             type="button"
                             variant="secondary"
                             size="sm"
-                            onClick={() => append({ contactId: '', role: '' })}
+                            onClick={() => appendContact({ contactId: '', role: '' })}
                             disabled={!watchedCustomerId}
                         >
                             <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
@@ -366,25 +371,52 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                         </FormMessage>
                     </div>
 
-                    <FormField
-                        control={form.control}
-                        name="assignedStaff"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Assign Staff</FormLabel>
-                                <FormControl>
-                                    <MultiSelect
-                                        options={mockEmployees}
-                                        selected={field.value || []}
-                                        onChange={field.onChange}
-                                        placeholder="Select staff..."
-                                        className="w-full"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <div className="space-y-2">
+                        <FormLabel>Assign Staff</FormLabel>
+                         {staffFields.map((field, index) => (
+                            <div key={field.id} className="flex items-center gap-2">
+                                <FormField
+                                    control={form.control}
+                                    name={`assignedStaff.${index}.value`}
+                                    render={({ field }) => (
+                                        <FormItem className="flex-1">
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a staff member" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {mockEmployees.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)} disabled={staffFields.length <= 1}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => appendStaff({ value: '' })}
+                        >
+                            <PlusCircle className="mr-2 h-4 w-4"/> Add Staff Member
+                        </Button>
+                         <FormMessage>
+                            {form.formState.errors.assignedStaff && (
+                                <p className="text-sm font-medium text-destructive">
+                                    {form.formState.errors.assignedStaff.message ||
+                                    (form.formState.errors.assignedStaff as any)?.root?.message}
+                                </p>
+                            )}
+                        </FormMessage>
+                    </div>
+
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                         <Button type="submit">Create Project</Button>
@@ -396,3 +428,4 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
+
