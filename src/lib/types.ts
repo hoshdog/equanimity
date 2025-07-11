@@ -70,6 +70,16 @@ export interface Project {
     createdAt: Timestamp;
 }
 
+export interface Job {
+    id: string;
+    projectId: string; // The ID of the project this job belongs to
+    description: string;
+    status: 'Not Started' | 'In Progress' | 'On Hold' | 'Completed';
+    technicianId: string;
+    createdAt: Timestamp;
+}
+
+
 export interface Employee {
     id: string;
     name: string;

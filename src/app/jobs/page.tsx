@@ -1,22 +1,19 @@
-
+// src/app/jobs/page.tsx
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle } from "lucide-react";
 import { cn } from '@/lib/utils';
-
-const jobs = [
-    { id: 'JOB001', description: 'Install new server rack', project: 'Server Upgrade', status: 'In Progress', technician: 'Bob Smith' },
-    { id: 'JOB002', description: 'Run network cabling to new desks', project: 'Office Network Setup', status: 'Not Started', technician: 'Charlie Brown' },
-    { id: 'JOB003', description: 'Test and tag all kitchen appliances', project: 'Kitchen Appliance Testing', status: 'Completed', technician: 'Alice Johnson' },
-    { id: 'JOB004', description: 'Install security cameras in main yard', project: 'Security System Install', status: 'In Progress', technician: 'Bob Smith' },
-    { id: 'JOB005', description: 'Configure firewall and switches', project: 'Office Network Setup', status: 'Not Started', technician: 'Charlie Brown' },
-    { id: 'JOB006', description: 'Perform quarterly data center maintenance', project: 'Data Centre Maintenance', status: 'On Hold', technician: 'Alice Johnson' },
-];
+import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { getJobs } from '@/lib/jobs';
+import { getProjects } from '@/lib/projects';
+import { getEmployees } from '@/lib/employees';
+import type { Job, Project, Employee } from '@/lib/types';
+import { JobFormDialog } from './job-form-dialog';
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -30,20 +27,56 @@ const getStatusColor = (status: string) => {
 
 export default function JobsPage() {
     const router = useRouter();
+    const [jobs, setJobs] = useState<Job[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
 
-    const handleRowClick = (id: string) => {
-        // router.push(`/jobs/${id}`);
-        console.log(`Navigate to job ${id}`);
+    useEffect(() => {
+        async function fetchData() {
+            setLoading(true);
+            try {
+                const [jobsData, projectsData, employeesData] = await Promise.all([
+                    getJobs(),
+                    getProjects(),
+                    getEmployees(),
+                ]);
+                setJobs(jobsData);
+                setProjects(projectsData);
+                setEmployees(employeesData);
+            } catch (error) {
+                console.error("Failed to fetch jobs data:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load jobs.' });
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [toast]);
+
+    const handleJobCreated = (newJob: Job) => {
+        setJobs(prev => [newJob, ...prev]);
+    }
+    
+    const handleRowClick = (job: Job) => {
+        router.push(`/projects/${job.projectId}`);
+        console.log(`Navigate to job ${job.id}`);
     };
+
+    const getProjectName = (projectId: string) => {
+        return projects.find(p => p.id === projectId)?.name || 'Unknown Project';
+    }
+
+    const getTechnicianName = (technicianId: string) => {
+        return employees.find(e => e.id === technicianId)?.name || 'Unassigned';
+    }
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Jobs</h2>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Job
-                </Button>
+                <JobFormDialog onJobCreated={handleJobCreated} />
             </div>
             <Card>
                 <CardHeader>
@@ -51,34 +84,40 @@ export default function JobsPage() {
                     <CardDescription>A list of all jobs across all projects.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="relative w-full overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Job ID</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>Project</TableHead>
-                                    <TableHead>Technician</TableHead>
-                                    <TableHead>Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {jobs.map(job => (
-                                    <TableRow key={job.id} onClick={() => handleRowClick(job.id)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{job.id}</TableCell>
-                                        <TableCell>{job.description}</TableCell>
-                                        <TableCell>{job.project}</TableCell>
-                                        <TableCell>{job.technician}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={cn(getStatusColor(job.status))}>
-                                                {job.status}
-                                            </Badge>
-                                        </TableCell>
+                    {loading ? (
+                         <div className="flex justify-center items-center h-64">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <div className="relative w-full overflow-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Job ID</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Project</TableHead>
+                                        <TableHead>Technician</TableHead>
+                                        <TableHead>Status</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {jobs.map(job => (
+                                        <TableRow key={job.id} onClick={() => handleRowClick(job)} className="cursor-pointer">
+                                            <TableCell className="font-medium">{job.id.substring(0, 6)}...</TableCell>
+                                            <TableCell>{job.description}</TableCell>
+                                            <TableCell>{getProjectName(job.projectId)}</TableCell>
+                                            <TableCell>{getTechnicianName(job.technicianId)}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className={cn(getStatusColor(job.status))}>
+                                                    {job.status}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
