@@ -25,7 +25,7 @@ export default function RootLayout({
         <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
-              <div className="md:hidden flex items-center justify-between p-2 border-b">
+              <header className="sticky top-0 z-10 md:hidden flex items-center justify-between p-2 border-b bg-background/80 backdrop-blur-sm">
                  <div className="flex items-center gap-2 text-lg font-semibold text-primary">
                   <Waves className="h-5 w-5" />
                   Equanimity
@@ -33,7 +33,7 @@ export default function RootLayout({
                  <SidebarTrigger>
                     <Menu />
                  </SidebarTrigger>
-              </div>
+              </header>
               {children}
             </SidebarInset>
         </SidebarProvider>
