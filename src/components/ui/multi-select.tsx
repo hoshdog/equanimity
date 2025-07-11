@@ -63,6 +63,7 @@ function MultiSelect({
       <PopoverTrigger asChild>
         <div onKeyDown={handleKeyDown}>
             <Button
+              type="button"
               variant="outline"
               role="combobox"
               aria-expanded={open}
