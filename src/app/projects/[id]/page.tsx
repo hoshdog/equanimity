@@ -53,6 +53,16 @@ const getPOStatusColor = (status: string) => {
     }
 }
 
+const getQuoteStatusColor = (status: string) => {
+    switch (status) {
+      case 'Draft': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
+      case 'Sent': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case 'Approved': return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'Rejected': return 'text-red-600 bg-red-100/80 border-red-200/80';
+      default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
+    }
+}
+
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const projectId = params.id;
@@ -249,11 +259,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                                 <Card key={quote.id}>
                                     <CardHeader className="pb-4">
                                         <CardTitle className="text-lg flex justify-between items-center">
-                                            <span>Quote for: "{quote.prompt.substring(0, 50)}{quote.prompt.length > 50 ? '...' : ''}"</span>
+                                            <span className="truncate pr-4">Quote for: "{quote.prompt.substring(0, 50)}{quote.prompt.length > 50 ? '...' : ''}"</span>
                                             <span className="text-primary">${quote.totalAmount.toFixed(2)}</span>
                                         </CardTitle>
-                                        <CardDescription>
-                                            Created on: {new Date(quote.createdAt.seconds * 1000).toLocaleDateString()}
+                                        <CardDescription className="flex justify-between items-center">
+                                            <span>
+                                              Created on: {new Date(quote.createdAt.seconds * 1000).toLocaleDateString()}
+                                            </span>
+                                            <Badge variant="outline" className={cn(getQuoteStatusColor(quote.status))}>
+                                                {quote.status}
+                                            </Badge>
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent>

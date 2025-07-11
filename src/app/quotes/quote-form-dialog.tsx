@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import {
   Card,
-  CardContent
+  CardContent,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import {
   Form,
@@ -74,43 +76,34 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
     setLoading(true);
     setResult(null);
     try {
-      const response = await generateQuoteFromPrompt(values);
-      setResult(response);
-    } catch (error) {
-      console.error('Error generating quote:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to generate quote. Please try again.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
+      const quoteResult = await generateQuoteFromPrompt(values);
+      setResult(quoteResult);
 
-  async function handleSaveQuote() {
-    if (!result || !projectId) return;
-    setLoading(true);
-    try {
+      // Automatically save the generated quote as a draft
       const quoteData = {
         projectId,
-        ...form.getValues(),
-        ...result,
+        ...values,
+        ...quoteResult,
+        status: 'Draft' as const,
       };
+      
       const newQuoteId = await addQuote(projectId, quoteData);
       const newQuote: Quote = {
         id: newQuoteId,
         ...quoteData,
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } // Simulate timestamp
       };
+
       onQuoteCreated(newQuote);
-      toast({ title: 'Quote Saved', description: 'The new quote has been saved to this project.' });
-      setIsOpen(false);
-      form.reset();
-      setResult(null);
+      toast({ title: 'Quote Saved as Draft', description: 'The new quote has been saved to this project.' });
+
     } catch (error) {
-      console.error("Failed to save quote:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not save the quote.' });
+      console.error('Error generating or saving quote:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to generate and save quote. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -121,6 +114,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
     if (!open) {
       form.reset();
       setResult(null);
+      setLoading(false);
     }
   }
 
@@ -136,7 +130,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
              <DialogHeader>
                 <DialogTitle>Create New Quote</DialogTitle>
                 <DialogDescription>
-                  Describe the job, and the AI will generate a quote. You can review it before saving.
+                  Describe the job, and the AI will generate and save a draft quote.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -199,10 +193,10 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                         </div>
                         <input type="hidden" {...form.register("quotingStandards")} />
                         <Button type="submit" disabled={loading} className="w-full">
-                          {loading && !result ? (
+                          {loading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating...
+                              Generating & Saving...
                             </>
                           ) : (
                             'Generate Quote'
@@ -281,10 +275,11 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                  </div>
             </div>
              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                <Button type="button" onClick={handleSaveQuote} disabled={!result || loading}>
-                    {loading && result ? <Loader2 className="animate-spin" /> : "Save Quote to Project"}
-                </Button>
+                <DialogClose asChild><Button type="button" variant="secondary" onClick={() => {
+                  form.reset();
+                  setResult(null);
+                  setLoading(false);
+                }}>Close</Button></DialogClose>
             </DialogFooter>
         </DialogContent>
     </Dialog>
