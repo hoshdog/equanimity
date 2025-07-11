@@ -37,6 +37,7 @@ import {
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -102,7 +103,7 @@ function LaborRateDialog({
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen]);
+    }, [isOpen, initialData]);
 
     React.useEffect(() => {
         async function fetchEmps() {
