@@ -35,11 +35,20 @@ interface ComboboxProps {
 }
 
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(false);
 
   const selectedLabel = React.useMemo(() => {
-    return options.find((option) => option.value === value)?.label
+    return options.find((option) => option.value === value)?.label;
   }, [options, value]);
+
+  const handleSelect = (currentValue: string) => {
+    // currentValue is the label of the item
+    const option = options.find(opt => opt.label.toLowerCase() === currentValue.toLowerCase());
+    if (option) {
+        onChange(option.value);
+    }
+    setOpen(false);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,7 +57,7 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between font-normal", className)}
         >
           {value ? selectedLabel : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -63,16 +72,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                     {options.map((option) => (
                         <CommandItem
                             key={option.value}
-                            value={option.label} // Value used for search
-                            onSelect={(currentLabel) => {
-                                const selectedOption = options.find(
-                                  (opt) => opt.label.toLowerCase() === currentLabel.toLowerCase()
-                                );
-                                if (selectedOption) {
-                                  onChange(selectedOption.value === value ? "" : selectedOption.value)
-                                }
-                                setOpen(false)
-                            }}
+                            value={option.label}
+                            onSelect={handleSelect}
                         >
                             <Check
                                 className={cn(
