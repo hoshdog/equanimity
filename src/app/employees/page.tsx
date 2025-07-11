@@ -1,22 +1,45 @@
-
-
+// src/app/employees/page.tsx
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle } from "lucide-react";
-import { employees } from "@/lib/mock-data";
+import { PlusCircle, Loader2 } from "lucide-react";
+import { getEmployees } from '@/lib/employees';
+import type { Employee } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function EmployeesPage() {
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        async function fetchEmployees() {
+            setLoading(true);
+            try {
+                const employeesData = await getEmployees();
+                setEmployees(employeesData);
+            } catch (error) {
+                console.error("Failed to fetch employees:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: 'Could not load employees.',
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchEmployees();
+    }, [toast]);
 
     const handleRowClick = (id: string) => {
-        // In the future, this would navigate to an employee detail page
-        // For now, it will log to the console.
         console.log(`Navigate to employee ${id}`);
         // router.push(`/employees/${id}`);
     };
@@ -35,37 +58,43 @@ export default function EmployeesPage() {
             <CardTitle>Employee Directory</CardTitle>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Employee</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {employees.map(employee => (
-                        <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
-                            <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
-                                        <AvatarFallback>{employee.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <div className="font-medium">{employee.name}</div>
-                                        <div className="text-sm text-muted-foreground">{employee.email}</div>
-                                    </div>
-                                </div>
-                            </TableCell>
-                            <TableCell>{employee.role}</TableCell>
-                            <TableCell>
-                                <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
-                            </TableCell>
+            {loading ? (
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Employee</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {employees.map(employee => (
+                            <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar>
+                                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
+                                            <AvatarFallback>{employee.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="font-medium">{employee.name}</div>
+                                            <div className="text-sm text-muted-foreground">{employee.email}</div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{employee.role}</TableCell>
+                                <TableCell>
+                                    <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            )}
         </CardContent>
       </Card>
     </div>

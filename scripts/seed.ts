@@ -1,13 +1,24 @@
+// scripts/seed.ts
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 
-export const mockEmployees = [
-    { value: 'EMP001', label: 'Alice Johnson' },
-    { value: 'EMP002', label: 'Bob Smith' },
-    { value: 'EMP003', label: 'Charlie Brown' },
-    { value: 'EMP004', label: 'Diana Prince' },
-    { value: 'EMP005', label: 'Ethan Hunt' },
-];
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
-export const employees = [
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+
+const mockEmployees = [
     { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active' },
     { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active' },
     { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Junior Technician', status: 'Active' },
@@ -15,8 +26,7 @@ export const employees = [
     { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Field Technician', status: 'Inactive' },
 ];
 
-
-export const mockCustomerDetails = {
+const mockCustomerDetails = {
     '1': { 
         id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', type: 'Corporate Client',
         primaryContactName: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888',
@@ -48,33 +58,53 @@ export const mockCustomerDetails = {
             { id: 'P2A2', siteId: 'S2A', name: 'Security System Install', status: 'In Progress', value: 18000 },
         ]
      },
-    '3': { 
-        id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', type: 'Small Business',
-        primaryContactName: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666',
-        contacts: [
-            { id: 'C3A', name: 'Peter Chen', emails: ['peter.chen@greenleaf.com'], phones: ['07 7777 6666'] },
-        ],
-        sites: [
-             { id: 'S3A', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContactId: 'C3A'},
-        ],
-        projects: [
-            { id: 'P3A1', siteId: 'S3A', name: 'Kitchen Appliance Testing', status: 'Completed', value: 2500 },
-        ]
-     },
-    '4': { 
-        id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', type: 'Government',
-        primaryContactName: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555',
-        contacts: [
-            { id: 'C4A', name: 'Susan Reid', emails: ['s.reid@gov.au'], phones: ['02 6666 5555'] },
-            { id: 'C4B', name: 'Mark Felton', emails: ['m.felton@gov.au'], phones: ['02 6666 5566'] },
-        ],
-        sites: [
-             { id: 'S4A', name: 'Civic Building A', address: '101 Parliament Pl, Canberra ACT 2600', primaryContactId: 'C4A'},
-             { id: 'S4B', name: 'Barton Office Complex', address: '4 National Circuit, Barton ACT 2600', primaryContactId: 'C4B'},
-        ],
-        projects: [
-             { id: 'P4A1', siteId: 'S4A', name: 'Accessibility Ramp Electrics', status: 'On Hold', value: 8000 },
-             { id: 'P4B1', siteId: 'S4B', name: 'Data Centre Maintenance', status: 'In Progress', value: 55000 },
-        ]
-     },
 };
+
+
+async function seedDatabase() {
+    console.log('Starting to seed database...');
+    const batch = writeBatch(db);
+
+    // Seed Employees
+    const employeesCollection = collection(db, 'employees');
+    mockEmployees.forEach(employee => {
+        const docRef = doc(employeesCollection, employee.id);
+        batch.set(docRef, employee);
+    });
+    console.log('Employees queued for seeding.');
+
+    // Seed Customers and their subcollections
+    const customersCollection = collection(db, 'customers');
+    Object.values(mockCustomerDetails).forEach(customerData => {
+        const { contacts, sites, projects, ...customerCoreData } = customerData;
+        
+        const customerDocRef = doc(customersCollection, customerCoreData.id);
+        batch.set(customerDocRef, customerCoreData);
+
+        contacts.forEach(contact => {
+            const contactDocRef = doc(db, 'customers', customerCoreData.id, 'contacts', contact.id);
+            batch.set(contactDocRef, contact);
+        });
+
+        sites.forEach(site => {
+            const siteDocRef = doc(db, 'customers', customerCoreData.id, 'sites', site.id);
+            batch.set(siteDocRef, site);
+        });
+
+        projects.forEach(project => {
+            const projectDocRef = doc(db, 'customers', customerCoreData.id, 'projects', project.id);
+            batch.set(projectDocRef, project);
+        });
+    });
+    console.log('Customers and subcollections queued for seeding.');
+
+
+    try {
+        await batch.commit();
+        console.log('Database seeded successfully!');
+    } catch (e) {
+        console.error('Error seeding database: ', e);
+    }
+}
+
+seedDatabase();

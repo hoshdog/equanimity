@@ -1,6 +1,10 @@
+// src/lib/types.ts
+import { Timestamp } from 'firebase/firestore';
 
-
-import type { OptionType } from "@/components/ui/multi-select";
+export interface OptionType {
+  value: string;
+  label: string;
+}
 
 export interface Contact {
   id: string;
@@ -18,11 +22,10 @@ export interface Site {
 }
 
 export interface ProjectSummary {
-    id: string;
-    siteId: string;
-    name: string;
-    status: string;
-    value: number;
+  id: string;
+  name: string;
+  status: string;
+  value: number;
 }
 
 export interface Customer {
@@ -33,13 +36,15 @@ export interface Customer {
   primaryContactName: string;
   email: string;
   phone: string;
-  contacts: Contact[];
-  sites: Site[];
-  projects: ProjectSummary[];
+}
+export interface CustomerWithSubcollections extends Customer {
+    contacts: Contact[];
+    sites: Site[];
+    projects: ProjectSummary[];
 }
 
 export interface CustomerDetails {
-    [key: string]: Customer;
+    [key: string]: CustomerWithSubcollections;
 }
 
 export interface ProjectContact {
@@ -48,12 +53,12 @@ export interface ProjectContact {
 }
 
 export interface AssignedStaff {
-    value: string;
-    label: string;
+    value: string; // Employee ID
+    label: string; // Employee Name
 }
 
 export interface Project {
-    id: number;
+    id: string;
     name: string;
     description: string;
     status: string;
@@ -61,4 +66,13 @@ export interface Project {
     customerId: string;
     siteId: string;
     projectContacts: ProjectContact[];
+    createdAt: Timestamp;
+}
+
+export interface Employee {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: 'Active' | 'On Leave' | 'Inactive';
 }

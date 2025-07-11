@@ -1,4 +1,4 @@
-
+// src/app/projects/project-form-dialog.tsx
 'use client';
 
 import * as React from 'react';
@@ -6,25 +6,22 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus, Trash2, Pencil } from "lucide-react";
+import { PlusCircle, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MultiSelect } from '@/components/ui/multi-select';
-import { mockEmployees } from '@/lib/mock-data';
-import type { Project, CustomerDetails } from '@/lib/types';
+import type { Project, Customer, Site, Contact, Employee, AssignedStaff, OptionType } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AddCustomerDialog } from './add-customer-dialog';
-import { AddSiteDialog } from './add-site-dialog';
-import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getCustomers, getCustomerSites, getCustomerContacts } from '@/lib/customers';
+import { getEmployees } from '@/lib/employees';
+import { addProject } from '@/lib/projects';
+
 
 interface ProjectFormDialogProps {
-    customerDetails: CustomerDetails;
-    setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
-    onProjectCreated: (project: Omit<Project, 'id' | 'status'>) => void;
+    onProjectCreated: (project: Project) => void;
 }
 
 const projectSchema = z.object({
@@ -43,7 +40,7 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProjectCreated }: ProjectFormDialogProps) {
+export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [isRoleManagerOpen, setIsRoleManagerOpen] = React.useState(false);
   const [newRole, setNewRole] = React.useState('');
@@ -55,6 +52,12 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     "Project Manager", 
     "Client Representative"
   ]);
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [sites, setSites] = React.useState<Site[]>([]);
+  const [contacts, setContacts] = React.useState<Contact[]>([]);
+  const [employees, setEmployees] = React.useState<OptionType[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
 
   const { toast } = useToast();
   
@@ -73,72 +76,100 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   });
   
   const watchedCustomerId = form.watch('customerId');
+
+  React.useEffect(() => {
+    async function fetchInitialData() {
+        setLoading(true);
+        try {
+            const [customersData, employeesData] = await Promise.all([
+                getCustomers(),
+                getEmployees()
+            ]);
+            setCustomers(customersData);
+            setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
+        } catch (error) {
+            console.error("Failed to fetch initial data", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not load customers and employees." });
+        } finally {
+            setLoading(false);
+        }
+    }
+    if (isFormOpen) {
+        fetchInitialData();
+    }
+  }, [isFormOpen, toast]);
   
-  const [customerInputValue, setCustomerInputValue] = React.useState('');
+  React.useEffect(() => {
+    async function fetchCustomerSubData() {
+        if (watchedCustomerId) {
+            setLoading(true);
+            try {
+                const [sitesData, contactsData] = await Promise.all([
+                    getCustomerSites(watchedCustomerId),
+                    getCustomerContacts(watchedCustomerId)
+                ]);
+                setSites(sitesData);
+                setContacts(contactsData);
+                form.resetField('siteId');
+                form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
+            } catch (error) {
+                console.error("Failed to fetch customer data", error);
+                toast({ variant: "destructive", title: "Error", description: "Could not load sites and contacts for this customer." });
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setSites([]);
+            setContacts([]);
+        }
+    }
+    fetchCustomerSubData();
+  }, [watchedCustomerId, form, toast]);
+
 
   const customerOptions = React.useMemo(() => {
-    return Object.values(customerDetails).map(c => ({
+    return customers.map(c => ({
         value: c.id,
         label: c.name,
     }));
-  }, [customerDetails]);
+  }, [customers]);
 
   const siteOptions = React.useMemo(() => {
-    if (!watchedCustomerId) return [];
-    return customerDetails[watchedCustomerId]?.sites.map(site => ({ label: site.name, value: site.id })) || [];
-  }, [watchedCustomerId, customerDetails]);
+    return sites.map(site => ({ label: site.name, value: site.id }));
+  }, [sites]);
   
   const contactOptions = React.useMemo(() => {
-    if(!watchedCustomerId) return [];
-    return customerDetails[watchedCustomerId]?.contacts.map(c => ({ label: c.name, value: c.id })) || [];
-  }, [watchedCustomerId, customerDetails]);
+    return contacts.map(c => ({ label: c.name, value: c.id }));
+  }, [contacts]);
   
-  React.useEffect(() => {
-    const selectedCustomer = customerOptions.find(opt => opt.value === watchedCustomerId);
-    setCustomerInputValue(selectedCustomer ? selectedCustomer.label : '');
-    form.resetField('siteId', { defaultValue: '' });
-    form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
-  }, [watchedCustomerId, form, customerOptions]);
+  
+  async function onSubmit(values: ProjectFormValues) {
+    setLoading(true);
+    try {
+        const assignedStaffWithFullDetails: AssignedStaff[] = values.assignedStaff.map(s => {
+            return employees.find(e => e.value === s.value) || { label: 'Unknown', value: s.value };
+        });
 
-  const handleCustomerInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setCustomerInputValue(value);
-    const match = customerOptions.find(opt => opt.label.toLowerCase() === value.toLowerCase());
-    const customerId = match ? match.value : '';
-    form.setValue('customerId', customerId, { shouldValidate: true });
-  };
-  
-  function onSubmit(values: ProjectFormValues) {
-    const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
-        return mockEmployees.find(e => e.value === s.value) || { label: 'Unknown', value: s.value };
-    }) || [];
+        const newProjectId = await addProject({ ...values, assignedStaff: assignedStaffWithFullDetails });
+        
+        // This is a bit of a hack, in a real scenario you would refetch or use a state manager like swr/react-query
+        const newProject: Project = { 
+            id: newProjectId, 
+            ...values,
+            status: 'Planning',
+            assignedStaff: assignedStaffWithFullDetails,
+            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } // Mock timestamp
+        };
 
-    onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
-    toast({ title: "Project Created", description: `"${values.name}" has been added.` });
-    setIsFormOpen(false);
-    form.reset();
-    setCustomerInputValue('');
-  }
-  
-  const handleCustomerAdded = (customerId: string) => {
-    const customerName = customerDetails[customerId]?.name || '';
-    setCustomerInputValue(customerName);
-    form.setValue('customerId', customerId, { shouldValidate: true });
-  }
-
-  const handleSiteAdded = (siteId: string) => {
-    form.setValue('siteId', siteId, { shouldValidate: true });
-  };
-  
-  const handleContactAdded = (contactId: string) => {
-    const currentProjectContacts = form.getValues('projectContacts');
-    const emptyContactIndex = currentProjectContacts.findIndex(c => !c.contactId);
-    if (emptyContactIndex !== -1) {
-       form.setValue(`projectContacts.${emptyContactIndex}.contactId`, contactId, { shouldValidate: true });
-    } else {
-       if (currentProjectContacts.length > 0) {
-         form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
-       }
+        onProjectCreated(newProject);
+        toast({ title: "Project Created", description: `"${values.name}" has been added.` });
+        setIsFormOpen(false);
+        form.reset();
+    } catch (error) {
+        console.error("Failed to create project", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not create the project." });
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -157,7 +188,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
 
   return (
-    <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); } }}>
+    <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); } }}>
         <DialogTrigger asChild>
             <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -170,6 +201,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                 <DialogTitle>Create New Project</DialogTitle>
                 <DialogDescription>Fill out the form below to create a new project.</DialogDescription>
             </DialogHeader>
+            {loading && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField control={form.control} name="name" render={({ field }) => (
@@ -188,54 +220,24 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     )}/>
                     <FormField control={form.control} name="customerId" render={({ field }) => (
                           <FormItem>
-                              <div className="flex items-center justify-between">
                               <FormLabel>Customer</FormLabel>
-                              <AddCustomerDialog 
-                                  setCustomerDetails={setCustomerDetails}
-                                  onCustomerAdded={handleCustomerAdded}
-                              >
-                                  <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6">
-                                      <Plus className="h-4 w-4"/>
-                                  </Button>
-                              </AddCustomerDialog>
-                              </div>
-                               <FormControl>
-                                  <div>
-                                      <Input
-                                          list="customer-options"
-                                          placeholder="Select or type a customer name..."
-                                          value={customerInputValue}
-                                          onChange={handleCustomerInputChange}
-                                          onBlur={field.onBlur}
-                                          name={field.name}
-                                          autoComplete="off"
-                                      />
-                                      <datalist id="customer-options">
-                                          {customerOptions.map(opt => (
-                                              <option key={opt.value} value={opt.label} />
-                                          ))}
-                                      </datalist>
-                                  </div>
-                              </FormControl>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a customer" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                           </FormItem>
                     )}/>
 
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
-                            <div className="flex items-center justify-between">
-                                <FormLabel>Site</FormLabel>
-                                <AddSiteDialog 
-                                    customerId={watchedCustomerId}
-                                    customerDetails={customerDetails}
-                                    setCustomerDetails={setCustomerDetails} 
-                                    onSiteAdded={handleSiteAdded}
-                                >
-                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
-                                        <Plus className="h-4 w-4"/>
-                                    </Button>
-                                </AddSiteDialog>
-                            </div>
+                           <FormLabel>Site</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
                                 <FormControl>
                                     <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
@@ -251,41 +253,41 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <FormLabel>Project Contacts</FormLabel>
-                            <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <DialogTrigger asChild>
-                                            <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
-                                        </DialogTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>Manage Roles</p></TooltipContent>
-                                </Tooltip>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Manage Contact Roles</DialogTitle>
-                                        <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                        <div className="flex gap-2">
-                                            <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
-                                            <Button onClick={handleAddRole}>Add Role</Button>
-                                        </div>
-                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                            {commonRoles.map(role => (
-                                                <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                                    <span className="text-sm">{role}</span>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                             <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                                      <DialogTrigger asChild>
+                                          <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                          <DialogHeader>
+                                              <DialogTitle>Manage Contact Roles</DialogTitle>
+                                              <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
+                                          </DialogHeader>
+                                          <div className="space-y-4">
+                                              <div className="flex gap-2">
+                                                  <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                                                  <Button onClick={handleAddRole}>Add Role</Button>
+                                              </div>
+                                              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                                  {commonRoles.map(role => (
+                                                      <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                          <span className="text-sm">{role}</span>
+                                                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                                              <Trash2 className="h-4 w-4" />
+                                                          </Button>
+                                                      </div>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                          <DialogFooter>
+                                              <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                          </DialogFooter>
+                                      </DialogContent>
+                                  </Dialog>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Manage Roles</p></TooltipContent>
+                            </Tooltip>
                           </div>
                           {contactFields.map((field, index) => (
                             <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
@@ -295,8 +297,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.contactId`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <div className="flex items-center gap-1">
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
+                                                    <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
                                                         <FormControl>
                                                             <SelectTrigger>
                                                                 <SelectValue placeholder="Select contact" />
@@ -306,23 +307,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                                             {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <AddContactDialog 
-                                                                customerId={watchedCustomerId}
-                                                                setCustomerDetails={setCustomerDetails} 
-                                                                onContactAdded={handleContactAdded}
-                                                            >
-                                                                <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
-                                                                    <Plus className="h-4 w-4"/>
-                                                                </Button>
-                                                            </AddContactDialog>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Add New Contact</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -332,7 +316,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.role`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="Select a role" />
@@ -380,14 +364,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                     name={`assignedStaff.${index}.value`}
                                     render={({ field }) => (
                                         <FormItem className="flex-1">
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select a staff member" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {mockEmployees.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    {employees.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -419,7 +403,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                        <Button type="submit">Create Project</Button>
+                        <Button type="submit" disabled={loading}>Create Project</Button>
                     </DialogFooter>
                 </form>
             </Form>
@@ -428,4 +412,3 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
-

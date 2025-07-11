@@ -1,12 +1,12 @@
-
+// src/app/projects/page.tsx
 'use client';
 
 import * as React from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Briefcase, LayoutGrid, List, Columns } from "lucide-react";
+import { PlusCircle, Briefcase, LayoutGrid, List, Columns, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,41 +19,52 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { mockEmployees, mockCustomerDetails as initialCustomerDetails } from '@/lib/mock-data';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProjectFormDialog } from './project-form-dialog';
-import type { Project, CustomerDetails } from '@/lib/types';
-
+import type { Project, Customer } from '@/lib/types';
+import { getProjects } from '@/lib/projects';
+import { getCustomers } from '@/lib/customers';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
 };
 
-const initialProjects: Project[] = [
-    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', assignedStaff: [mockEmployees[0], mockEmployees[2]], customerId: '1', siteId: 'S1A', projectContacts: [{ contactId: 'C1A', role: 'Primary' }] },
-    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', assignedStaff: [mockEmployees[1]], customerId: '2', siteId: 'S2A', projectContacts: [{ contactId: 'C2A', role: 'Client' }] },
-    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', assignedStaff: [mockEmployees[2], mockEmployees[3]], customerId: '3', siteId: 'S3A', projectContacts: [{ contactId: 'C3A', role: 'Marketing Head' }] },
-    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', assignedStaff: [mockEmployees[0], mockEmployees[4]], customerId: '1', siteId: 'S1B', projectContacts: [{ contactId: 'C1B', role: 'Site Manager' }] },
-];
-
 export default function ProjectsPage() {
   const [view, setView] = useState('grid');
-  const [projects, setProjects] = useState(initialProjects);
-  const [customerDetails, setCustomerDetails] = useState<CustomerDetails>(initialCustomerDetails);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const router = useRouter();
 
-  const handleAddNewProject = (newProjectData: Omit<Project, 'id' | 'status'>) => {
-    const newProject: Project = {
-        ...newProjectData,
-        id: Date.now(),
-        status: 'Planning'
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [projectsData, customersData] = await Promise.all([
+          getProjects(),
+          getCustomers(),
+        ]);
+        setProjects(projectsData);
+        setCustomers(customersData);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        // Handle error toast if needed
+      } finally {
+        setLoading(false);
+      }
     }
-    setProjects(prev => [...prev, newProject]);
-  }
+    fetchData();
+  }, []);
+
+
+  const handleProjectCreated = (newProject: Project) => {
+    setProjects(prev => [newProject, ...prev]);
+  };
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
     'Project Name': true,
+    'Customer': true,
     'Assigned Staff': true,
     'Status': true,
   });
@@ -68,7 +79,7 @@ export default function ProjectsPage() {
     }
   }
 
-  const handleRowClick = (id: number) => {
+  const handleRowClick = (id: string) => {
     router.push(`/projects/${id}`);
   };
 
@@ -78,6 +89,9 @@ export default function ProjectsPage() {
 
   const visibleColumns = Object.keys(columnVisibility).filter(key => columnVisibility[key]);
 
+  const customerMap = useMemo(() => {
+    return new Map(customers.map(c => [c.id, c.name]));
+  }, [customers]);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -115,14 +129,15 @@ export default function ProjectsPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-            <ProjectFormDialog 
-                customerDetails={customerDetails}
-                setCustomerDetails={setCustomerDetails}
-                onProjectCreated={handleAddNewProject}
-            />
+            <ProjectFormDialog onProjectCreated={handleProjectCreated} />
         </div>
       </div>
-      {view === 'grid' ? (
+      
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {projects.map((project) => (
             <Link href={`/projects/${project.id}`} key={project.id}>
@@ -135,7 +150,10 @@ export default function ProjectsPage() {
                     <CardDescription className="line-clamp-2">{project.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                     <div className="text-sm text-muted-foreground mb-4">
+                     <div className="text-sm text-muted-foreground mb-2">
+                        {customerMap.get(project.customerId) || 'Unknown Customer'}
+                     </div>
+                     <div className="text-sm text-muted-foreground">
                         <span className="font-semibold">Status: </span>
                         <span className={cn(getStatusColor(project.status))}>{project.status}</span>
                     </div>
@@ -145,7 +163,7 @@ export default function ProjectsPage() {
                         <div className="text-xs text-muted-foreground mb-2">Team</div>
                          <div className="flex items-center -space-x-2">
                             <TooltipProvider>
-                            {project.assignedStaff.map(staff => (
+                            {project.assignedStaff?.map(staff => (
                                 <Tooltip key={staff.value}>
                                     <TooltipTrigger asChild>
                                         <Avatar className="h-8 w-8 border-2 border-background">
@@ -169,6 +187,7 @@ export default function ProjectsPage() {
                 <TableHeader>
                     <TableRow>
                         {visibleColumns.includes('Project Name') && <TableHead>Project Name</TableHead>}
+                        {visibleColumns.includes('Customer') && <TableHead>Customer</TableHead>}
                         {visibleColumns.includes('Assigned Staff') && <TableHead>Assigned Staff</TableHead>}
                         {visibleColumns.includes('Status') && <TableHead>Status</TableHead>}
                     </TableRow>
@@ -177,10 +196,11 @@ export default function ProjectsPage() {
                     {projects.map(project => (
                         <TableRow key={project.id} onClick={() => handleRowClick(project.id)} className="cursor-pointer">
                            {visibleColumns.includes('Project Name') && <TableCell className="font-medium">{project.name}</TableCell>}
+                           {visibleColumns.includes('Customer') && <TableCell>{customerMap.get(project.customerId)}</TableCell>}
                            {visibleColumns.includes('Assigned Staff') && <TableCell>
                              <div className="flex items-center -space-x-2">
                                 <TooltipProvider>
-                                {project.assignedStaff.map(staff => (
+                                {project.assignedStaff?.map(staff => (
                                     <Tooltip key={staff.value}>
                                         <TooltipTrigger asChild>
                                             <Avatar className="h-8 w-8 border-2 border-background">

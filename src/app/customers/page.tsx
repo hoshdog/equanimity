@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,10 +12,9 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   SortingState,
-  useReactTable,
   VisibilityState,
+  useReactTable,
 } from "@tanstack/react-table"
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Building2, Pencil, Trash2, MoreHorizontal, ArrowUpDown } from "lucide-react";
+import { PlusCircle, Building2, Pencil, Trash2, MoreHorizontal, ArrowUpDown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -46,41 +44,25 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
-import { mockCustomerDetails } from '@/lib/mock-data';
+import { getCustomers, updateCustomer, deleteCustomer, addCustomer } from '@/lib/customers';
+import type { Customer } from '@/lib/types';
 
-const customerSchema = z.object({
+
+const customerFormSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
     address: z.string().min(10, { message: "Address must be at least 10 characters." }),
-    primaryContact: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
+    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
     email: z.string().email({ message: "Please enter a valid email address." }),
     phone: z.string().min(8, { message: "Phone number seems too short." }),
     type: z.string().min(2, { message: "Please select a customer type." }),
 });
 
-type Customer = z.infer<typeof customerSchema> & {
-    activeProjects: number;
-    projectValue: number;
-};
-
-const initialCustomers = Object.values(mockCustomerDetails).map(c => {
-    const activeProjects = c.projects.filter(p => p.status === 'In Progress');
-    return {
-        id: c.id,
-        name: c.name,
-        address: c.address,
-        primaryContact: c.primaryContactName,
-        email: c.email,
-        phone: c.phone,
-        type: c.type,
-        activeProjects: activeProjects.length,
-        projectValue: activeProjects.reduce((acc, p) => acc + p.value, 0),
-    }
-});
-
+type CustomerFormData = z.infer<typeof customerFormSchema>;
 
 export default function CustomersPage() {
-    const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [loading, setLoading] = useState(true);
     const [customerTypes, setCustomerTypes] = useState([
         'Corporate Client', 
         'Construction Partner', 
@@ -91,35 +73,72 @@ export default function CustomersPage() {
     const [isManageTypesDialogOpen, setIsManageTypesDialogOpen] = useState(false);
     const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-
     const [newType, setNewType] = useState('');
     const { toast } = useToast();
     const router = useRouter();
 
-    const form = useForm<Omit<Customer, 'activeProjects' | 'projectValue'>>({
-        resolver: zodResolver(customerSchema),
-        defaultValues: { name: "", address: "", primaryContact: "", email: "", phone: "", type: "" },
+    const form = useForm<CustomerFormData>({
+        resolver: zodResolver(customerFormSchema),
+        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "" },
     });
+
+    useEffect(() => {
+        async function fetchCustomers() {
+            setLoading(true);
+            try {
+                const customersData = await getCustomers();
+                setCustomers(customersData);
+            } catch (error) {
+                console.error("Failed to fetch customers:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load customers.' });
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchCustomers();
+    }, [toast]);
     
     useEffect(() => {
         if (isFormDialogOpen && editingCustomer) {
             form.reset(editingCustomer);
         } else {
-            form.reset({ name: "", address: "", primaryContact: "", email: "", phone: "", type: "" });
+            form.reset({ name: "", address: "", primaryContactName: "", email: "", phone: "", type: "" });
         }
     }, [isFormDialogOpen, editingCustomer, form]);
 
-    function onSubmit(values: Omit<Customer, 'activeProjects' | 'projectValue'>) {
-        if (editingCustomer) { // Editing existing customer
-            setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...editingCustomer, ...values } : c));
-            toast({ title: "Customer Updated", description: `${values.name} has been updated.` });
-        } else { // Adding new customer
-            const newCustomer: Customer = { ...values, id: `CUST-${Date.now()}`, activeProjects: 0, projectValue: 0 };
-            setCustomers([...customers, newCustomer]);
-            toast({ title: "Customer Added", description: `${values.name} has been added.` });
+    async function onSubmit(values: CustomerFormData) {
+        setLoading(true);
+        try {
+            if (editingCustomer) { // Editing existing customer
+                await updateCustomer(editingCustomer.id, values);
+                setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...c, ...values } : c));
+                toast({ title: "Customer Updated", description: `${values.name} has been updated.` });
+            } else { // Adding new customer
+                const newCustomerData = {
+                  name: values.name,
+                  address: values.address,
+                  type: values.type,
+                  primaryContactName: values.primaryContactName,
+                  email: values.email,
+                  phone: values.phone,
+                }
+                // Firestore doesn't need an ID for adding
+                const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone] };
+                const initialSite = { name: 'Main Site', address: values.address };
+                
+                // This is simplified, addCustomer returns the new ID. We should refetch for consistency.
+                const { customerId } = await addCustomer(newCustomerData, initialContact, initialSite);
+                setCustomers([...customers, { id: customerId, ...newCustomerData }]);
+                toast({ title: "Customer Added", description: `${values.name} has been added.` });
+            }
+        } catch (error) {
+            console.error("Failed to save customer", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save customer.' });
+        } finally {
+            setIsFormDialogOpen(false);
+            setEditingCustomer(null);
+            setLoading(false);
         }
-        setIsFormDialogOpen(false);
-        setEditingCustomer(null);
     }
 
     const handleAddType = () => {
@@ -140,9 +159,19 @@ export default function CustomersPage() {
         setIsFormDialogOpen(true);
     }
     
-    const handleDeleteCustomer = (customerId: string) => {
-        setCustomers(customers.filter(c => c.id !== customerId));
-        toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
+    const handleDeleteCustomerAction = async (customerId: string) => {
+        if (!window.confirm("Are you sure you want to delete this customer? This action cannot be undone.")) return;
+        setLoading(true);
+        try {
+            await deleteCustomer(customerId);
+            setCustomers(customers.filter(c => c.id !== customerId));
+            toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
+        } catch (error) {
+            console.error("Failed to delete customer", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete customer.' });
+        } finally {
+            setLoading(false);
+        }
     }
     
     const columns: ColumnDef<Customer>[] = [
@@ -172,30 +201,14 @@ export default function CustomersPage() {
           return (
             <Link href={`/customers/${row.original.id}`}>
                 <div className="font-medium hover:underline">{row.original.name}</div>
-                <div className="text-sm text-muted-foreground md:hidden">{row.original.primaryContact}</div>
+                <div className="text-sm text-muted-foreground md:hidden">{row.original.primaryContactName}</div>
             </Link>
           )
         }
       },
       {
-        accessorKey: "primaryContact",
+        accessorKey: "primaryContactName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Primary Contact" />,
-      },
-      {
-        accessorKey: "activeProjects",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Active Projects" />,
-        cell: ({ row }) => <div className="text-center">{row.original.activeProjects}</div>
-      },
-      {
-        accessorKey: "projectValue",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Project Value" />,
-        cell: ({ row }) => {
-            return (
-                <div className="text-right font-medium">
-                    {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(row.original.projectValue)}
-                </div>
-            )
-        }
       },
       {
         accessorKey: "type",
@@ -223,7 +236,7 @@ export default function CustomersPage() {
                   Edit Customer
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCustomer(customer.id!)}>
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCustomerAction(customer.id!)}>
                   Delete Customer
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -260,7 +273,7 @@ export default function CustomersPage() {
                                  <FormField control={form.control} name="address" render={({ field }) => (
                                     <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
-                                <FormField control={form.control} name="primaryContact" render={({ field }) => (
+                                <FormField control={form.control} name="primaryContactName" render={({ field }) => (
                                     <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={form.control} name="email" render={({ field }) => (
@@ -292,7 +305,7 @@ export default function CustomersPage() {
                                 )}/>
                                 <DialogFooter>
                                      <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                                    <Button type="submit">{editingCustomer ? "Save Changes" : "Add Customer"}</Button>
+                                    <Button type="submit" disabled={loading}>{editingCustomer ? "Save Changes" : "Add Customer"}</Button>
                                 </DialogFooter>
                             </form>
                         </Form>
@@ -329,7 +342,13 @@ export default function CustomersPage() {
       </div>
       <Card>
         <CardContent className='p-0'>
-            <DataTable columns={columns} data={customers} />
+            {loading ? (
+                <div className="flex justify-center items-center h-96">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <DataTable columns={columns} data={customers} />
+            )}
         </CardContent>
       </Card>
     </div>
