@@ -56,7 +56,8 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   const [mockData, setMockData] = useState<MockDataType>(mockCustomerDetails);
   
   const customer = useMemo(() => {
-    const customerData = mockData[params.id as keyof typeof mockData];
+    const customerId = params.id as keyof typeof mockData;
+    const customerData = mockData[customerId];
     if (!customerData) return null;
 
     // ensure all nested arrays exist
