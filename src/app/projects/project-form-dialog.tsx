@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus, Trash2, Pencil } from "lucide-react";
+import { PlusCircle, Plus, Trash2, Pencil, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Combobox } from '@/components/ui/combobox';
+import { CustomerSelectionDialog } from './customer-selection-dialog';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -70,10 +70,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   });
   
   const watchedCustomerId = form.watch('customerId');
-
-  const customerOptions = React.useMemo(() => Object.values(customerDetails).map(c => ({
-    label: c.name, value: c.id
-  })), [customerDetails]);
+  const customerName = watchedCustomerId ? customerDetails[watchedCustomerId]?.name : '';
 
   const siteOptions = React.useMemo(() => {
     if (!watchedCustomerId) return [];
@@ -165,24 +162,25 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     )}/>
 
                     <FormField control={form.control} name="customerId" render={({ field }) => (
-                        <FormItem className="flex flex-col">
+                        <FormItem>
                              <div className="flex items-center justify-between">
                                 <FormLabel>Customer</FormLabel>
-                                <AddCustomerDialog 
-                                    setCustomerDetails={setCustomerDetails} 
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Input
+                                    value={customerName}
+                                    readOnly
+                                    placeholder="Select a customer..."
+                                />
+                                 <CustomerSelectionDialog
+                                    customerDetails={customerDetails}
+                                    setCustomerDetails={setCustomerDetails}
+                                    onCustomerSelected={(id) => field.onChange(id)}
                                     onCustomerAdded={handleCustomerAdded}
                                 >
-                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6">
-                                        <Plus className="h-4 w-4"/>
-                                    </Button>
-                                </AddCustomerDialog>
+                                    <Button type="button" variant="outline">Select</Button>
+                                </CustomerSelectionDialog>
                              </div>
-                             <Combobox
-                                options={customerOptions}
-                                value={field.value}
-                                onChange={field.onChange}
-                                placeholder="Select a customer"
-                            />
                             <FormMessage />
                         </FormItem>
                     )}/>
