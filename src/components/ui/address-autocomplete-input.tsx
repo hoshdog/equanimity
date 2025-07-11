@@ -70,9 +70,9 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
 export function AddressAutocompleteInput({onPlaceSelect, ...props}: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
     if (process.env.NODE_ENV !== "production") {
-        console.error("Google Maps API key is missing. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file.");
+        console.error("Google Maps API key is missing or is a placeholder. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file.");
     }
     return (
         <Input 
