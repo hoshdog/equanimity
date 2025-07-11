@@ -3,13 +3,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, PlusCircle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getQuotes } from '@/lib/quotes';
-import { getProjects } from '@/lib/projects';
-import type { Quote, Project } from '@/lib/types';
+import { getCustomers } from '@/lib/customers';
+import type { Quote, Customer } from '@/lib/types';
 import { NewQuoteDialog } from './new-quote-dialog';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -27,22 +27,22 @@ const getQuoteStatusColor = (status: string) => {
 export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
         setLoading(true);
         try {
-            const [quotesData, projectsData] = await Promise.all([
+            const [quotesData, customersData] = await Promise.all([
                 getQuotes(),
-                getProjects(),
+                getCustomers(),
             ]);
             setQuotes(quotesData);
-            setProjects(projectsData);
+            setCustomers(customersData);
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load quotes and projects.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load quotes and customers.' });
         } finally {
             setLoading(false);
         }
@@ -50,7 +50,7 @@ export default function QuotesPage() {
     fetchData();
   }, [toast]);
   
-  const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+  const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c.name])), [customers]);
 
   const onQuoteCreated = (newQuote: Quote) => {
     setQuotes(prev => [newQuote, ...prev]);
@@ -80,7 +80,7 @@ export default function QuotesPage() {
         ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {quotes.map(quote => (
-            <Link href={`/projects/${quote.projectId}`} key={quote.id}>
+            <Link href={quote.projectId ? `/projects/${quote.projectId}` : `/customers/${quote.customerId}`} key={quote.id}>
                 <Card className="flex flex-col h-full hover:border-primary transition-colors">
                     <CardHeader className="pb-4">
                         <CardTitle className="text-lg flex justify-between items-start">
@@ -88,7 +88,7 @@ export default function QuotesPage() {
                             <span className="text-primary font-bold">${quote.totalAmount.toFixed(2)}</span>
                         </CardTitle>
                         <CardDescription>
-                            For project: <span className="font-medium text-foreground">{projectMap.get(quote.projectId) || 'Unknown Project'}</span>
+                            For customer: <span className="font-medium text-foreground">{customerMap.get(quote.customerId) || 'Unknown Customer'}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">

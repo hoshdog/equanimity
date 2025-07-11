@@ -1,7 +1,7 @@
 // src/app/quotes/new-quote-dialog.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -29,18 +29,144 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileText, Sparkles, Percent, PlusCircle } from 'lucide-react';
+import { Loader2, FileText, Sparkles, Percent, PlusCircle, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Quote, Project } from '@/lib/types';
+import type { Quote, Project, Customer, OptionType } from '@/lib/types';
 import { addQuote } from '@/lib/quotes';
 import { getProjects } from '@/lib/projects';
+import { getCustomers, addCustomer as addDbCustomer } from '@/lib/customers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
+import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
+
+const customerSchema = z.object({
+    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
+    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
+    email: z.string().email({ message: "Please enter a valid email address." }),
+    phone: z.string().min(8, { message: "Phone number seems too short." }),
+    type: z.string().min(2, { message: "Please select a customer type." }),
+});
+
+function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof customerSchema>>({
+        resolver: zodResolver(customerSchema),
+        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "Corporate Client" },
+    });
+    
+    async function onSubmit(values: z.infer<typeof customerSchema>) {
+        setLoading(true);
+        try {
+            const newCustomerData = {
+              name: values.name,
+              address: values.address,
+              type: values.type,
+              primaryContactName: values.primaryContactName,
+              email: values.email,
+              phone: values.phone,
+            }
+            const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone], jobTitle: 'Primary Contact' };
+            const initialSite = { name: 'Main Site', address: values.address };
+            
+            const { customerId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
+            const newCustomer = { id: customerId, ...newCustomerData };
+            
+            onCustomerAdded(newCustomer);
+            toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
+            setIsOpen(false);
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add customer", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add customer.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handlePlaceSelect = (place: google.maps.places.PlaceResult | null) => {
+        if (place?.name) {
+            form.setValue('name', place.name);
+        }
+        if (place?.formatted_address) {
+            form.setValue('address', place.formatted_address);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Customer</DialogTitle>
+                    <DialogDescription>Create a new customer record. An initial contact and site will be created automatically.</DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Customer Name</FormLabel>
+                                <FormControl>
+                                    <AddressAutocompleteInput 
+                                        searchType="establishment"
+                                        onPlaceSelect={handlePlaceSelect}
+                                        placeholder="Search for a business..."
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                         <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel>Address</FormLabel>
+                            <FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="primaryContactName" render={({ field }) => (
+                            <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="phone" render={({ field }) => (
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="type" render={({ field }) => (
+                            <FormItem>
+                                 <FormLabel>Customer Type</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a customer type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Corporate Client">Corporate Client</SelectItem>
+                                        <SelectItem value="Construction Partner">Construction Partner</SelectItem>
+                                        <SelectItem value="Small Business">Small Business</SelectItem>
+                                        <SelectItem value="Government">Government</SelectItem>
+                                        <SelectItem value="Private">Private</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <DialogFooter>
+                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Add Customer'}</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 
 const formSchema = z.object({
-  projectId: z.string().min(1, "Please select a project."),
+  customerId: z.string().min(1, "Please select a customer."),
+  projectId: z.string().optional(),
   prompt: z
     .string()
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
@@ -60,6 +186,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
   const [quotingProfiles, setQuotingProfiles] = useState<QuotingProfile[]>(initialQuotingProfiles);
   const [selectedProfileId, setSelectedProfileId] = useState<string>(quotingProfiles[0].id);
@@ -68,6 +195,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      customerId: '',
       projectId: '',
       prompt: '',
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
@@ -79,19 +207,33 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
     },
   });
 
-  useState(() => {
+  const watchedCustomerId = form.watch("customerId");
+
+  useEffect(() => {
     if (isOpen) {
-        async function fetchProjects() {
+        async function fetchData() {
+            setLoading(true);
             try {
-                const projectsData = await getProjects();
+                const [projectsData, customersData] = await Promise.all([
+                    getProjects(),
+                    getCustomers()
+                ]);
                 setProjects(projectsData);
+                setCustomers(customersData);
             } catch (error) {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load projects.' });
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load data.' });
+            } finally {
+                setLoading(false);
             }
         }
-        fetchProjects();
+        fetchData();
     }
-  });
+  }, [isOpen, toast]);
+
+  const customerOptions: OptionType[] = customers.map(c => ({ value: c.id, label: c.name }));
+  const projectOptions: OptionType[] = projects
+    .filter(p => p.customerId === watchedCustomerId)
+    .map(p => ({ value: p.id, label: p.name }));
   
   const handleProfileChange = (profileId: string) => {
     const profile = quotingProfiles.find(p => p.id === profileId);
@@ -120,6 +262,11 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
     setQuotingProfiles(updatedProfiles);
     handleProfileChange(savedProfile.id);
   };
+  
+  const handleCustomerAdded = (newCustomer: Customer) => {
+      setCustomers(prev => [...prev, newCustomer]);
+      form.setValue('customerId', newCustomer.id, { shouldValidate: true });
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -129,13 +276,14 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       setResult(quoteResult);
 
       const quoteData = {
+        customerId: values.customerId,
         projectId: values.projectId,
         ...values,
         ...quoteResult,
         status: 'Draft' as const,
       };
       
-      const newQuoteId = await addQuote(values.projectId, quoteData);
+      const newQuoteId = await addQuote(quoteData);
       const newQuote: Quote = {
         id: newQuoteId,
         ...quoteData,
@@ -143,7 +291,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       };
 
       onQuoteCreated(newQuote);
-      toast({ title: 'Quote Saved as Draft', description: 'The new quote has been saved to this project.' });
+      toast({ title: 'Quote Saved as Draft', description: 'The new quote has been saved.' });
       setIsOpen(false);
 
     } catch (error) {
@@ -163,6 +311,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
     if (!open) {
       const profile = quotingProfiles[0];
       form.reset({
+        customerId: '',
         projectId: '',
         prompt: '',
         desiredMargin: profile.defaults.desiredMargin,
@@ -199,20 +348,46 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
+                            name="customerId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Customer</FormLabel>
+                                    <div className="flex gap-2">
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a customer" />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                            {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
+                                            <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </AddCustomerDialog>
+                                    </div>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Project</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormLabel>Project (Optional)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a project" />
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {projects.map(project => (
-                                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                                    ))}
+                                        <SelectItem value="">None</SelectItem>
+                                        {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

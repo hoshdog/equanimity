@@ -90,7 +90,8 @@ export interface Employee {
 
 export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {
     id: string;
-    projectId: string;
+    customerId: string;
+    projectId?: string;
     status: 'Draft' | 'Sent' | 'Approved' | 'Rejected';
     createdAt: Timestamp;
 }
