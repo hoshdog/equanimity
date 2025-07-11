@@ -1,23 +1,27 @@
 
 // scripts/seed.ts
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+// Check if the service account key is available
+if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.error('GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
+    console.error('Please create a service account key and set the path in your .env.local file.');
+    process.exit(1);
+}
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+// Initialize Firebase Admin SDK
+// The SDK automatically uses the GOOGLE_APPLICATION_CREDENTIALS env var
+if (admin.apps.length === 0) {
+    admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
+}
+
+const db = getFirestore();
 
 const mockEmployees = [
     { 
@@ -198,21 +202,21 @@ const mockJobs = {
 };
 
 async function seedDatabase() {
-    console.log('Starting to seed database...');
-    const batch = writeBatch(db);
+    console.log('Starting to seed database with Admin privileges...');
+    const batch = db.batch();
 
     // Seed Employees
-    const employeesCollection = collection(db, 'employees');
+    const employeesCollection = db.collection('employees');
     mockEmployees.forEach(employee => {
-        const docRef = doc(employeesCollection, employee.id);
+        const docRef = employeesCollection.doc(employee.id);
         batch.set(docRef, employee);
     });
     console.log(`${mockEmployees.length} employees queued for seeding.`);
 
     // Seed Customers
-    const customersCollection = collection(db, 'customers');
+    const customersCollection = db.collection('customers');
     mockCustomers.forEach(customerData => {
-        const customerDocRef = doc(customersCollection, customerData.id);
+        const customerDocRef = customersCollection.doc(customerData.id);
         batch.set(customerDocRef, customerData);
     });
     console.log(`${mockCustomers.length} customers queued for seeding.`);
@@ -220,7 +224,7 @@ async function seedDatabase() {
     // Seed Contacts (Subcollection)
     Object.entries(mockContacts).forEach(([customerId, contacts]) => {
         contacts.forEach(contact => {
-            const contactDocRef = doc(db, 'customers', customerId, 'contacts', contact.id);
+            const contactDocRef = db.collection('customers').doc(customerId).collection('contacts').doc(contact.id);
             batch.set(contactDocRef, contact);
         });
         console.log(`Queued ${contacts.length} contacts for customer ${customerId}.`);
@@ -229,20 +233,20 @@ async function seedDatabase() {
     // Seed Sites (Subcollection)
     Object.entries(mockSites).forEach(([customerId, sites]) => {
         sites.forEach(site => {
-            const siteDocRef = doc(db, 'customers', customerId, 'sites', site.id);
+            const siteDocRef = db.collection('customers').doc(customerId).collection('sites').doc(site.id);
             batch.set(siteDocRef, site);
         });
         console.log(`Queued ${sites.length} sites for customer ${customerId}.`);
     });
 
     // Seed Projects (Root Collection)
-    const projectsCollection = collection(db, 'projects');
+    const projectsCollection = db.collection('projects');
     mockProjects.forEach(project => {
         const { id, ...projectData } = project;
-        const projectDocRef = doc(projectsCollection, id);
+        const projectDocRef = projectsCollection.doc(id);
         batch.set(projectDocRef, {
             ...projectData,
-            createdAt: serverTimestamp()
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
     });
     console.log(`${mockProjects.length} projects queued for seeding.`);
@@ -251,7 +255,7 @@ async function seedDatabase() {
     Object.entries(mockJobs).forEach(([projectId, jobs]) => {
         jobs.forEach(job => {
             const { id, ...jobData } = job;
-            const jobDocRef = doc(db, 'projects', projectId, 'jobs', id);
+            const jobDocRef = db.collection('projects').doc(projectId).collection('jobs').doc(id);
             batch.set(jobDocRef, jobData);
         });
         console.log(`Queued ${jobs.length} jobs for project ${projectId}.`);
@@ -267,3 +271,5 @@ async function seedDatabase() {
 }
 
 seedDatabase();
+
+    
