@@ -12,7 +12,7 @@ interface AddressAutocompleteInputProps extends React.InputHTMLAttributes<HTMLIn
 
 function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const [inputValue, setInputValue] = React.useState('');
+  const [inputValue, setInputValue] = React.useState(props.value || '');
   const places = useMapsLibrary('places');
   const [autocomplete, setAutocomplete] =
     React.useState<google.maps.places.Autocomplete | null>(null);
@@ -48,6 +48,14 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
   };
+  
+  React.useEffect(() => {
+    if (props.value !== inputValue) {
+        setInputValue(props.value as string || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.value]);
+
 
   return (
     <Input
@@ -59,7 +67,7 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
   );
 }
 
-export function AddressAutocompleteInput(props: AddressAutocompleteInputProps) {
+export function AddressAutocompleteInput({onPlaceSelect, ...props}: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -77,7 +85,7 @@ export function AddressAutocompleteInput(props: AddressAutocompleteInputProps) {
 
   return (
     <APIProvider apiKey={apiKey} libraries={['places']}>
-      <AutocompleteInput {...props} />
+      <AutocompleteInput onPlaceSelect={onPlaceSelect} {...props} />
     </APIProvider>
   );
 }
