@@ -26,9 +26,10 @@ type JobFormValues = z.infer<typeof jobSchema>;
 
 interface JobFormDialogProps {
     onJobCreated: (job: Job) => void;
+    initialProjectId?: string;
 }
 
-export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
+export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [projects, setProjects] = React.useState<Project[]>([]);
@@ -37,8 +38,15 @@ export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
 
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobSchema),
-    defaultValues: { description: "", projectId: "", technicianId: "", status: "Not Started" },
+    defaultValues: { description: "", projectId: initialProjectId || "", technicianId: "", status: "Not Started" },
   });
+
+  React.useEffect(() => {
+    // If an initial project ID is provided, set it when the dialog opens
+    if (isOpen && initialProjectId) {
+      form.setValue('projectId', initialProjectId);
+    }
+  }, [isOpen, initialProjectId, form]);
 
   React.useEffect(() => {
     async function fetchInitialData() {
@@ -46,10 +54,11 @@ export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
             setLoading(true);
             try {
                 const [projectsData, employeesData] = await Promise.all([
-                    getProjects(),
+                    // Only fetch projects if no initial project is set
+                    initialProjectId ? Promise.resolve([]) : getProjects(),
                     getEmployees(),
                 ]);
-                setProjects(projectsData);
+                if (!initialProjectId) setProjects(projectsData);
                 setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
             } catch (error) {
                 console.error("Failed to load data for job form", error);
@@ -60,7 +69,7 @@ export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
         }
     }
     fetchInitialData();
-  }, [isOpen, toast]);
+  }, [isOpen, toast, initialProjectId]);
 
   const projectOptions = projects.map(p => ({ value: p.id, label: p.name }));
 
@@ -71,10 +80,10 @@ export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
         const newJob: Job = {
             id: newJobId,
             ...values,
-            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } // Simulate timestamp
         };
         onJobCreated(newJob);
-        toast({ title: 'Job Created', description: `A new job has been added to project ${projects.find(p=>p.id === values.projectId)?.name}.` });
+        toast({ title: 'Job Created', description: `A new job has been successfully created.` });
         setIsOpen(false);
         form.reset();
     } catch (error) {
@@ -86,7 +95,7 @@ export function JobFormDialog({ onJobCreated }: JobFormDialogProps) {
   }
 
   const fields = [
-    { name: 'projectId', label: 'Project', type: 'select', options: projectOptions, placeholder: "Select a project" },
+    ...(initialProjectId ? [] : [{ name: 'projectId', label: 'Project', type: 'select', options: projectOptions, placeholder: "Select a project" }]),
     { name: 'description', label: 'Job Description', type: 'textarea', placeholder: 'Describe the job in detail...' },
     { name: 'technicianId', label: 'Assign Technician', type: 'select', options: employees, placeholder: 'Select a technician' },
     {

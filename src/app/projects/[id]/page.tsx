@@ -1,17 +1,22 @@
 // src/app/projects/[id]/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
-import type { Project, Customer } from '@/lib/types';
+import { getJobsForProject } from '@/lib/jobs';
+import { getEmployees } from '@/lib/employees';
+import type { Project, Customer, Job, Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { JobFormDialog } from '@/app/jobs/job-form-dialog';
+import { cn } from '@/lib/utils';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -23,10 +28,22 @@ function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.
     )
 }
 
+const getJobStatusColor = (status: string) => {
+    switch (status) {
+      case 'In Progress': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case 'Not Started': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
+      case 'Completed': return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'On Hold': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
+    }
+}
+
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const projectId = params.id;
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -35,8 +52,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         if (!projectId) return;
         setLoading(true);
         try {
-            const projectData = await getProject(projectId);
+            const [projectData, employeesData, jobsData] = await Promise.all([
+                getProject(projectId),
+                getEmployees(),
+                getJobsForProject(projectId),
+            ]);
+
             setProject(projectData);
+            setEmployees(employeesData);
+            setJobs(jobsData);
+            
             if (projectData) {
                 const customerData = await getCustomer(projectData.customerId);
                 setCustomer(customerData);
@@ -50,6 +75,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     }
     fetchData();
   }, [projectId, toast]);
+
+  const employeeMap = useMemo(() => {
+    return new Map(employees.map(e => [e.id, e.name]));
+  }, [employees]);
+
+  const handleJobCreated = (newJob: Job) => {
+    // Since the form dialog doesn't have the full project/employee objects, we add the new job
+    // to the top of the list for immediate feedback. The full data is already in state maps.
+    setJobs(prev => [newJob, ...prev]);
+  };
 
   if (loading) {
       return (
@@ -130,7 +165,45 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </Card>
         </TabsContent>
         <TabsContent value="jobs">
-            <PlaceholderContent title="Jobs" icon={Briefcase} />
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className='space-y-1.5'>
+                        <CardTitle>Jobs</CardTitle>
+                        <CardDescription>All jobs associated with this project.</CardDescription>
+                    </div>
+                    <JobFormDialog onJobCreated={handleJobCreated} initialProjectId={projectId} />
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Technician</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {jobs.length > 0 ? jobs.map(job => (
+                                <TableRow key={job.id}>
+                                    <TableCell className="font-medium">{job.description}</TableCell>
+                                    <TableCell>{employeeMap.get(job.technicianId) || 'Unassigned'}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={cn(getJobStatusColor(job.status))}>
+                                            {job.status}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        No jobs created for this project yet.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </TabsContent>
         <TabsContent value="quotes">
             <PlaceholderContent title="Quotes" icon={FileText} />

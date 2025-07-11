@@ -8,6 +8,7 @@ import {
   writeBatch,
   query,
   collectionGroup,
+  orderBy,
 } from 'firebase/firestore';
 import type { Job } from './types';
 
@@ -27,11 +28,26 @@ export async function getJobs(): Promise<Job[]> {
   return jobs;
 }
 
+// Get all jobs for a specific project
+export async function getJobsForProject(projectId: string): Promise<Job[]> {
+    const jobsRef = collection(db, 'projects', projectId, 'jobs');
+    const q = query(jobsRef, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        projectId,
+        ...doc.data()
+    } as Job));
+}
+
 
 // Add a new job to a specific project
 export async function addJob(projectId: string, jobData: Omit<Job, 'id' | 'createdAt' | 'projectId'>): Promise<string> {
     const projectRef = doc(db, 'projects', projectId);
     const jobsCollectionRef = collection(projectRef, 'jobs');
-    const newJobRef = await addDoc(jobsCollectionRef, jobData);
+    const newJobRef = await addDoc(jobsCollectionRef, {
+        ...jobData,
+        createdAt: new Date(), // Use client-side timestamp for immediate consistency
+    });
     return newJobRef.id;
 }
