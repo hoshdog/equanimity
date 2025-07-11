@@ -186,7 +186,8 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     );
   }
 
-  const filteredProjects = projects.filter(p => sites.find(s => s.id === selectedSiteId)?.id === p.id); // This logic needs review
+  const filteredProjects = projects.filter(p => sites.find(s => s.id === selectedSiteId)?.projects?.some(proj => proj.id === p.id));
+
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -291,7 +292,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                 <div className="flex justify-between items-center mb-2">
                                     <h3 className="font-semibold text-lg">Projects for {sites.find(s => s.id === selectedSiteId)?.name || 'Selected Site'}</h3>
                                 </div>
-                                {/* This logic needs fixing as project subcollection is not per-site */}
+                                
                                 {filteredProjects.length > 0 ? (
                                     <div className="space-y-2">
                                         {filteredProjects.map(project => (
@@ -332,8 +333,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                                     <div className="font-semibold">{project.name}</div>
                                                     <div className={cn("text-sm", getStatusColor(project.status))}>{project.status}</div>
                                                 </div>
-                                                {/* This part needs fixing as project doesn't have direct siteId in this model */}
-                                                {/* <Badge variant="outline">{sites.find(s => s.id === project.siteId)?.name}</Badge> */}
+                                                <Badge variant="outline">{sites.find(s => s.projects?.some(p => p.id === project.id))?.name}</Badge>
                                              </CardContent>
                                         </Card>
                                     </Link>
@@ -437,3 +437,5 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     </div>
   );
 }
+
+    

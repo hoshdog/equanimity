@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -122,11 +123,9 @@ export default function CustomersPage() {
                   email: values.email,
                   phone: values.phone,
                 }
-                // Firestore doesn't need an ID for adding
                 const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone] };
                 const initialSite = { name: 'Main Site', address: values.address };
                 
-                // This is simplified, addCustomer returns the new ID. We should refetch for consistency.
                 const { customerId } = await addCustomer(newCustomerData, initialContact, initialSite);
                 setCustomers([...customers, { id: customerId, ...newCustomerData }]);
                 toast({ title: "Customer Added", description: `${values.name} has been added.` });
@@ -354,3 +353,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+    

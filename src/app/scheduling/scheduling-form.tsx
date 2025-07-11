@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,8 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Lightbulb, UserCheck } from "lucide-react";
-import { mockEmployees } from "@/lib/mock-data";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { MultiSelect, OptionType } from "@/components/ui/multi-select";
+import { getEmployees } from "@/lib/employees";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   taskDescription: z.string().min(10, {
@@ -40,26 +40,43 @@ const formSchema = z.object({
   }),
 });
 
-// This data is now managed on the Training page. This is kept for fallback.
+// This data should come from your Training page / database in a real app.
 const mockPastTasks = JSON.stringify([
-  { task: "Fix HVAC unit", technician: "Alice", efficiency: 0.9, accuracy: 0.95 },
-  { task: "Repair plumbing leak", technician: "Bob", efficiency: 0.8, accuracy: 0.98 },
-  { task: "Install new lighting", technician: "Charlie", efficiency: 0.92, accuracy: 0.91 },
-  { task: "Fix HVAC unit", technician: "David", efficiency: 0.85, accuracy: 0.88 },
-  { task: "Repair plumbing leak", technician: "Eve", efficiency: 0.88, accuracy: 0.92 },
+  { task: "Fix HVAC unit", technician: "Alice Johnson", efficiency: 0.9, accuracy: 0.95 },
+  { task: "Repair plumbing leak", technician: "Bob Smith", efficiency: 0.8, accuracy: 0.98 },
+  { task: "Install new lighting", technician: "Charlie Brown", efficiency: 0.92, accuracy: 0.91 },
+  { task: "Fix HVAC unit", technician: "Diana Prince", efficiency: 0.85, accuracy: 0.88 },
+  { task: "Repair plumbing leak", technician: "Ethan Hunt", efficiency: 0.88, accuracy: 0.92 },
 ]);
 
 export function SchedulingForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SuggestTechniciansForSchedulingOutput | null>(null);
+  const [technicianOptions, setTechnicianOptions] = useState<OptionType[]>([]);
+  const { toast } = useToast();
 
-  const technicianOptions = useMemo(() => mockEmployees, []);
+  useEffect(() => {
+    async function fetchTechs() {
+        try {
+            const employees = await getEmployees();
+            const options = employees.filter(e => e.status === 'Active').map(e => ({ value: e.id, label: e.name }));
+            setTechnicianOptions(options);
+            // Set all active technicians as default selection
+            form.setValue('availableTechnicians', options.map(o => o.value));
+        } catch (error) {
+            console.error("Failed to fetch technicians:", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not load available technicians." });
+        }
+    }
+    fetchTechs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       taskDescription: "",
-      availableTechnicians: technicianOptions.map(t => t.value),
+      availableTechnicians: [],
     },
   });
 
@@ -67,8 +84,6 @@ export function SchedulingForm() {
     setLoading(true);
     setResult(null);
     try {
-      // In a real app, you'd fetch the dynamic training data here.
-      // For now, we'll continue to use the mock data.
       const technicianLabels = values.availableTechnicians.map(value => {
         const tech = technicianOptions.find(t => t.value === value);
         return tech ? tech.label : value;
@@ -82,6 +97,7 @@ export function SchedulingForm() {
       setResult(response);
     } catch (error) {
       console.error("Error suggesting technicians:", error);
+      toast({ variant: "destructive", title: "Error", description: "The AI failed to generate suggestions. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -162,3 +178,5 @@ export function SchedulingForm() {
     </div>
   );
 }
+
+    

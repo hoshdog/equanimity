@@ -1,16 +1,18 @@
+// src/app/projects/[id]/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react';
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getProject } from '@/lib/projects';
+import { getCustomer } from '@/lib/customers';
+import type { Project, Customer } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
-const projects = [
-    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice Johnson', customerId: '1', customerName: 'Innovate Corp', siteName: 'Sydney HQ' },
-    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob Smith', customerId: '2', customerName: 'Builders Pty Ltd', siteName: 'Main Yard' },
-    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie Brown', customerId: '3', customerName: 'Greenleaf Cafe', siteName: 'Greenleaf Cafe' },
-    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice Johnson', customerId: '1', customerName: 'Innovate Corp', siteName: 'Melbourne Office' },
-];
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
     return (
@@ -22,7 +24,39 @@ function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.
 }
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const project = projects.find(p => p.id === parseInt(params.id));
+  const [project, setProject] = useState<Project | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchData() {
+        if (!params.id) return;
+        setLoading(true);
+        try {
+            const projectData = await getProject(params.id);
+            setProject(projectData);
+            if (projectData) {
+                const customerData = await getCustomer(projectData.customerId);
+                setCustomer(customerData);
+            }
+        } catch(error) {
+            console.error("Failed to fetch project details:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load project details.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchData();
+  }, [params.id, toast]);
+
+  if (loading) {
+      return (
+          <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 flex items-center justify-center h-full">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+      );
+  }
 
   if (!project) {
     return (
@@ -74,19 +108,22 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                             </div>
                             <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-muted-foreground"/>
-                                <span><strong>Manager:</strong> {project.manager}</span>
+                                <span><strong>Manager:</strong> Not yet assigned</span>
                             </div>
                         </div>
+                        {customer &&
                         <div className="space-y-2">
-                            <Link href={`/customers/${project.customerId}`} className="flex items-center gap-2 hover:underline">
+                            <Link href={`/customers/${customer.id}`} className="flex items-center gap-2 hover:underline">
                                <Building2 className="h-4 w-4 text-muted-foreground" /> 
-                               <span><strong>Customer:</strong> {project.customerName}</span>
+                               <span><strong>Customer:</strong> {customer.name}</span>
                             </Link>
-                            <div className="flex items-center gap-2">
+                            {/* Site information is not directly on project yet, needs enhancement */}
+                            {/* <div className="flex items-center gap-2">
                                <MapPin className="h-4 w-4 text-muted-foreground" /> 
                                <span><strong>Site:</strong> {project.siteName}</span>
-                            </div>
+                            </div> */}
                         </div>
+                        }
                     </div>
                 </CardContent>
             </Card>
@@ -110,3 +147,5 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     </div>
   );
 }
+
+    

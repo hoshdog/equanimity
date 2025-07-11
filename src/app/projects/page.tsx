@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ProjectFormDialog } from './project-form-dialog';
 import type { Project, Customer } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
@@ -229,3 +229,5 @@ export default function ProjectsPage() {
     </div>
   );
 }
+
+    

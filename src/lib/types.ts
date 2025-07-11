@@ -19,6 +19,7 @@ export interface Site {
   name: string;
   address: string;
   primaryContactId: string;
+  projects?: ProjectSummary[];
 }
 
 export interface ProjectSummary {
@@ -76,3 +77,5 @@ export interface Employee {
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
 }
+
+    

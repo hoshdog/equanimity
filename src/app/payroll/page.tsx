@@ -1,4 +1,3 @@
-
 // src/app/payroll/page.tsx
 'use client';
 
@@ -14,10 +13,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2, Banknote, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
+import { getEmployees } from '@/lib/employees';
+import type { Employee, OptionType } from '@/lib/types';
 
-const mockEmployees = {
+
+// This would be replaced with dynamic timesheet data from your database
+const mockEmployeeTimesheets: { [key: string]: any } = {
   'EMP001': {
     details: 'Employee: Alice Johnson (TFN: 111 222 333)\nPay Rate: $35/hour\nAllowances: $50 for tools',
     timesheet: JSON.stringify([
@@ -50,13 +52,6 @@ const mockEmployees = {
   },
 };
 
-const employeeList = [
-    { value: 'EMP001', label: 'Alice Johnson' },
-    { value: 'EMP002', label: 'Bob Smith' },
-    { value: 'EMP003', label: 'Charlie Brown' },
-];
-
-
 const formSchema = z.object({
   employeeId: z.string().nonempty('Please select an employee.'),
   employeeDetails: z.string().min(10, 'Employee details are required.'),
@@ -72,6 +67,7 @@ Tax is calculated based on the ATO's tax tables.`;
 
 export default function PayrollPage() {
   const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [result, setResult] = useState<AutomatePayrollOutput | null>(null);
   const { toast } = useToast();
 
@@ -86,24 +82,45 @@ export default function PayrollPage() {
       australianFairWorkStandards: mockFairWorkStandards,
     },
   });
+  
+  useEffect(() => {
+    async function fetchEmployees() {
+        setLoading(true);
+        try {
+            const employeesData = await getEmployees();
+            setEmployees(employeesData);
+        } catch (error) {
+            console.error("Failed to fetch employees:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load employees.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchEmployees();
+  }, [toast]);
 
   const selectedEmployeeId = form.watch('employeeId');
   
-  const employeeOptions = useMemo(() => {
-    // In a real app, this would be fetched from an API
-    return employeeList;
-  }, []);
+  const employeeOptions = useMemo((): OptionType[] => {
+    return employees.map(e => ({ value: e.id, label: e.name }));
+  }, [employees]);
 
   useEffect(() => {
-    if (selectedEmployeeId && mockEmployees[selectedEmployeeId as keyof typeof mockEmployees]) {
-        const employeeData = mockEmployees[selectedEmployeeId as keyof typeof mockEmployees];
+    if (selectedEmployeeId && mockEmployeeTimesheets[selectedEmployeeId as keyof typeof mockEmployeeTimesheets]) {
+        const employeeData = mockEmployeeTimesheets[selectedEmployeeId as keyof typeof mockEmployeeTimesheets];
         form.setValue('employeeDetails', employeeData.details);
         form.setValue('timesheetData', employeeData.timesheet);
     } else {
-        form.setValue('employeeDetails', '');
-        form.setValue('timesheetData', '');
+        const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+        if (selectedEmployee) {
+            form.setValue('employeeDetails', `Employee: ${selectedEmployee.name}\nRole: ${selectedEmployee.role}\nStatus: ${selectedEmployee.status}`);
+            form.setValue('timesheetData', '[]'); // Default to empty timesheet
+        } else {
+            form.setValue('employeeDetails', '');
+            form.setValue('timesheetData', '');
+        }
     }
-  }, [selectedEmployeeId, form]);
+  }, [selectedEmployeeId, form, employees]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -277,3 +294,5 @@ export default function PayrollPage() {
     </div>
   );
 }
+
+    
