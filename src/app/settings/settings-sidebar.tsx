@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { Building, DollarSign, CreditCard, Palette, Mail, MessageSquare, Link2, FileText, Hammer, Boxes, Banknote, User, BookOpen } from 'lucide-react';
+import { Building, DollarSign, CreditCard, Palette, Mail, MessageSquare, Link2, FileText, Hammer, Boxes, Banknote, User, BookOpen, Percent, Calculator, Calendar, Lock, Users2, Clock } from 'lucide-react';
 
 const sidebarNavItems = [
   {
@@ -64,9 +64,44 @@ const sidebarNavItems = [
     icon: <User className="mr-2 h-4 w-4" />,
   },
   {
+    title: 'Pricing Levels',
+    href: '/settings/pricing-levels',
+    icon: <Percent className="mr-2 h-4 w-4" />,
+  },
+  {
     title: 'Price List',
     href: '/settings/prices',
     icon: <BookOpen className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Quotes',
+    href: '/settings/quotes',
+    icon: <Calculator className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Scheduler',
+    href: '/settings/scheduler',
+    icon: <Calendar className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Security',
+    href: '/settings/security',
+    icon: <Lock className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Staff Members',
+    href: '/settings/staff',
+    icon: <Users2 className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Tax',
+    href: '/settings/tax',
+    icon: <DollarSign className="mr-2 h-4 w-4" />,
+  },
+  {
+    title: 'Timesheets',
+    href: '/settings/timesheets',
+    icon: <Clock className="mr-2 h-4 w-4" />,
   },
 ];
 
