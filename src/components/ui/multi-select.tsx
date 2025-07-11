@@ -82,7 +82,21 @@ function MultiSelect({
                       }}
                     >
                       {option.label}
-                      <X className="ml-1 h-3 w-3" />
+                      <button 
+                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleDeselect(option);
+                            }
+                        }}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onClick={() => handleDeselect(option)}
+                      >
+                         <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                      </button>
                     </Badge>
                   ))
                 ) : (
