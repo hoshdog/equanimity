@@ -19,12 +19,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3.5rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_WIDTH_MOBILE = "18rem"
 
 type SidebarContext = {
   state: "expanded" | "collapsed"
@@ -57,7 +53,7 @@ const SidebarProvider = React.forwardRef<
 >(
   (
     {
-      defaultOpen = false, // Default to collapsed
+      defaultOpen = false,
       open: openProp,
       onOpenChange: setOpenProp,
       className,
@@ -112,7 +108,6 @@ const SidebarProvider = React.forwardRef<
           <div
             style={
               {
-                "--sidebar-width": SIDEBAR_WIDTH,
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
                 ...style,
               } as React.CSSProperties
@@ -169,7 +164,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[var(--sidebar-width)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -198,7 +193,7 @@ const Sidebar = React.forwardRef<
           className={cn(
             "relative h-svh bg-transparent transition-[width] ease-in-out duration-300",
             "group-data-[state=collapsed]:w-[--sidebar-width-icon]",
-            "group-data-[state=expanded]:w-[--sidebar-width]"
+            "group-data-[state=expanded]:w-[var(--sidebar-width,16rem)]"
           )}
         />
         <div
@@ -206,7 +201,7 @@ const Sidebar = React.forwardRef<
             "fixed inset-y-0 z-10 hidden h-svh transition-[left,right,width] ease-in-out duration-300 md:flex",
             side === "left" ? "left-0" : "right-0",
             "group-data-[state=collapsed]:w-[--sidebar-width-icon]",
-            "group-data-[state=expanded]:w-[--sidebar-width]",
+            "group-data-[state=expanded]:w-[var(--sidebar-width,16rem)]",
             "group-data-[side=left]:border-r",
             "group-data-[side=right]:border-l",
             className
@@ -261,7 +256,7 @@ const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex min-h-svh flex-1 flex-col bg-background transition-[margin-left,margin-right] ease-in-out duration-300",
-        !isMobile && state === 'expanded' && "ml-[--sidebar-width]",
+        !isMobile && state === 'expanded' && "ml-[var(--sidebar-width,16rem)]",
         !isMobile && state === 'collapsed' && "ml-[--sidebar-width-icon]",
         className
       )}

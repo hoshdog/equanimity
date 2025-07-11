@@ -37,7 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -60,6 +60,39 @@ const navItems = [
 export function AppSidebar() {
   const { toggleSidebar, state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (state === 'expanded' && sidebarRef.current) {
+      const spans = sidebarRef.current.querySelectorAll('[data-sidebar="menu-button"] > span');
+      let maxWidth = 0;
+      spans.forEach(span => {
+        // Temporarily make it visible to measure
+        const currentDisplay = (span as HTMLElement).style.display;
+        (span as HTMLElement).style.display = 'inline-block';
+        if (span.scrollWidth > maxWidth) {
+          maxWidth = span.scrollWidth;
+        }
+        (span as HTMLElement).style.display = currentDisplay;
+      });
+
+      if (maxWidth > 0) {
+        // 3.5rem for collapsed width (icon + padding) + measured text width + some padding
+        const iconAndPaddingWidth = 60; // Approx 3.5rem in pixels + gap
+        const newWidth = maxWidth + iconAndPaddingWidth;
+        
+        const styleId = 'dynamic-sidebar-width';
+        let styleTag = document.getElementById(styleId);
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = styleId;
+            document.head.appendChild(styleTag);
+        }
+        styleTag.innerHTML = `:root { --sidebar-width: ${newWidth}px; }`;
+      }
+    }
+  }, [state]);
+
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -68,7 +101,7 @@ export function AppSidebar() {
   };
   
   return (
-    <Sidebar>
+    <Sidebar ref={sidebarRef}>
       <SidebarHeader>
         <div className="flex items-center justify-between">
            <div className={cn("flex items-center gap-2", state === 'collapsed' && 'invisible')}>
@@ -77,9 +110,6 @@ export function AppSidebar() {
                 Equanimity
               </span>
             </div>
-            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:flex hidden">
-                <ChevronLeft className={cn("h-6 w-6 transition-transform", state === 'collapsed' && 'rotate-180')} />
-            </Button>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -95,7 +125,7 @@ export function AppSidebar() {
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5" />
-                  <span className='group-data-[state=collapsed]:hidden'>{item.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -104,7 +134,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
          <div className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-9 w-9">
               <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
@@ -112,7 +142,7 @@ export function AppSidebar() {
               "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-xs font-semibold whitespace-nowrap">Jane Doe</span>
+                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
                 <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
