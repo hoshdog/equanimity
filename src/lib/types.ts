@@ -1,5 +1,6 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
+import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
 
 export interface OptionType {
   value: string;
@@ -79,11 +80,16 @@ export interface Job {
     createdAt: Timestamp;
 }
 
-
 export interface Employee {
     id: string;
     name: string;
     email: string;
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
+}
+
+export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {
+    id: string;
+    projectId: string;
+    createdAt: Timestamp;
 }

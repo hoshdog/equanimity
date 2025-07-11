@@ -12,10 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
 import { getJobsForProject } from '@/lib/jobs';
+import { getQuotesForProject } from '@/lib/quotes';
 import { getEmployees } from '@/lib/employees';
-import type { Project, Customer, Job, Employee } from '@/lib/types';
+import type { Project, Customer, Job, Employee, Quote } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
+import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
 import { cn } from '@/lib/utils';
 
 
@@ -43,6 +45,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -52,15 +55,17 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         if (!projectId) return;
         setLoading(true);
         try {
-            const [projectData, employeesData, jobsData] = await Promise.all([
+            const [projectData, employeesData, jobsData, quotesData] = await Promise.all([
                 getProject(projectId),
                 getEmployees(),
                 getJobsForProject(projectId),
+                getQuotesForProject(projectId),
             ]);
 
             setProject(projectData);
             setEmployees(employeesData);
             setJobs(jobsData);
+            setQuotes(quotesData);
             
             if (projectData) {
                 const customerData = await getCustomer(projectData.customerId);
@@ -81,9 +86,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   }, [employees]);
 
   const handleJobCreated = (newJob: Job) => {
-    // Since the form dialog doesn't have the full project/employee objects, we add the new job
-    // to the top of the list for immediate feedback. The full data is already in state maps.
     setJobs(prev => [newJob, ...prev]);
+  };
+  
+  const handleQuoteCreated = (newQuote: Quote) => {
+    setQuotes(prev => [newQuote, ...prev]);
   };
 
   if (loading) {
@@ -206,7 +213,44 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </Card>
         </TabsContent>
         <TabsContent value="quotes">
-            <PlaceholderContent title="Quotes" icon={FileText} />
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className='space-y-1.5'>
+                        <CardTitle>Quotes</CardTitle>
+                        <CardDescription>All quotes associated with this project.</CardDescription>
+                    </div>
+                    <QuoteFormDialog onQuoteCreated={handleQuoteCreated} projectId={projectId} />
+                </CardHeader>
+                <CardContent>
+                    {quotes.length > 0 ? (
+                        <div className="space-y-4">
+                            {quotes.map(quote => (
+                                <Card key={quote.id}>
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="text-lg flex justify-between items-center">
+                                            <span>Quote for: "{quote.prompt.substring(0, 50)}{quote.prompt.length > 50 ? '...' : ''}"</span>
+                                            <span className="text-primary">${quote.totalAmount.toFixed(2)}</span>
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Created on: {new Date(quote.createdAt.seconds * 1000).toLocaleDateString()}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <pre className="text-xs p-4 rounded-md bg-muted whitespace-pre-wrap font-sans max-h-40 overflow-auto">
+                                            {quote.quoteText}
+                                        </pre>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                         <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-64">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                            <p className="mt-4 text-sm text-muted-foreground">No quotes created for this project yet.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </TabsContent>
         <TabsContent value="purchase-orders">
             <PlaceholderContent title="Purchase Orders" icon={ShoppingCart} />
