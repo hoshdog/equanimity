@@ -40,6 +40,7 @@ const employeeFormSchema = z.object({
   wage: z.coerce.number().min(0, "Wage must be a positive number.").optional(),
   annualSalary: z.coerce.number().min(0, "Salary must be a positive number.").optional(),
   calculatedCostRate: z.coerce.number().min(0).default(0),
+  estimatedNonBillableHours: z.coerce.number().min(0).optional(),
   award: z.string().optional(),
   isOverhead: z.boolean().default(false),
   tfn: z.string().optional(),
@@ -156,6 +157,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   const watchedWage = form.watch('wage');
   const watchedAnnualSalary = form.watch('annualSalary');
   const watchedEmploymentType = form.watch('employmentType');
+  const watchedEstimatedNonBillable = form.watch('estimatedNonBillableHours');
 
   // Cost rate calculation logic
   const calculatedCostRate = React.useMemo(() => {
@@ -166,17 +168,33 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
 
     const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19; // simplified for part-time
     const annualHours = weeklyHours * 52;
-    const annualLeaveHours = 4 * weeklyHours; // 4 weeks
-    const sickLeaveHours = 10 * (weeklyHours / 5); // 10 days at daily hours
+    
+    let nonProductiveHours;
+    if (watchedEstimatedNonBillable !== undefined && watchedEstimatedNonBillable > 0) {
+        nonProductiveHours = watchedEstimatedNonBillable;
+    } else {
+        const annualLeaveHours = 4 * weeklyHours; // 4 weeks
+        const sickLeaveHours = 10 * (weeklyHours / 5); // 10 days at daily hours
+        nonProductiveHours = annualLeaveHours + sickLeaveHours;
+    }
 
-    const productiveHours = annualHours - annualLeaveHours - sickLeaveHours;
+    const productiveHours = annualHours - nonProductiveHours;
     if (productiveHours <= 0) return payRate;
 
     const totalAnnualCost = annualHours * payRate;
     const costRate = totalAnnualCost / productiveHours;
     
     return parseFloat(costRate.toFixed(2));
-  }, [watchedPayType, watchedWage, watchedAnnualSalary, watchedEmploymentType]);
+  }, [watchedPayType, watchedWage, watchedAnnualSalary, watchedEmploymentType, watchedEstimatedNonBillable]);
+  
+  const defaultNonProductiveHours = React.useMemo(() => {
+    if (watchedEmploymentType === 'Casual') return 0;
+    const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19;
+    const annualLeaveHours = 4 * weeklyHours;
+    const sickLeaveHours = 10 * (weeklyHours / 5);
+    return annualLeaveHours + sickLeaveHours;
+  }, [watchedEmploymentType]);
+
 
   React.useEffect(() => {
       form.setValue('calculatedCostRate', calculatedCostRate);
@@ -366,6 +384,23 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                             </div>
                             <p className="text-sm text-muted-foreground">This calculates the employee's cost to the business per productive hour, factoring in non-billable time like leave. This figure is crucial for accurate job costing and quoting.</p>
                             
+                             <FormField
+                                control={form.control}
+                                name="estimatedNonBillableHours"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Estimated Non-Billable Hours (Annual)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="Leave blank for default" {...field} />
+                                    </FormControl>
+                                     <FormDescription>
+                                        Overrides the default leave calculation if provided. This will be auto-updated in the future.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+
                             <div className="grid grid-cols-3 gap-4 text-center">
                                 <div className="rounded-md border p-3">
                                     <p className="text-sm font-medium text-muted-foreground">Pay Rate</p>
@@ -375,7 +410,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                                 <div className="rounded-md border p-3">
                                     <p className="text-sm font-medium text-muted-foreground">Non-Productive</p>
                                     <p className="text-2xl font-bold">
-                                        {watchedEmploymentType === 'Casual' ? 0 : (4 * (watchedEmploymentType === 'Full-time' ? 38 : 19) + 10 * (watchedEmploymentType === 'Full-time' ? 7.6 : 3.8)).toFixed(0)}
+                                        {(watchedEstimatedNonBillable !== undefined && watchedEstimatedNonBillable > 0) ? watchedEstimatedNonBillable.toFixed(0) : defaultNonProductiveHours.toFixed(0)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">hours/year (Leave)</p>
                                 </div>

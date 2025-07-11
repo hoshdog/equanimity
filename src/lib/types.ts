@@ -92,6 +92,7 @@ export interface Employee {
     calculatedCostRate?: number;
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
     isOverhead?: boolean;
+    estimatedNonBillableHours?: number;
     tfn?: string;
     award?: string;
     leaveBalances?: {
