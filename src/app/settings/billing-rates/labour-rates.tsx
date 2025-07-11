@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Pencil, Trash2, DollarSign, Loader2 } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, DollarSign, Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getEmployeesWithWageData } from '@/lib/employees';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,9 @@ const laborRateSchema = z.object({
   isDefault: z.boolean(),
   standardRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   overtimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  overtimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(8),
   doubleTimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  doubleTimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(10),
   costRate: z.coerce.number(),
 });
 
@@ -77,31 +79,27 @@ function LaborRateDialog({
     const [employees, setEmployees] = React.useState<Employee[]>([]);
     const { toast } = useToast();
     const isEditing = !!initialData;
+
+    const getDefaultValues = (): LaborRateFormValues => ({
+        id: `labour-${Date.now()}`,
+        name: '',
+        isDefault: false,
+        standardRate: 0,
+        overtimeRate: 0,
+        overtimeAfterHours: 8,
+        doubleTimeRate: 0,
+        doubleTimeAfterHours: 10,
+        costRate: 0,
+    });
     
     const form = useForm<LaborRateFormValues>({
         resolver: zodResolver(laborRateSchema),
-        defaultValues: initialData || {
-            id: `labour-${Date.now()}`,
-            name: '',
-            isDefault: false,
-            standardRate: 0,
-            overtimeRate: 0,
-            doubleTimeRate: 0,
-            costRate: 0,
-        },
+        defaultValues: initialData || getDefaultValues(),
     });
 
     React.useEffect(() => {
         if (isOpen) {
-            form.reset(initialData || {
-                id: `labour-${Date.now()}`,
-                name: '',
-                isDefault: false,
-                standardRate: 0,
-                overtimeRate: 0,
-                doubleTimeRate: 0,
-                costRate: 0,
-            });
+            form.reset(initialData || getDefaultValues());
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialData]);
@@ -166,7 +164,7 @@ function LaborRateDialog({
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'Edit Labour Rate' : 'Add New Labour Rate'}</DialogTitle>
                     <DialogDescription>Define a new labour type and its billable rates. The cost rate is estimated for you.</DialogDescription>
@@ -204,7 +202,7 @@ function LaborRateDialog({
                                 </FormItem>
                             )}
                         />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <FormField
                                 control={form.control}
                                 name="standardRate"
@@ -217,11 +215,14 @@ function LaborRateDialog({
                                     </FormControl><FormMessage /></FormItem>
                                 )}
                             />
-                             <FormField
+                        </div>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
                                 control={form.control}
                                 name="overtimeRate"
                                 render={({ field }) => (
-                                    <FormItem><FormLabel>Time & 1/2</FormLabel><FormControl>
+                                    <FormItem><FormLabel>Time & 1/2 Rate</FormLabel><FormControl>
                                          <div className="relative">
                                             <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input type="number" step="0.01" className="pl-6" {...field} />
@@ -231,12 +232,38 @@ function LaborRateDialog({
                             />
                              <FormField
                                 control={form.control}
+                                name="overtimeAfterHours"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>After Hours</FormLabel><FormControl>
+                                        <div className="relative">
+                                            <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input type="number" step="0.1" className="pl-7" {...field} />
+                                        </div>
+                                    </FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <FormField
+                                control={form.control}
                                 name="doubleTimeRate"
                                 render={({ field }) => (
-                                    <FormItem><FormLabel>Double Time</FormLabel><FormControl>
+                                    <FormItem><FormLabel>Double Time Rate</FormLabel><FormControl>
                                          <div className="relative">
                                             <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input type="number" step="0.01" className="pl-6" {...field} />
+                                        </div>
+                                    </FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="doubleTimeAfterHours"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>After Hours</FormLabel><FormControl>
+                                        <div className="relative">
+                                            <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input type="number" step="0.1" className="pl-7" {...field} />
                                         </div>
                                     </FormControl><FormMessage /></FormItem>
                                 )}
@@ -301,7 +328,7 @@ export function LabourRates() {
                 const employees = await getEmployeesWithWageData();
                 const uniqueRoles = [...new Set(employees.map(e => e.role))];
                 
-                const generatedRates = uniqueRoles.map(role => {
+                const generatedRates: LaborRateFormValues[] = uniqueRoles.map(role => {
                     const costRate = calculateCostRate(role, employees);
                     const standardRate = costRate / (1 - 0.40); // Target 40% margin
 
@@ -312,7 +339,9 @@ export function LabourRates() {
                         costRate: costRate,
                         standardRate: parseFloat(standardRate.toFixed(2)),
                         overtimeRate: parseFloat((standardRate * 1.5).toFixed(2)),
+                        overtimeAfterHours: 8,
                         doubleTimeRate: parseFloat((standardRate * 2).toFixed(2)),
+                        doubleTimeAfterHours: 10,
                     };
                 });
 
@@ -401,6 +430,9 @@ export function LabourRates() {
                                     <div className="flex items-center gap-2">
                                         <span>{rate.name}</span>
                                         {rate.isDefault && <Badge>DEFAULT</Badge>}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        OT after {rate.overtimeAfterHours}h, DT after {rate.doubleTimeAfterHours}h
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground">${rate.costRate.toFixed(2)}</TableCell>
