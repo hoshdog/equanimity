@@ -64,32 +64,47 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (state === 'expanded' && sidebarRef.current) {
-      const spans = sidebarRef.current.querySelectorAll('[data-sidebar="menu-button"] > span');
-      let maxWidth = 0;
-      spans.forEach(span => {
-        // Temporarily make it visible to measure
-        const currentDisplay = (span as HTMLElement).style.display;
-        (span as HTMLElement).style.display = 'inline-block';
-        if (span.scrollWidth > maxWidth) {
-          maxWidth = span.scrollWidth;
-        }
-        (span as HTMLElement).style.display = currentDisplay;
-      });
-
-      if (maxWidth > 0) {
-        // 3.5rem for collapsed width (icon + padding) + measured text width + some padding
-        const iconAndPaddingWidth = 60; // Approx 3.5rem in pixels + gap
-        const newWidth = maxWidth + iconAndPaddingWidth;
+        let maxWidth = 0;
         
-        const styleId = 'dynamic-sidebar-width';
-        let styleTag = document.getElementById(styleId);
-        if (!styleTag) {
-            styleTag = document.createElement('style');
-            styleTag.id = styleId;
-            document.head.appendChild(styleTag);
+        // Measure navigation items
+        const navSpans = sidebarRef.current.querySelectorAll('[data-sidebar="menu-button"] > span');
+        navSpans.forEach(span => {
+            const htmlSpan = span as HTMLElement;
+            const currentDisplay = htmlSpan.style.display;
+            htmlSpan.style.display = 'inline-block';
+            if (htmlSpan.scrollWidth > maxWidth) {
+                maxWidth = htmlSpan.scrollWidth;
+            }
+            htmlSpan.style.display = currentDisplay;
+        });
+
+        // Measure footer items
+        const footerSpans = sidebarRef.current.querySelectorAll('[data-sidebar="footer-text"]');
+         footerSpans.forEach(span => {
+            const htmlSpan = span as HTMLElement;
+            const currentDisplay = htmlSpan.style.display;
+            htmlSpan.style.display = 'inline-block';
+            if (htmlSpan.scrollWidth > maxWidth) {
+                maxWidth = htmlSpan.scrollWidth;
+            }
+            htmlSpan.style.display = currentDisplay;
+        });
+
+
+        if (maxWidth > 0) {
+            // Approx width for icon, avatar, padding, gaps, and logout button
+            const extraSpace = 90; 
+            const newWidth = maxWidth + extraSpace;
+            
+            const styleId = 'dynamic-sidebar-width';
+            let styleTag = document.getElementById(styleId);
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = styleId;
+                document.head.appendChild(styleTag);
+            }
+            styleTag.innerHTML = `:root { --sidebar-width: ${newWidth}px; }`;
         }
-        styleTag.innerHTML = `:root { --sidebar-width: ${newWidth}px; }`;
-      }
     }
   }, [state]);
 
@@ -142,8 +157,8 @@ export function AppSidebar() {
               "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
-                <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
+                <span data-sidebar="footer-text" className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
+                <span data-sidebar="footer-text" className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
               "ml-auto h-8 w-8",
