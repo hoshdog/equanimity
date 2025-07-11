@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -76,15 +75,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-2 flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="shrink-0 text-primary hover:bg-primary/10">
-            <Waves className="h-5 w-5" />
-        </Button>
-        <span className={cn("text-lg font-semibold text-primary", state === 'collapsed' && 'hidden')}>
-          Equanimity
-        </span>
+      <SidebarHeader>
+        <SidebarMenuButton className="self-end" asChild>
+           <Button variant="ghost" size="icon">
+              <Waves className="h-5 w-5" />
+           </Button>
+        </SidebarMenuButton>
       </SidebarHeader>
-      <SidebarContent className="p-2">
+      <SidebarContent>
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
@@ -104,21 +102,6 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-2">
-         <div className="flex items-center gap-2">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
-              <AvatarFallback>JD</AvatarFallback>
-            </Avatar>
-            <div className={cn("flex flex-col", state === 'collapsed' && "hidden")}>
-                <span className="text-sm font-semibold">Jane Doe</span>
-                <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
-            </div>
-             <Button variant="ghost" size="icon" className={cn("ml-auto", state === 'collapsed' && "hidden")}>
-                <LogOut className="h-5 w-5" />
-             </Button>
-         </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }

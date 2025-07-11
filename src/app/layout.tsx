@@ -26,11 +26,7 @@ export default function RootLayout({
           <div className="flex">
             <AppSidebar />
             <main className="flex-1 min-w-0 flex flex-col">
-              <div className="md:hidden flex items-center justify-between p-2 border-b">
-                 <div className="flex items-center gap-2 text-lg font-semibold text-primary">
-                  <Waves className="h-5 w-5" />
-                  <span>Equanimity</span>
-                 </div>
+              <div className="md:hidden flex items-center justify-end p-2 border-b">
                  <SidebarTrigger />
               </div>
               {children}
