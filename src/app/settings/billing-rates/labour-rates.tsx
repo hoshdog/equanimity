@@ -1,3 +1,4 @@
+
 // src/app/settings/billing-rates/labour-rates.tsx
 'use client';
 
@@ -49,18 +50,26 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 
 const laborRateSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'Please select an employee role.'),
   isDefault: z.boolean(),
+  // Standard Rates
   standardRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  costRate: z.coerce.number(),
+  // Daily Overtime
   overtimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   overtimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(8),
   doubleTimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   doubleTimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(10),
-  costRate: z.coerce.number(),
+  // Special Rates
+  saturdayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  sundayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  publicHolidayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  afterHoursCalloutRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
 });
 
 type LaborRateFormValues = z.infer<typeof laborRateSchema>;
@@ -85,11 +94,15 @@ function LaborRateDialog({
         name: '',
         isDefault: false,
         standardRate: 0,
+        costRate: 0,
         overtimeRate: 0,
         overtimeAfterHours: 8,
         doubleTimeRate: 0,
         doubleTimeAfterHours: 10,
-        costRate: 0,
+        saturdayRate: 0,
+        sundayRate: 0,
+        publicHolidayRate: 0,
+        afterHoursCalloutRate: 0,
     });
     
     const form = useForm<LaborRateFormValues>({
@@ -146,7 +159,18 @@ function LaborRateDialog({
     React.useEffect(() => {
         const subscription = form.watch((value, { name }) => {
             if (name === 'name') {
-                form.setValue('costRate', calculateCostRate(value.name || ''));
+                const costRate = calculateCostRate(value.name || '');
+                form.setValue('costRate', costRate);
+                
+                // Auto-populate other rates based on cost rate if they are 0
+                const standardRate = costRate / (1-0.4); // Target 40% margin
+                if (form.getValues('standardRate') === 0) form.setValue('standardRate', parseFloat(standardRate.toFixed(2)));
+                if (form.getValues('overtimeRate') === 0) form.setValue('overtimeRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                if (form.getValues('doubleTimeRate') === 0) form.setValue('doubleTimeRate', parseFloat((standardRate * 2).toFixed(2)));
+                if (form.getValues('saturdayRate') === 0) form.setValue('saturdayRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                if (form.getValues('sundayRate') === 0) form.setValue('sundayRate', parseFloat((standardRate * 2).toFixed(2)));
+                if (form.getValues('publicHolidayRate') === 0) form.setValue('publicHolidayRate', parseFloat((standardRate * 2.5).toFixed(2)));
+                if (form.getValues('afterHoursCalloutRate') === 0) form.setValue('afterHoursCalloutRate', parseFloat((standardRate * 2).toFixed(2)));
             }
         });
         return () => subscription.unsubscribe();
@@ -164,13 +188,13 @@ function LaborRateDialog({
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'Edit Labour Rate' : 'Add New Labour Rate'}</DialogTitle>
                     <DialogDescription>Define a new labour type and its billable rates. The cost rate is estimated for you.</DialogDescription>
                 </DialogHeader>
                 <FormProvider {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-4">
                          <FormField
                             control={form.control}
                             name="name"
@@ -202,75 +226,66 @@ function LaborRateDialog({
                                 </FormItem>
                             )}
                         />
+                        
+                        <Separator className="my-4"/>
+                        <h4 className="text-md font-medium">Daily Overtime Rules</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <FormField
-                                control={form.control}
-                                name="standardRate"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Standard</FormLabel><FormControl>
+                             <FormField control={form.control} name="standardRate" render={({ field }) => (
+                                    <FormItem><FormLabel>Standard Rate</FormLabel><FormControl>
                                         <div className="relative">
                                             <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input type="number" step="0.01" className="pl-6" {...field} />
                                         </div>
                                     </FormControl><FormMessage /></FormItem>
-                                )}
-                            />
-                        </div>
-
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="overtimeRate"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Time & 1/2 Rate</FormLabel><FormControl>
-                                         <div className="relative">
-                                            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input type="number" step="0.01" className="pl-6" {...field} />
-                                        </div>
-                                    </FormControl><FormMessage /></FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name="overtimeAfterHours"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>After Hours</FormLabel><FormControl>
-                                        <div className="relative">
-                                            <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input type="number" step="0.1" className="pl-7" {...field} />
-                                        </div>
-                                    </FormControl><FormMessage /></FormItem>
-                                )}
-                            />
+                                )}/>
                         </div>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <FormField
-                                control={form.control}
-                                name="doubleTimeRate"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Double Time Rate</FormLabel><FormControl>
-                                         <div className="relative">
-                                            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input type="number" step="0.01" className="pl-6" {...field} />
-                                        </div>
-                                    </FormControl><FormMessage /></FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="doubleTimeAfterHours"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>After Hours</FormLabel><FormControl>
-                                        <div className="relative">
-                                            <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input type="number" step="0.1" className="pl-7" {...field} />
-                                        </div>
-                                    </FormControl><FormMessage /></FormItem>
-                                )}
-                            />
+                            <FormField control={form.control} name="overtimeRate" render={({ field }) => (
+                                <FormItem><FormLabel>Time & 1/2 Rate</FormLabel><FormControl>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" step="0.01" className="pl-6" {...field} />
+                                    </div>
+                                </FormControl><FormMessage /></FormItem>
+                            )}/>
+                             <FormField control={form.control} name="overtimeAfterHours" render={({ field }) => (
+                                <FormItem><FormLabel>Starts After (hours)</FormLabel><FormControl>
+                                    <div className="relative">
+                                        <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" step="0.1" className="pl-7" {...field} />
+                                    </div>
+                                </FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <FormField control={form.control} name="doubleTimeRate" render={({ field }) => (
+                                <FormItem><FormLabel>Double Time Rate</FormLabel><FormControl>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" step="0.01" className="pl-6" {...field} />
+                                    </div>
+                                </FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="doubleTimeAfterHours" render={({ field }) => (
+                                <FormItem><FormLabel>Starts After (hours)</FormLabel><FormControl>
+                                    <div className="relative">
+                                        <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" step="0.1" className="pl-7" {...field} />
+                                    </div>
+                                </FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                        
+                        <Separator className="my-4"/>
+                        <h4 className="text-md font-medium">Special &amp; Weekend Rates</h4>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="saturdayRate" render={({ field }) => ( <FormItem><FormLabel>Saturday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField control={form.control} name="sundayRate" render={({ field }) => ( <FormItem><FormLabel>Sunday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField control={form.control} name="publicHolidayRate" render={({ field }) => ( <FormItem><FormLabel>Public Holiday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField control={form.control} name="afterHoursCalloutRate" render={({ field }) => ( <FormItem><FormLabel>After-Hours Callout</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormDescription>Min 2 hours typically applied.</FormDescription><FormMessage /></FormItem> )}/>
                         </div>
 
-                         <Card className="bg-secondary/30">
+                         <Card className="bg-secondary/30 mt-6">
                            <CardContent className="p-3">
                              <div className="flex items-center justify-between gap-6 text-sm">
                                 <div className="text-left">
@@ -285,7 +300,7 @@ function LaborRateDialog({
                            </CardContent>
                          </Card>
                         <input type="hidden" {...form.register('costRate')} />
-                        <DialogFooter>
+                        <DialogFooter className="pt-4 border-t">
                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                             <Button type="submit">{isEditing ? 'Save Changes' : 'Add Labour Rate'}</Button>
                         </DialogFooter>
@@ -342,6 +357,10 @@ export function LabourRates() {
                         overtimeAfterHours: 8,
                         doubleTimeRate: parseFloat((standardRate * 2).toFixed(2)),
                         doubleTimeAfterHours: 10,
+                        saturdayRate: parseFloat((standardRate * 1.5).toFixed(2)),
+                        sundayRate: parseFloat((standardRate * 2).toFixed(2)),
+                        publicHolidayRate: parseFloat((standardRate * 2.5).toFixed(2)),
+                        afterHoursCalloutRate: parseFloat((standardRate * 2).toFixed(2)),
                     };
                 });
 
@@ -412,49 +431,49 @@ export function LabourRates() {
                 </LaborRateDialog>
             </CardHeader>
             <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Labour Type</TableHead>
-                            <TableHead className="text-right">Cost Rate</TableHead>
-                            <TableHead className="text-right">Standard</TableHead>
-                            <TableHead className="text-right">Time & 1/2</TableHead>
-                            <TableHead className="text-right">Double Time</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {labourRates.map(rate => (
-                            <TableRow key={rate.id}>
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        <span>{rate.name}</span>
-                                        {rate.isDefault && <Badge>DEFAULT</Badge>}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        OT after {rate.overtimeAfterHours}h, DT after {rate.doubleTimeAfterHours}h
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">${rate.costRate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">${rate.standardRate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">${rate.overtimeRate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">${rate.doubleTimeRate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <LaborRateDialog initialData={rate} onSave={handleSave}>
-                                             <Button variant="ghost" size="icon">
-                                                <Pencil className="h-4 w-4" />
-                                             </Button>
-                                        </LaborRateDialog>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(rate.id)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
+                 <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Labour Type</TableHead>
+                                <TableHead className="text-right">Standard</TableHead>
+                                <TableHead className="text-right">Saturday</TableHead>
+                                <TableHead className="text-right">Sunday</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {labourRates.map(rate => (
+                                <TableRow key={rate.id}>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <span>{rate.name}</span>
+                                            {rate.isDefault && <Badge>DEFAULT</Badge>}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Cost: ${rate.costRate.toFixed(2)}/hr
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">${rate.standardRate.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">${rate.saturdayRate.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">${rate.sundayRate.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <LaborRateDialog initialData={rate} onSave={handleSave}>
+                                                <Button variant="ghost" size="icon">
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            </LaborRateDialog>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(rate.id)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                 </div>
             </CardContent>
         </Card>
     );
