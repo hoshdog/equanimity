@@ -38,7 +38,6 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
   const [open, setOpen] = React.useState(false)
 
   const handleSelect = (currentValue: string) => {
-    // The `currentValue` from onSelect is the `value` prop from CommandItem, which we set to the unique option.value.
     onChange(currentValue === value ? "" : currentValue)
     setOpen(false)
   };
