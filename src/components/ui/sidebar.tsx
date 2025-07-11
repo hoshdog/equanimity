@@ -120,8 +120,7 @@ const Sidebar = React.forwardRef<
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     const [isMounted, setIsMounted] = React.useState(false);
-    const titleId = React.useId();
-
+    
     React.useEffect(() => {
         setIsMounted(true);
     }, []);
@@ -141,9 +140,8 @@ const Sidebar = React.forwardRef<
                 "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
-            aria-labelledby={titleId}
           >
-            <SheetTitle id={titleId} className="sr-only">Main Menu</SheetTitle>
+            <SheetTitle className="sr-only">Main Menu</SheetTitle>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
         </Sheet>
