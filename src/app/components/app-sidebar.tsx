@@ -32,6 +32,7 @@ import {
   ClipboardList,
   ChevronLeft,
   Receipt,
+  Settings,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ const navItems = [
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
   { href: '/training', label: 'Training', icon: BrainCircuit },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AppSidebar() {
