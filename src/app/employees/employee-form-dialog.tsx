@@ -20,12 +20,14 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Loader2, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2, DollarSign, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 const employeeFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -36,6 +38,7 @@ const employeeFormSchema = z.object({
   payType: z.enum(['Hourly', 'Salary']).default('Hourly'),
   wage: z.coerce.number().min(0, "Wage must be a positive number.").optional(),
   annualSalary: z.coerce.number().min(0, "Salary must be a positive number.").optional(),
+  calculatedCostRate: z.coerce.number().min(0).default(0),
   award: z.string().optional(),
   isOverhead: z.boolean().default(false),
   tfn: z.string().optional(),
@@ -139,6 +142,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
       payType: 'Hourly',
       wage: 0,
       annualSalary: 0,
+      calculatedCostRate: 0,
       award: '',
       isOverhead: false,
       tfn: '',
@@ -148,6 +152,34 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   });
 
   const watchedPayType = form.watch('payType');
+  const watchedWage = form.watch('wage');
+  const watchedAnnualSalary = form.watch('annualSalary');
+  const watchedEmploymentType = form.watch('employmentType');
+
+  // Cost rate calculation logic
+  const calculatedCostRate = React.useMemo(() => {
+    const payRate = watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38));
+    if (payRate === 0 || watchedEmploymentType === 'Casual') {
+        return payRate;
+    }
+
+    const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19; // simplified for part-time
+    const annualHours = weeklyHours * 52;
+    const annualLeaveHours = 4 * weeklyHours; // 4 weeks
+    const sickLeaveHours = 10 * (weeklyHours / 5); // 10 days at daily hours
+
+    const productiveHours = annualHours - annualLeaveHours - sickLeaveHours;
+    if (productiveHours <= 0) return payRate;
+
+    const totalAnnualCost = annualHours * payRate;
+    const costRate = totalAnnualCost / productiveHours;
+    
+    return parseFloat(costRate.toFixed(2));
+  }, [watchedPayType, watchedWage, watchedAnnualSalary, watchedEmploymentType]);
+
+  React.useEffect(() => {
+      form.setValue('calculatedCostRate', calculatedCostRate);
+  }, [calculatedCostRate, form]);
 
   async function onSubmit(values: EmployeeFormValues) {
     setLoading(true);
@@ -190,10 +222,11 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <Tabs defaultValue="personal">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="personal">Personal</TabsTrigger>
                 <TabsTrigger value="employment">Employment</TabsTrigger>
                 <TabsTrigger value="payroll">Payroll</TabsTrigger>
+                <TabsTrigger value="costing">Costing</TabsTrigger>
                 <TabsTrigger value="leave">Leave</TabsTrigger>
               </TabsList>
               <TabsContent value="personal" className="pt-4">
@@ -323,6 +356,37 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                     </div>
                  </div>
               </TabsContent>
+               <TabsContent value="costing" className="pt-4">
+                    <Card>
+                        <CardContent className="space-y-4 pt-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold flex items-center gap-2"><Calculator className="h-5 w-5 text-primary"/> True Cost Rate Calculator</h3>
+                                <input type="hidden" {...form.register('calculatedCostRate')} />
+                            </div>
+                            <p className="text-sm text-muted-foreground">This calculates the employee's cost to the business per productive hour, factoring in non-billable time like leave. This figure is crucial for accurate job costing and quoting.</p>
+                            
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="rounded-md border p-3">
+                                    <p className="text-sm font-medium text-muted-foreground">Pay Rate</p>
+                                    <p className="text-2xl font-bold">${(watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38))).toFixed(2)}</p>
+                                    <p className="text-xs text-muted-foreground">per hour</p>
+                                </div>
+                                <div className="rounded-md border p-3">
+                                    <p className="text-sm font-medium text-muted-foreground">Non-Productive</p>
+                                    <p className="text-2xl font-bold">
+                                        {watchedEmploymentType === 'Casual' ? 0 : (4 * (watchedEmploymentType === 'Full-time' ? 38 : 19) + 10 * (watchedEmploymentType === 'Full-time' ? 7.6 : 3.8)).toFixed(0)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">hours/year (Leave)</p>
+                                </div>
+                                 <div className="rounded-md border bg-primary/10 border-primary p-3">
+                                    <p className="text-sm font-medium text-primary">Calculated Cost Rate</p>
+                                    <p className="text-2xl font-bold text-primary">${calculatedCostRate.toFixed(2)}</p>
+                                    <p className="text-xs text-muted-foreground">per productive hour</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+               </TabsContent>
                <TabsContent value="leave" className="pt-4">
                  <div className="space-y-4">
                      <FormDescription>Enter the opening balances for the employee's leave entitlements (in hours).</FormDescription>

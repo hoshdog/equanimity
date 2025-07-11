@@ -89,6 +89,7 @@ export interface Employee {
     wage?: number; // Optional wage for hourly
     annualSalary?: number; // Optional salary for salaried
     payType?: 'Hourly' | 'Salary';
+    calculatedCostRate?: number;
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
     isOverhead?: boolean;
     tfn?: string;
