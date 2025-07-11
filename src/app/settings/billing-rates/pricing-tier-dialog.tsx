@@ -23,7 +23,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { PlusCircle, Trash2, DollarSign, Percent } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 const scaledPriceSchema = z.object({
   from: z.coerce.number().min(0, "Must be a positive value."),
@@ -200,8 +199,11 @@ export function PricingTierDialog({ tier, onSave, children }: PricingTierDialogP
                                 {fields.map((field, index) => {
                                     const nextBracket = scaledPricingWatch && scaledPricingWatch[index + 1];
                                     const hasUpperLimit = !!nextBracket;
-                                    const markup = scaledPricingWatch ? scaledPricingWatch[index].markup : 0;
-                                    const margin = markup > 0 ? (markup / (100 + markup)) * 100 : 0;
+                                    
+                                    const costPrice = (scaledPricingWatch?.[index]?.from === 0) ? 1 : scaledPricingWatch?.[index]?.from || 1;
+                                    const markup = scaledPricingWatch?.[index]?.markup || 0;
+                                    const sellPrice = costPrice * (1 + markup / 100);
+                                    const margin = sellPrice > 0 ? ((sellPrice - costPrice) / sellPrice) * 100 : 0;
                                     
                                     return (
                                         <div key={field.id} className="flex items-center gap-2 p-2 rounded-md border bg-secondary/30">
