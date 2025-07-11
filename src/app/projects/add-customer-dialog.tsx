@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import type { CustomerDetails } from '@/lib/types';
 import { Plus } from 'lucide-react';
+import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
 
 interface AddCustomerDialogProps {
   setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
@@ -75,7 +76,14 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCu
                 <FormItem><FormLabel>Customer Name</FormLabel><FormControl><Input placeholder="e.g., Innovate Corp" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="address" render={({ field }) => (
-                <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Address</FormLabel><FormControl>
+                  <AddressAutocompleteInput 
+                    placeholder="e.g., 123 Tech Park, Sydney" 
+                    onPlaceSelect={(place) => {
+                      form.setValue('address', place.formatted_address || '', { shouldValidate: true });
+                    }}
+                  />
+                </FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="primaryContactName" render={({ field }) => (
                 <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
