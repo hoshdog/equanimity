@@ -16,7 +16,7 @@ const sidebarNavItems = [
   {
     title: 'Billing Rates',
     href: '/settings/billing-rates',
-    icon: <DollarSign className="mr-2 h-4 w-4" />,
+    icon: <Percent className="mr-2 h-4 w-4" />,
   },
   {
     title: 'Bills & Purchases',
@@ -62,11 +62,6 @@ const sidebarNavItems = [
     title: 'Plan & Billing',
     href: '/settings/plan',
     icon: <User className="mr-2 h-4 w-4" />,
-  },
-  {
-    title: 'Pricing Levels',
-    href: '/settings/pricing-levels',
-    icon: <Percent className="mr-2 h-4 w-4" />,
   },
   {
     title: 'Price List',
