@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
-import React, { useState, useEffect } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -65,11 +64,6 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { state, setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -94,7 +88,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
                <SidebarMenuButton
                 asChild
-                isActive={isClient ? pathname === item.href : false}
+                isActive={pathname === item.href}
                 tooltip={item.label}
                 className="w-full"
                 onClick={handleLinkClick}
