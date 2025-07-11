@@ -71,7 +71,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   const watchedCustomerId = form.watch('customerId');
   
   const [customerInputValue, setCustomerInputValue] = React.useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = React.useState('');
 
   const customerOptions = React.useMemo(() => {
     return Object.values(customerDetails).map(c => ({
@@ -91,11 +90,18 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, customerDetails]);
   
   React.useEffect(() => {
-    form.setValue('customerId', selectedCustomerId);
     form.resetField('siteId', { defaultValue: '' });
     form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
-  }, [selectedCustomerId, form]);
+  }, [watchedCustomerId, form]);
 
+
+  const handleCustomerSelection = (customerName: string) => {
+    setCustomerInputValue(customerName);
+    const match = customerOptions.find(opt => opt.label.toLowerCase() === customerName.toLowerCase());
+    const customerId = match ? match.value : '';
+    form.setValue('customerId', customerId, { shouldValidate: true });
+  };
+  
 
   function onSubmit(values: ProjectFormValues) {
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
@@ -107,13 +113,12 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     setIsFormOpen(false);
     form.reset();
     setCustomerInputValue('');
-    setSelectedCustomerId('');
   }
   
   const handleCustomerAdded = (customerId: string) => {
     const customerName = customerDetails[customerId]?.name || '';
     setCustomerInputValue(customerName);
-    setSelectedCustomerId(customerId);
+    form.setValue('customerId', customerId, { shouldValidate: true });
   }
 
   const handleSiteAdded = (siteId: string) => {
@@ -143,14 +148,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
   return (
     <>
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); setSelectedCustomerId(''); } }}>
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); } }}>
           <DialogTrigger asChild>
               <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   New Project
               </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
               <DialogHeader>
                   <DialogTitle>Create New Project</DialogTitle>
                   <DialogDescription>Fill out the form below to create a new project.</DialogDescription>
@@ -185,34 +190,22 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                       </Button>
                                   </AddCustomerDialog>
                                </div>
-                               <FormControl>
-                                    <>
+                                <div className="flex items-center gap-2">
+                                    <FormControl>
                                         <Input
-                                            {...field}
                                             list="customer-options"
                                             placeholder="Select or type a customer name..."
                                             value={customerInputValue}
-                                            onChange={(e) => {
-                                                const name = e.target.value;
-                                                setCustomerInputValue(name);
-                                                const match = customerOptions.find(opt => opt.label.toLowerCase() === name.toLowerCase());
-                                                setSelectedCustomerId(match ? match.value : '');
-                                            }}
-                                            onBlur={() => {
-                                                const match = customerOptions.find(opt => opt.label.toLowerCase() === customerInputValue.toLowerCase());
-                                                if (!match) {
-                                                    setCustomerInputValue('');
-                                                    setSelectedCustomerId('');
-                                                }
-                                            }}
+                                            onChange={(e) => handleCustomerSelection(e.target.value)}
+                                            autoComplete="off"
                                         />
-                                        <datalist id="customer-options">
-                                            {customerOptions.map(opt => (
-                                                <option key={opt.value} value={opt.label} />
-                                            ))}
-                                        </datalist>
-                                    </>
-                               </FormControl>
+                                    </FormControl>
+                                    <datalist id="customer-options">
+                                        {customerOptions.map(opt => (
+                                            <option key={opt.value} value={opt.label} />
+                                        ))}
+                                    </datalist>
+                                </div>
                               <FormMessage />
                           </FormItem>
                       )}/>
@@ -245,46 +238,46 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                       )}/>
                      
                       <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                              <FormLabel>Project Contacts</FormLabel>
-                              <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                      <TooltipTrigger asChild>
-                                          <DialogTrigger asChild>
-                                              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
-                                          </DialogTrigger>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Manage Roles</p></TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                  <DialogContent>
-                                      <DialogHeader>
-                                          <DialogTitle>Manage Contact Roles</DialogTitle>
-                                          <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
-                                      </DialogHeader>
-                                      <div className="space-y-4">
-                                          <div className="flex gap-2">
-                                              <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
-                                              <Button onClick={handleAddRole}>Add Role</Button>
-                                          </div>
-                                          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                              {commonRoles.map(role => (
-                                                  <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                                      <span className="text-sm">{role}</span>
-                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
-                                                          <Trash2 className="h-4 w-4" />
-                                                      </Button>
-                                                  </div>
-                                              ))}
-                                          </div>
-                                      </div>
-                                       <DialogFooter>
-                                          <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
-                                      </DialogFooter>
-                                  </DialogContent>
-                              </Dialog>
-                          </div>
+                            <div className="flex items-center justify-between">
+                                <FormLabel>Project Contacts</FormLabel>
+                                <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                                    <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DialogTrigger asChild>
+                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                            </DialogTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>Manage Roles</p></TooltipContent>
+                                    </Tooltip>
+                                    </TooltipProvider>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Manage Contact Roles</DialogTitle>
+                                            <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4">
+                                            <div className="flex gap-2">
+                                                <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                                                <Button onClick={handleAddRole}>Add Role</Button>
+                                            </div>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                                {commonRoles.map(role => (
+                                                    <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                        <span className="text-sm">{role}</span>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
                            {fields.map((field, index) => (
                               <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
                                   <div className="grid grid-cols-2 gap-2 flex-1">
