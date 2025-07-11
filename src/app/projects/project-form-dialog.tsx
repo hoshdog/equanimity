@@ -20,7 +20,6 @@ import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Combobox } from '@/components/ui/combobox';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -31,7 +30,7 @@ interface ProjectFormDialogProps {
 const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
-    customerId: z.string({ required_error: "Please select a customer."}).min(1, "Please select a customer."),
+    customerId: z.string({ required_error: "Please select a valid customer."}).min(1, "Please select a valid customer."),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
     projectContacts: z.array(
         z.object({
@@ -70,6 +69,9 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   });
   
   const watchedCustomerId = form.watch('customerId');
+  
+  const [customerInputValue, setCustomerInputValue] = React.useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState('');
 
   const customerOptions = React.useMemo(() => {
     return Object.values(customerDetails).map(c => ({
@@ -89,9 +91,10 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, customerDetails]);
   
   React.useEffect(() => {
+    form.setValue('customerId', selectedCustomerId);
     form.resetField('siteId', { defaultValue: '' });
     form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
-  }, [watchedCustomerId, form]);
+  }, [selectedCustomerId, form]);
 
 
   function onSubmit(values: ProjectFormValues) {
@@ -103,10 +106,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
     setIsFormOpen(false);
     form.reset();
+    setCustomerInputValue('');
+    setSelectedCustomerId('');
   }
   
   const handleCustomerAdded = (customerId: string) => {
-    form.setValue('customerId', customerId, { shouldValidate: true });
+    const customerName = customerDetails[customerId]?.name || '';
+    setCustomerInputValue(customerName);
+    setSelectedCustomerId(customerId);
   }
 
   const handleSiteAdded = (siteId: string) => {
@@ -136,7 +143,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
   return (
     <>
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) form.reset(); }}>
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); setSelectedCustomerId(''); } }}>
           <DialogTrigger asChild>
               <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
@@ -166,8 +173,8 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                       )}/>
 
                       <FormField control={form.control} name="customerId" render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                              <div className="flex items-center justify-between">
+                          <FormItem>
+                               <div className="flex items-center justify-between">
                                   <FormLabel>Customer</FormLabel>
                                   <AddCustomerDialog 
                                       setCustomerDetails={setCustomerDetails}
@@ -178,14 +185,34 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                       </Button>
                                   </AddCustomerDialog>
                                </div>
-                               <Combobox
-                                 options={customerOptions}
-                                 value={field.value}
-                                 onChange={field.onChange}
-                                 placeholder="Select a customer"
-                                 searchPlaceholder="Search customers..."
-                                 emptyPlaceholder="No customers found."
-                               />
+                               <FormControl>
+                                    <>
+                                        <Input
+                                            {...field}
+                                            list="customer-options"
+                                            placeholder="Select or type a customer name..."
+                                            value={customerInputValue}
+                                            onChange={(e) => {
+                                                const name = e.target.value;
+                                                setCustomerInputValue(name);
+                                                const match = customerOptions.find(opt => opt.label.toLowerCase() === name.toLowerCase());
+                                                setSelectedCustomerId(match ? match.value : '');
+                                            }}
+                                            onBlur={() => {
+                                                const match = customerOptions.find(opt => opt.label.toLowerCase() === customerInputValue.toLowerCase());
+                                                if (!match) {
+                                                    setCustomerInputValue('');
+                                                    setSelectedCustomerId('');
+                                                }
+                                            }}
+                                        />
+                                        <datalist id="customer-options">
+                                            {customerOptions.map(opt => (
+                                                <option key={opt.value} value={opt.label} />
+                                            ))}
+                                        </datalist>
+                                    </>
+                               </FormControl>
                               <FormMessage />
                           </FormItem>
                       )}/>
@@ -221,14 +248,16 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                           <div className="flex items-center justify-between">
                               <FormLabel>Project Contacts</FormLabel>
                               <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
-                                  <TooltipProvider><Tooltip>
+                                <TooltipProvider>
+                                  <Tooltip>
                                       <TooltipTrigger asChild>
                                           <DialogTrigger asChild>
                                               <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
                                           </DialogTrigger>
                                       </TooltipTrigger>
                                       <TooltipContent><p>Manage Roles</p></TooltipContent>
-                                  </Tooltip></TooltipProvider>
+                                  </Tooltip>
+                                </TooltipProvider>
                                   <DialogContent>
                                       <DialogHeader>
                                           <DialogTitle>Manage Contact Roles</DialogTitle>
@@ -275,24 +304,24 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                                               {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                           </SelectContent>
                                                       </Select>
-                                                       <TooltipProvider>
-                                                          <Tooltip>
-                                                              <TooltipTrigger asChild>
-                                                              <AddContactDialog 
-                                                                  customerId={watchedCustomerId}
-                                                                  setCustomerDetails={setCustomerDetails} 
-                                                                  onContactAdded={handleContactAdded}
-                                                              >
-                                                                  <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
-                                                                      <Plus className="h-4 w-4"/>
-                                                                  </Button>
-                                                              </AddContactDialog>
-                                                              </TooltipTrigger>
-                                                              <TooltipContent>
-                                                                  <p>Add New Contact</p>
-                                                              </TooltipContent>
-                                                          </Tooltip>
-                                                          </TooltipProvider>
+                                                      <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <AddContactDialog 
+                                                                    customerId={watchedCustomerId}
+                                                                    setCustomerDetails={setCustomerDetails} 
+                                                                    onContactAdded={handleContactAdded}
+                                                                >
+                                                                    <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                                                        <Plus className="h-4 w-4"/>
+                                                                    </Button>
+                                                                </AddContactDialog>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Add New Contact</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                      </TooltipProvider>
                                                   </div>
                                                   <FormMessage />
                                               </FormItem>
@@ -307,7 +336,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                                       <FormControl>
                                                           <SelectTrigger>
                                                               <SelectValue placeholder="Select a role" />
-                                                          </SelectTrigger>
+                                                          </Trigger>
                                                       </FormControl>
                                                       <SelectContent>
                                                           {commonRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
