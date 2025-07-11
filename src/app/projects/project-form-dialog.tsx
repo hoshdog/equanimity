@@ -15,10 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { mockEmployees } from '@/lib/mock-data';
 import type { Project, CustomerDetails } from '@/lib/types';
-import { AddCustomerDialog } from './add-customer-dialog';
-import { AddSiteDialog } from './add-site-dialog';
-import { AddContactDialog } from './add-contact-dialog';
-import { Combobox } from '@/components/ui/combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ProjectFormDialogProps {
@@ -30,7 +26,8 @@ interface ProjectFormDialogProps {
 const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
-    customerId: z.string({ required_error: "Please select a customer."}).min(1, "Please select a customer."),
+    customerName: z.string({ required_error: "Please select or enter a customer."}).min(1, "Please select or enter a customer."),
+    customerId: z.string().optional(),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
     contactId: z.string({ required_error: "Please select a primary contact."}).min(1, "Please select a primary contact."),
     assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
@@ -44,11 +41,11 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerId: "", siteId: "", contactId: "", assignedStaff: [] },
+    defaultValues: { name: "", description: "", customerName: "", customerId: "", siteId: "", contactId: "", assignedStaff: [] },
   });
   
+  const watchedCustomerName = form.watch('customerName');
   const watchedCustomerId = form.watch('customerId');
-  const watchedSiteId = form.watch('siteId');
 
   const customerOptions = React.useMemo(() => Object.values(customerDetails).map(c => ({
     label: c.name, value: c.id
@@ -56,40 +53,61 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
   const siteOptions = React.useMemo(() => {
     if (!watchedCustomerId) return [];
-    const customer = customerDetails[watchedCustomerId];
-    if (!customer) return [];
-    return customer.sites.map(site => ({ label: site.name, value: site.id }));
+    return customerDetails[watchedCustomerId]?.sites.map(site => ({ label: site.name, value: site.id })) || [];
   }, [watchedCustomerId, customerDetails]);
   
   const contactOptions = React.useMemo(() => {
     if(!watchedCustomerId) return [];
-    const customer = customerDetails[watchedCustomerId];
-    if (!customer) return [];
-    return customer.contacts.map(c => ({ label: c.name, value: c.id }));
+    return customerDetails[watchedCustomerId]?.contacts.map(c => ({ label: c.name, value: c.id })) || [];
   }, [watchedCustomerId, customerDetails]);
+
+  React.useEffect(() => {
+    const matchingCustomer = customerOptions.find(c => c.label.toLowerCase() === watchedCustomerName.toLowerCase());
+    if (matchingCustomer) {
+      if (form.getValues('customerId') !== matchingCustomer.value) {
+        form.setValue('customerId', matchingCustomer.value, { shouldValidate: true });
+      }
+    } else {
+      if (form.getValues('customerId')) {
+         form.setValue('customerId', '', { shouldValidate: true });
+      }
+    }
+  }, [watchedCustomerName, customerOptions, form]);
 
   React.useEffect(() => {
     form.resetField('siteId', { defaultValue: '' });
     form.resetField('contactId', { defaultValue: '' });
   }, [watchedCustomerId, form]);
 
-  React.useEffect(() => {
-    const customer = customerDetails[watchedCustomerId];
-    const site = customer?.sites.find(s => s.id === watchedSiteId);
-    if (site?.primaryContactId && contactOptions.some(c => c.value === site.primaryContactId)) {
-      form.setValue('contactId', site.primaryContactId);
-    } else {
-       form.resetField('contactId', { defaultValue: '' });
-    }
-  }, [watchedSiteId, watchedCustomerId, customerDetails, contactOptions, form]);
-
 
   function onSubmit(values: ProjectFormValues) {
+    let finalCustomerId = values.customerId;
+
+    // If customerId is not set, it's a new customer.
+    if (!finalCustomerId) {
+        const newId = `CUST-${Date.now()}`;
+        finalCustomerId = newId;
+        const newCustomer = {
+            id: newId,
+            name: values.customerName,
+            address: 'N/A',
+            type: 'Corporate Client',
+            primaryContactName: 'N/A',
+            email: 'N/A',
+            phone: 'N/A',
+            contacts: [],
+            sites: [],
+            projects: [],
+        };
+        setCustomerDetails(prev => ({ ...prev, [newId]: newCustomer }));
+        toast({ title: "New Customer Created", description: `"${values.customerName}" has been added.` });
+    }
+
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
         return mockEmployees.find(e => e.value === s.value) || { label: s.label, value: s.value };
     }) || [];
 
-    onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
+    onProjectCreated({ ...values, customerId: finalCustomerId, assignedStaff: assignedStaffWithFullDetails });
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
     setIsFormOpen(false);
     form.reset();
@@ -125,23 +143,15 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                         </FormItem>
                     )}/>
 
-                    <FormField control={form.control} name="customerId" render={({ field }) => (
-                        <FormItem className="flex flex-col">
+                    <FormField control={form.control} name="customerName" render={({ field }) => (
+                        <FormItem>
                             <FormLabel>Customer</FormLabel>
-                             <Combobox
-                                options={customerOptions}
-                                value={field.value}
-                                onChange={field.onChange}
-                                placeholder="Select customer..."
-                                notFoundContent={
-                                    <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={field.onChange}>
-                                        <Button variant="link" className="w-full">
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            Create a new customer
-                                        </Button>
-                                    </AddCustomerDialog>
-                                }
-                             />
+                             <FormControl>
+                                <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
+                             </FormControl>
+                             <datalist id="customer-options">
+                                {customerOptions.map(opt => <option key={opt.value} value={opt.label} />)}
+                             </datalist>
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -149,47 +159,28 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Site</FormLabel>
-                             <div className="flex gap-2">
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <AddSiteDialog 
-                                    customerId={watchedCustomerId}
-                                    customerDetails={customerDetails}
-                                    setCustomerDetails={setCustomerDetails}
-                                    onSiteAdded={field.onChange}
-                                >
-                                   <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
-                                </AddSiteDialog>
-                            </div>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="contactId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Primary Contact</FormLabel>
-                            <div className="flex gap-2">
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <AddContactDialog 
-                                    customerId={watchedCustomerId} 
-                                    setCustomerDetails={setCustomerDetails} 
-                                    onContactAdded={field.onChange}
-                                >
-                                   <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
-                                </AddContactDialog>
-                            </div>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}/>
