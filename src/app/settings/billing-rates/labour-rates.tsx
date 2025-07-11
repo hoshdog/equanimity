@@ -48,11 +48,12 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const laborRateSchema = z.object({
   id: z.string(),
-  name: z.string().min(3, 'Labour type must be at least 3 characters.'),
+  name: z.string().min(1, 'Please select an employee role.'),
   isDefault: z.boolean(),
   standardRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   overtimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
@@ -118,6 +119,11 @@ function LaborRateDialog({
         }
         fetchEmps();
     }, [isOpen, toast]);
+    
+    const employeeRoles = React.useMemo(() => {
+        const roles = employees.map(e => e.role);
+        return [...new Set(roles)]; // Get unique roles
+    }, [employees]);
 
     const calculateCostRate = React.useCallback((roleName: string) => {
         if (!roleName || !employees.length) return 0;
@@ -172,9 +178,18 @@ function LaborRateDialog({
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Labour Name</FormLabel>
-                                    <FormControl><Input placeholder="e.g., Electrician, Apprentice" {...field} /></FormControl>
-                                    <FormDescription>This should match an employee role to calculate cost rate.</FormDescription>
+                                    <FormLabel>Labour Type (Employee Role)</FormLabel>
+                                     <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select an employee role" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription>Select a role to calculate its cost rate automatically.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
