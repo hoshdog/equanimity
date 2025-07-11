@@ -6,6 +6,7 @@ export interface Contact {
   name: string;
   emails: string[];
   phones: string[];
+  jobTitle?: string;
 }
 
 export interface Site {
