@@ -93,3 +93,21 @@ export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPr
     projectId: string;
     createdAt: Timestamp;
 }
+
+export interface POLineItem {
+  id: string; // For react key
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  projectId: string;
+  supplierName: string;
+  status: 'Draft' | 'Sent' | 'Partially Received' | 'Received' | 'Cancelled';
+  lineItems: POLineItem[];
+  totalValue: number;
+  createdAt: Timestamp;
+}

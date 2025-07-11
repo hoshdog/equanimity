@@ -13,11 +13,13 @@ import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
 import { getJobsForProject } from '@/lib/jobs';
 import { getQuotesForProject } from '@/lib/quotes';
+import { getPurchaseOrdersForProject } from '@/lib/purchase-orders';
 import { getEmployees } from '@/lib/employees';
-import type { Project, Customer, Job, Employee, Quote } from '@/lib/types';
+import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
 import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
+import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
 
 
@@ -40,12 +42,24 @@ const getJobStatusColor = (status: string) => {
     }
 }
 
+const getPOStatusColor = (status: string) => {
+    switch (status) {
+      case 'Received': return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'Sent': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case 'Partially Received': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case 'Cancelled': return 'text-red-600 bg-red-100/80 border-red-200/80';
+      default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
+    }
+}
+
+
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const projectId = params.id;
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -55,17 +69,19 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         if (!projectId) return;
         setLoading(true);
         try {
-            const [projectData, employeesData, jobsData, quotesData] = await Promise.all([
+            const [projectData, employeesData, jobsData, quotesData, poData] = await Promise.all([
                 getProject(projectId),
                 getEmployees(),
                 getJobsForProject(projectId),
                 getQuotesForProject(projectId),
+                getPurchaseOrdersForProject(projectId),
             ]);
 
             setProject(projectData);
             setEmployees(employeesData);
             setJobs(jobsData);
             setQuotes(quotesData);
+            setPurchaseOrders(poData);
             
             if (projectData) {
                 const customerData = await getCustomer(projectData.customerId);
@@ -91,6 +107,10 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   
   const handleQuoteCreated = (newQuote: Quote) => {
     setQuotes(prev => [newQuote, ...prev]);
+  };
+
+  const handlePOCreated = (newPO: PurchaseOrder) => {
+    setPurchaseOrders(prev => [newPO, ...prev]);
   };
 
   if (loading) {
@@ -253,7 +273,47 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </Card>
         </TabsContent>
         <TabsContent value="purchase-orders">
-            <PlaceholderContent title="Purchase Orders" icon={ShoppingCart} />
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className='space-y-1.5'>
+                        <CardTitle>Purchase Orders</CardTitle>
+                        <CardDescription>All purchase orders associated with this project.</CardDescription>
+                    </div>
+                    <PurchaseOrderFormDialog onPOCreated={handlePOCreated} initialProjectId={projectId} />
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>PO Number</TableHead>
+                                <TableHead>Supplier</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Value</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {purchaseOrders.length > 0 ? purchaseOrders.map(po => (
+                                <TableRow key={po.id}>
+                                    <TableCell className="font-medium">{po.poNumber}</TableCell>
+                                    <TableCell>{po.supplierName}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={cn(getPOStatusColor(po.status))}>
+                                            {po.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">${po.totalValue.toFixed(2)}</TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        No purchase orders created for this project yet.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </TabsContent>
         <TabsContent value="invoicing">
             <PlaceholderContent title="Invoices" icon={Receipt} />
