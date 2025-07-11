@@ -232,19 +232,13 @@ export function PricingTierDialog({ tier, onSave, children }: PricingTierDialogP
                                                 />
                                             </div>
                                             <div className="flex flex-col items-center justify-center gap-1 w-28">
-                                                {hasUpperLimit ? (
-                                                    <>
-                                                        <Badge variant="outline" className="w-full justify-center">
-                                                            Margin: {margin.toFixed(1)}%
-                                                        </Badge>
-                                                        <div className="text-xs text-muted-foreground text-center">
-                                                           (for items up to ${nextBracket.from})
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <Badge variant="outline" className="w-full justify-center">
-                                                       Margin: {margin.toFixed(1)}%
-                                                    </Badge>
+                                                <Badge variant="outline" className="w-full justify-center">
+                                                    Margin: {margin.toFixed(1)}%
+                                                </Badge>
+                                                {hasUpperLimit && (
+                                                    <div className="text-xs text-muted-foreground text-center">
+                                                       (for items up to ${nextBracket.from})
+                                                    </div>
                                                 )}
                                             </div>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={index === 0}>
