@@ -1,16 +1,12 @@
-
 "use client";
 
 import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -24,19 +20,14 @@ import {
   ShoppingCart,
   Warehouse,
   ShieldCheck,
-  Waves,
-  LogOut,
   BrainCircuit,
   Building2,
   Receipt,
-  User,
   ClipboardList,
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSidebar } from '@/components/ui/sidebar';
 
 
 const navItems = [
@@ -63,7 +54,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { state, setOpenMobile } = useSidebar();
+  const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
 
   const handleLinkClick = () => {
@@ -75,13 +66,6 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader>
-        <SidebarMenuButton className="self-end" asChild>
-           <Button variant="ghost" size="icon">
-              <Waves className="h-5 w-5" />
-           </Button>
-        </SidebarMenuButton>
-      </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
           {navItems.map((item) => (
