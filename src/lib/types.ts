@@ -86,7 +86,7 @@ export interface Employee {
     email: string;
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
-    wage: number;
+    wage?: number; // Optional wage
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
 }
 
@@ -114,4 +114,11 @@ export interface PurchaseOrder {
   lineItems: POLineItem[];
   totalValue: number;
   createdAt: Timestamp;
+}
+
+export interface LaborRate {
+    employeeType: string;
+    standardRate: number; // This is the SELL rate
+    calculatedCostRate: number; // This is the calculated COST rate
+    overtimeRate: number;
 }

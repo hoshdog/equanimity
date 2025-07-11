@@ -13,86 +13,184 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { DollarSign, Percent, PlusCircle, Trash2 } from 'lucide-react';
+import { DollarSign, Percent, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { getEmployees } from '@/lib/employees';
-import { Employee } from '@/lib/types';
+import { Employee, LaborRate } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
 
-
-function LaborRatesManager() {
-  const { control, formState: { errors }, watch, setValue } = useFormContext();
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "laborRates",
-  });
-  
+function LaborRateDialog({
+  children,
+  onSave,
+  initialData,
+}: {
+  children: React.ReactNode;
+  onSave: (data: LaborRate) => void;
+  initialData?: LaborRate;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const { control, watch, setValue } = useFormContext(); // We get this from the main form
   const [employees, setEmployees] = React.useState<Employee[]>([]);
   const { toast } = useToast();
+  
+  // Local state for the dialog form
+  const [role, setRole] = React.useState(initialData?.employeeType || "");
+  const [sellRate, setSellRate] = React.useState(initialData?.standardRate || 0);
 
-  // Standard Australian employment values for a full-time employee
-  const FULL_TIME_ANNUAL_HOURS = 2080; // 40 hours * 52 weeks
+  // Hardcoded Australian employment standards
+  const FULL_TIME_ANNUAL_HOURS = 1976; // 38 hours * 52 weeks
   const FULL_TIME_SICK_DAYS = 10;
   const FULL_TIME_HOLIDAY_DAYS = 20;
 
-
   React.useEffect(() => {
     async function fetchEmps() {
-        try {
-            const employeesData = await getEmployees();
-            setEmployees(employeesData);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load employees for wage calculation.' });
+        if (isOpen) {
+            try {
+                const employeesData = await getEmployees();
+                setEmployees(employeesData);
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load employees for wage calculation.' });
+            }
         }
     }
     fetchEmps();
-  }, [toast]);
+  }, [isOpen, toast]);
 
-  const watchedLaborRates = watch("laborRates");
-
-  const calculateCostRate = React.useCallback((rate: any) => {
-    const employeeType = rate.employeeType;
-    if (!employeeType || !employees.length) return 0;
+  const calculateCostRate = React.useCallback(() => {
+    if (!role || !employees.length) return 0;
     
-    // Find highest wage for this employee type (role)
-    const relevantEmployees = employees.filter(e => e.role === employeeType);
+    const relevantEmployees = employees.filter(e => e.role === role);
     const maxWage = relevantEmployees.length > 0 
         ? Math.max(...relevantEmployees.map(e => e.wage || 0)) 
         : 0;
     
     if (maxWage === 0) return 0;
 
-    // Use hardcoded full-time standards for calculation
-    const nonProductiveHours = (FULL_TIME_SICK_DAYS + FULL_TIME_HOLIDAY_DAYS) * 8; // Assuming 8-hour days
+    const nonProductiveHours = (FULL_TIME_SICK_DAYS + FULL_TIME_HOLIDAY_DAYS) * 7.6; // 38/5 = 7.6
     const productiveHours = FULL_TIME_ANNUAL_HOURS - nonProductiveHours;
 
     if (productiveHours <= 0) return 0;
     
-    // Annual cost based on total hours * wage
     const annualCost = FULL_TIME_ANNUAL_HOURS * maxWage; 
-    // Actual cost rate spread across productive hours
     const actualCostRate = annualCost / productiveHours;
     
     return parseFloat(actualCostRate.toFixed(2));
-  }, [employees]);
+  }, [employees, role, FULL_TIME_ANNUAL_HOURS, FULL_TIME_SICK_DAYS, FULL_TIME_HOLIDAY_DAYS]);
+
+  const costRate = React.useMemo(() => calculateCostRate(), [calculateCostRate]);
+  const margin = sellRate > 0 ? ((sellRate - costRate) / sellRate) * 100 : 0;
   
-  // Effect to update calculated cost rate when inputs change
-  React.useEffect(() => {
-    watchedLaborRates.forEach((rate: any, index: number) => {
-        const newCostRate = calculateCostRate(rate);
-        const currentCostRate = rate.calculatedCostRate;
-        if (newCostRate !== currentCostRate) {
-            setValue(`laborRates.${index}.calculatedCostRate`, newCostRate, { shouldValidate: true });
-        }
+  const handleSave = () => {
+    if (role.length < 2) {
+        toast({ variant: 'destructive', title: 'Invalid Role', description: 'Employee role must be at least 2 characters.'});
+        return;
+    }
+     if (sellRate <= 0) {
+        toast({ variant: 'destructive', title: 'Invalid Rate', description: 'Billable rate must be a positive number.'});
+        return;
+    }
+
+    onSave({
+        employeeType: role,
+        standardRate: sellRate,
+        overtimeRate: sellRate * 1.5, // Automatic calculation
+        calculatedCostRate: costRate,
     });
-  }, [watchedLaborRates, calculateCostRate, setValue]);
+    setIsOpen(false);
+    // Reset local state for next time
+    setRole("");
+    setSellRate(0);
+  };
+  
+  const highestWageForRole = React.useMemo(() => {
+    const relevantEmployees = employees.filter(e => e.role === role);
+    return relevantEmployees.length > 0
+        ? Math.max(...relevantEmployees.map(e => e.wage || 0))
+        : 0;
+  }, [employees, role]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Edit Labor Rate' : 'Add New Labor Rate'}</DialogTitle>
+          <DialogDescription>Define a new employee role and its billable rate. Cost rate is calculated automatically.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+            <FormItem>
+                <FormLabel>Employee Role</FormLabel>
+                <FormControl><Input placeholder="e.g., Lead Technician" value={role} onChange={e => setRole(e.target.value)} /></FormControl>
+            </FormItem>
+            <FormItem>
+                <FormLabel>Standard Billable Rate (Sell)</FormLabel>
+                <FormControl><div className="relative">
+                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input type="number" placeholder="Sell Rate" className="pl-6" value={sellRate} onChange={e => setSellRate(parseFloat(e.target.value) || 0)} />
+                </div></FormControl>
+            </FormItem>
+             <Card className="bg-secondary/30">
+               <CardHeader className="p-3">
+                 <CardTitle className="text-base">Cost Rate Calculation</CardTitle>
+                 <CardDescription className="text-xs">Based on standard Australian full-time employment (38hr week, 10 sick/20 annual leave days).</CardDescription>
+               </CardHeader>
+               <CardContent className="p-3 pt-0">
+                 <div className="flex items-center justify-between gap-6 text-sm">
+                    <div className="text-left">
+                        <p className="text-muted-foreground">Highest Wage for Role</p>
+                        <p className="font-bold text-base">${(highestWageForRole || 0).toFixed(2)}/hr</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-muted-foreground">Calculated Cost Rate</p>
+                        <p className="font-bold text-base">${costRate.toFixed(2)}/hr</p>
+                    </div>
+                     <div className="text-right">
+                        <p className="text-muted-foreground">Gross Margin</p>
+                        <p className={cn("font-bold text-base", margin < 20 ? 'text-destructive' : 'text-primary')}>{margin.toFixed(1)}%</p>
+                    </div>
+                </div>
+               </CardContent>
+             </Card>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+          <Button type="button" onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
+function LaborRatesManager() {
+  const { control, formState: { errors } } = useFormContext();
+  const { fields, append, remove, update } = useFieldArray({
+    control,
+    name: "laborRates",
+  });
+  
   const laborErrors = errors.laborRates as any;
+
+  const handleSave = (data: LaborRate, index?: number) => {
+    if (typeof index === 'number') {
+        update(index, data);
+    } else {
+        append(data);
+    }
+  }
 
   return (
      <div className="space-y-2 rounded-lg border p-4">
@@ -101,85 +199,37 @@ function LaborRatesManager() {
           <h3 className="font-semibold leading-none tracking-tight">Labor Rates & Costs</h3>
           <p className="text-sm text-muted-foreground">Define billable rates and calculate true costs for each role.</p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => append({ 
-            employeeType: "",
-            standardRate: 0,
-            overtimeRate: 0,
-            calculatedCostRate: 0
-        })}>
-            <PlusCircle className="mr-2 h-4 w-4" /> New Labor Type
-        </Button>
+        <LaborRateDialog onSave={(data) => handleSave(data)}>
+            <Button type="button" variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" /> New Labor Type
+            </Button>
+        </LaborRateDialog>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {fields.map((field, index) => {
-             const costRate = watchedLaborRates[index]?.calculatedCostRate || 0;
-             const sellRate = watchedLaborRates[index]?.standardRate || 0;
-             const margin = sellRate > 0 ? ((sellRate - costRate) / sellRate) * 100 : 0;
-
-             return (
-            <Card key={field.id} className="bg-background/50">
-                <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                        <div className="flex-grow space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={control}
-                                    name={`laborRates.${index}.employeeType`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Employee Role</FormLabel>
-                                            <FormControl><Input placeholder="e.g., Lead Technician" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={control}
-                                    name={`laborRates.${index}.standardRate`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Standard Billable Rate (Sell)</FormLabel>
-                                            <FormControl><div className="relative">
-                                                <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                <Input type="number" placeholder="Sell Rate" className="pl-6" {...field} />
-                                            </div></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            
-                           <Card className="bg-secondary/30">
-                             <CardHeader className="p-3">
-                               <CardTitle className="text-base">Cost Rate Calculation</CardTitle>
-                               <CardDescription className="text-xs">Based on standard Australian full-time employment (38hr week, 10 sick/20 annual leave days).</CardDescription>
-                             </CardHeader>
-                             <CardContent className="p-3 pt-0">
-                               <div className="flex items-center justify-between gap-6 text-sm">
-                                  <div className="text-left">
-                                      <p className="text-muted-foreground">Highest Wage for Role</p>
-                                      <p className="font-bold text-base">${(employees.filter(e => e.role === watchedLaborRates[index]?.employeeType).reduce((max, e) => Math.max(max, e.wage || 0), 0) || 0).toFixed(2)}/hr</p>
-                                  </div>
-                                  <div className="text-right">
-                                      <p className="text-muted-foreground">Calculated Cost Rate</p>
-                                      <p className="font-bold text-base">${costRate.toFixed(2)}/hr</p>
-                                  </div>
-                                   <div className="text-right">
-                                      <p className="text-muted-foreground">Gross Margin</p>
-                                      <p className={cn("font-bold text-base", margin < 20 ? 'text-destructive' : 'text-primary')}>{margin.toFixed(1)}%</p>
-                                  </div>
-                              </div>
-                             </CardContent>
-                           </Card>
-
+            const rate = field as LaborRate; // Cast for type safety
+            const margin = rate.standardRate > 0 ? ((rate.standardRate - rate.calculatedCostRate) / rate.standardRate) * 100 : 0;
+            return (
+                <Card key={field.id} className="bg-background/50">
+                    <CardContent className="p-3 flex items-center justify-between">
+                       <div className="flex-1">
+                          <p className="font-semibold">{rate.employeeType}</p>
+                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                               <span>Sell: <span className="font-medium text-foreground">${rate.standardRate.toFixed(2)}/hr</span></span>
+                               <span>Cost: <span className="font-medium text-foreground">${rate.calculatedCostRate.toFixed(2)}/hr</span></span>
+                               <span>Margin: <span className={cn("font-medium", margin < 20 ? 'text-destructive' : 'text-primary')}>{margin.toFixed(1)}%</span></span>
+                           </div>
+                       </div>
+                        <div className="flex items-center gap-1">
+                             <LaborRateDialog onSave={(data) => handleSave(data, index)} initialData={rate}>
+                                <Button type="button" variant="ghost" size="icon"><Pencil className="h-4 w-4"/></Button>
+                            </LaborRateDialog>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                <Trash2 className="h-4 w-4 text-destructive"/>
+                            </Button>
                         </div>
-
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
-                            <Trash2 className="h-4 w-4 text-destructive"/>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
             )
         })}
       </div>
