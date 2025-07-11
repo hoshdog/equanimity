@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import { getEmployees } from '@/lib/employees';
@@ -40,15 +40,24 @@ export default function EmployeesPage() {
         fetchEmployees();
     }, [fetchEmployees]);
     
-    const handleEmployeeSaved = useCallback(() => {
+    const handleEmployeeSaved = () => {
         // After saving, re-fetch the entire list to get the latest data
         fetchEmployees();
-    }, [fetchEmployees]);
+    };
 
     const handleRowClick = (id: string) => {
         router.push(`/employees/${id}`);
     };
-  
+    
+    const getStatusVariant = (status: string) => {
+        switch (status) {
+            case 'Active': return 'default';
+            case 'On Leave': return 'secondary';
+            case 'Inactive': return 'destructive';
+            default: return 'outline';
+        }
+    }
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex items-center justify-between space-y-2">
@@ -58,6 +67,7 @@ export default function EmployeesPage() {
       <Card>
         <CardHeader>
             <CardTitle>Employee Directory</CardTitle>
+            <CardDescription>A list of all employees in the system.</CardDescription>
         </CardHeader>
         <CardContent>
             {loading ? (
@@ -65,45 +75,47 @@ export default function EmployeesPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Employee</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {employees.length > 0 ? (
-                            employees.map(employee => (
-                                <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <Avatar>
-                                                <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
-                                                <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <div className="font-medium">{employee.name}</div>
-                                                <div className="text-sm text-muted-foreground">{employee.email}</div>
+                <div className="relative w-full overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {employees.length > 0 ? (
+                                employees.map(employee => (
+                                    <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar>
+                                                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
+                                                    <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="font-medium">{employee.name}</div>
+                                                    <div className="text-sm text-muted-foreground">{employee.email}</div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{employee.role}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
+                                        </TableCell>
+                                        <TableCell>{employee.role}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={getStatusVariant(employee.status)}>{employee.status}</Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        No employees found. Click "Add Employee" to get started.
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        ) : (
-                             <TableRow>
-                                <TableCell colSpan={3} className="h-24 text-center">
-                                    No employees found.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             )}
         </CardContent>
       </Card>
