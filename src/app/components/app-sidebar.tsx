@@ -95,7 +95,7 @@ export function AppSidebar() {
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
+                  <span className={cn(state === 'collapsed' && 'hidden')}>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
