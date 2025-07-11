@@ -1,4 +1,4 @@
-
+// src/app/timesheets/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -12,16 +12,28 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual, addMinutes, parse } from 'date-fns';
-import { Save, PlusCircle, Trash2, Clock } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual, addMinutes, parse, differenceInMinutes, isValid } from 'date-fns';
+import { Save, PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { getJobs } from '@/lib/jobs';
+import type { Job, OptionType } from '@/lib/types';
+import { Combobox } from '@/components/ui/combobox';
+import { Loader2 } from 'lucide-react';
+
+const nonBillableTasks: OptionType[] = [
+    { value: 'nonbill-travel', label: 'Travel Time' },
+    { value: 'nonbill-workshop', label: 'Workshop / Office' },
+    { value: 'nonbill-training', label: 'Training / Development' },
+    { value: 'nonbill-meetings', label: 'Internal Meetings' },
+];
 
 type TaskEntry = {
   id: string; // Unique ID for React key
-  task: string;
+  jobId: string; // Can be a job ID or a non-billable task value
   startTime: string; // e.g., "09:00"
-  hours: string; // duration
+  finishTime: string; // e.g., "17:00"
+  duration: string; // duration in hours, e.g., "8.0"
 };
 
 type DailyTimesheet = {
@@ -38,32 +50,80 @@ function getWeekDays(date: Date): Date[] {
 export default function TimesheetsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timesheet, setTimesheet] = useState<DailyTimesheet[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchData() {
+        setLoading(true);
+        try {
+            const jobsData = await getJobs();
+            setJobs(jobsData);
+        } catch (error) {
+            console.error("Failed to fetch jobs:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load jobs for timesheet.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchData();
+  }, [toast]);
+  
+  const jobOptions: OptionType[] = useMemo(() => {
+    return [
+      ...nonBillableTasks,
+      ...jobs.map(job => ({
+        value: job.id,
+        label: `${job.id.substring(0, 6)}... - ${job.description}`
+      }))
+    ];
+  }, [jobs]);
 
   useEffect(() => {
     const weekDays = getWeekDays(currentDate);
     setTimesheet(
       weekDays.map((day) => ({
         date: day,
-        tasks: [{ id: `task-${day.getTime()}-0`, task: '', startTime: '08:00', hours: '8' }],
+        tasks: [{
+          id: `task-${day.getTime()}-0`,
+          jobId: '',
+          startTime: '08:00',
+          finishTime: '16:00',
+          duration: '8.0'
+        }],
       }))
     );
   }, [currentDate]);
 
-  const handleTaskChange = (date: Date, taskId: string, field: 'task' | 'startTime' | 'hours', value: string) => {
-    if (field === 'hours' && !/^\d*\.?\d*$/.test(value)) {
-        return;
-    }
-    
+  const handleTaskChange = (date: Date, taskId: string, field: 'jobId' | 'startTime' | 'finishTime' | 'duration', value: string) => {
     setTimesheet((prevTimesheet) =>
       prevTimesheet.map((dailyEntry) => {
         if (isEqual(dailyEntry.date, date)) {
-          return {
-            ...dailyEntry,
-            tasks: dailyEntry.tasks.map((task) =>
-              task.id === taskId ? { ...task, [field]: value } : task
-            ),
-          };
+          const newTasks = dailyEntry.tasks.map((task) => {
+            if (task.id === taskId) {
+              const updatedTask = { ...task, [field]: value };
+
+              const start = parse(updatedTask.startTime, 'HH:mm', date);
+              const finish = parse(updatedTask.finishTime, 'HH:mm', date);
+
+              if (field === 'startTime' || field === 'duration') {
+                if (isValid(start) && !isNaN(parseFloat(updatedTask.duration))) {
+                  const newFinish = addMinutes(start, parseFloat(updatedTask.duration) * 60);
+                  updatedTask.finishTime = format(newFinish, 'HH:mm');
+                }
+              } else if (field === 'finishTime') {
+                 if (isValid(start) && isValid(finish)) {
+                    let diff = differenceInMinutes(finish, start);
+                    if (diff < 0) diff += 24 * 60; // Handle overnight case
+                    updatedTask.duration = (diff / 60).toFixed(2);
+                 }
+              }
+              return updatedTask;
+            }
+            return task;
+          });
+          return { ...dailyEntry, tasks: newTasks };
         }
         return dailyEntry;
       })
@@ -76,21 +136,14 @@ export default function TimesheetsPage() {
             if(isEqual(dailyEntry.date, date)) {
                 const lastTask = dailyEntry.tasks[dailyEntry.tasks.length - 1];
                 let nextStartTime = '08:00';
-                if (lastTask && lastTask.startTime && lastTask.hours) {
-                    try {
-                        const lastStart = parse(lastTask.startTime, 'HH:mm', dailyEntry.date);
-                        const lastDurationMinutes = parseFloat(lastTask.hours) * 60;
-                        if (!isNaN(lastDurationMinutes)) {
-                           const lastEnd = addMinutes(lastStart, lastDurationMinutes);
-                           nextStartTime = format(lastEnd, 'HH:mm');
-                        }
-                    } catch (e) { /* ignore parse errors */ }
+                if (lastTask) {
+                  nextStartTime = lastTask.finishTime; // Start next task when the last one finished
                 }
 
                 const newTaskId = `task-${date.getTime()}-${dailyEntry.tasks.length}`;
                 return {
                     ...dailyEntry,
-                    tasks: [...dailyEntry.tasks, { id: newTaskId, task: '', startTime: nextStartTime, hours: '0'}]
+                    tasks: [...dailyEntry.tasks, { id: newTaskId, jobId: '', startTime: nextStartTime, finishTime: nextStartTime, duration: '0.0' }]
                 }
             }
             return dailyEntry;
@@ -113,23 +166,9 @@ export default function TimesheetsPage() {
       )
   }
 
-  const calculateEndTime = (date: Date, startTime: string, duration: string) => {
-      if (!startTime || !duration) return '--:--';
-      try {
-        const start = parse(startTime, 'HH:mm', date);
-        const durationMinutes = parseFloat(duration) * 60;
-        if (isNaN(durationMinutes)) return '--:--';
-
-        const end = addMinutes(start, durationMinutes);
-        return format(end, 'HH:mm');
-      } catch (e) {
-        return '--:--';
-      }
-  }
-
   const totalHours = useMemo(() => {
     return timesheet.reduce((total, dailyEntry) => {
-        const dailyTotal = dailyEntry.tasks.reduce((acc, task) => acc + (parseFloat(task.hours) || 0), 0);
+        const dailyTotal = dailyEntry.tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
         return total + dailyTotal;
     }, 0);
   }, [timesheet]);
@@ -163,72 +202,83 @@ export default function TimesheetsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Accordion type="single" collapsible defaultValue={defaultOpenValue} className="w-full">
-            {timesheet.map(({ date, tasks }) => {
-                const dayTotal = tasks.reduce((acc, task) => acc + (parseFloat(task.hours) || 0), 0);
-                return (
-                    <AccordionItem value={format(date, 'yyyy-MM-dd')} key={date.toISOString()}>
-                        <AccordionTrigger>
-                            <div className="flex justify-between w-full pr-4">
-                                <span>{format(date, 'EEEE, MMM dd')}</span>
-                                <span className="text-muted-foreground">{dayTotal > 0 ? `${dayTotal.toFixed(2)} hrs` : 'No hours'}</span>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                           <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
-                             {tasks.map((task, index) => (
-                                <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
-                                    <div className="col-span-12 md:col-span-6">
-                                        <Input 
-                                            placeholder="Job or task description"
-                                            value={task.task}
-                                            onChange={(e) => handleTaskChange(date, task.id, 'task', e.target.value)}
-                                        />
+            {loading ? (
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <Accordion type="single" collapsible defaultValue={defaultOpenValue} className="w-full">
+                    {timesheet.map(({ date, tasks }) => {
+                        const dayTotal = tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
+                        return (
+                            <AccordionItem value={format(date, 'yyyy-MM-dd')} key={date.toISOString()}>
+                                <AccordionTrigger>
+                                    <div className="flex justify-between w-full pr-4">
+                                        <span>{format(date, 'EEEE, MMM dd')}</span>
+                                        <span className="text-muted-foreground">{dayTotal > 0 ? `${dayTotal.toFixed(2)} hrs` : 'No hours'}</span>
                                     </div>
-                                    <div className="col-span-4 md:col-span-2">
-                                        <Input
-                                            type="time"
-                                            value={task.startTime}
-                                            onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="col-span-4 md:col-span-2">
-                                        <Input
-                                            type="text"
-                                            placeholder="Duration"
-                                            value={task.hours}
-                                            onChange={(e) => handleTaskChange(date, task.id, 'hours', e.target.value)}
-                                            className="text-right"
-                                        />
-                                    </div>
-                                    <div className="col-span-2 md:col-span-1 flex items-center justify-center text-muted-foreground font-mono text-sm">
-                                        {calculateEndTime(date, task.startTime, task.hours)}
-                                    </div>
-                                    <div className="col-span-2 md:col-span-1 flex justify-end">
-                                         <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            onClick={() => removeTask(date, task.id)}
-                                            disabled={tasks.length <= 1}
-                                            aria-label="Remove task"
-                                        >
-                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
+                                    {tasks.map((task) => (
+                                        <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-12 md:col-span-5">
+                                                <Combobox
+                                                    options={jobOptions}
+                                                    value={task.jobId}
+                                                    onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}
+                                                    placeholder="Search jobs or select non-billable..."
+                                                />
+                                            </div>
+                                            <div className="col-span-3 md:col-span-2">
+                                                <Input
+                                                    type="time"
+                                                    value={task.startTime}
+                                                    onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-3 md:col-span-2">
+                                                <Input
+                                                    type="time"
+                                                    value={task.finishTime}
+                                                    onChange={(e) => handleTaskChange(date, task.id, 'finishTime', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-3 md:col-span-2">
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Duration"
+                                                    value={task.duration}
+                                                    onChange={(e) => handleTaskChange(date, task.id, 'duration', e.target.value)}
+                                                    className="text-right"
+                                                />
+                                            </div>
+                                            <div className="col-span-3 md:col-span-1 flex justify-end">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={() => removeTask(date, task.id)}
+                                                    disabled={tasks.length <= 1}
+                                                    aria-label="Remove task"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="pt-2">
+                                        <Button variant="outline" size="sm" onClick={() => addTask(date)}>
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Add Task
                                         </Button>
                                     </div>
                                 </div>
-                             ))}
-                             <div className="pt-2">
-                                <Button variant="outline" size="sm" onClick={() => addTask(date)}>
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Add Task
-                                </Button>
-                             </div>
-                           </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                )
-            })}
-          </Accordion>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
+                </Accordion>
+            )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-lg">
