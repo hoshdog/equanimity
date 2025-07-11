@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -149,6 +149,7 @@ const Sidebar = React.forwardRef<
   ) => {
     const { isMobile, setOpen, state, openMobile, setOpenMobile } = useSidebar()
     const [isMounted, setIsMounted] = React.useState(false);
+    const titleId = React.useId();
 
     React.useEffect(() => {
         setIsMounted(true);
@@ -171,7 +172,10 @@ const Sidebar = React.forwardRef<
               } as React.CSSProperties
             }
             side={side}
+            aria-labelledby={titleId}
           >
+            {/* The SheetTitle is required for accessibility and is visually hidden here */}
+            <SheetTitle id={titleId} className="sr-only">Main Menu</SheetTitle>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
         </Sheet>
