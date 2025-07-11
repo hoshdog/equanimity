@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,6 +47,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { mockCustomerDetails } from '@/lib/mock-data';
+import { Combobox } from '@/components/ui/combobox';
 
 const customerSchema = z.object({
     id: z.string().optional(),
@@ -144,6 +145,10 @@ export default function CustomersPage() {
         setCustomers(customers.filter(c => c.id !== customerId));
         toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
     }
+    
+    const customerTypeOptions = useMemo(() => {
+        return customerTypes.map(type => ({ label: type, value: type }));
+    }, [customerTypes]);
     
     const columns: ColumnDef<Customer>[] = [
       {
@@ -277,12 +282,12 @@ export default function CustomersPage() {
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Select a customer type" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                {customerTypes.map(type => ( <SelectItem key={type} value={type}>{type}</SelectItem> ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            options={customerTypeOptions}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Select a customer type"
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}/>

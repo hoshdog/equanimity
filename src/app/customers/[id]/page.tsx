@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { mockCustomerDetails } from '@/lib/mock-data';
+import { Combobox } from '@/components/ui/combobox';
 
 type MockDataType = typeof mockCustomerDetails;
 
@@ -157,6 +158,16 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" });
   }
 
+  const contactOptions = useMemo(() => {
+    if (!customer) return [];
+    return customer.contacts.map(contact => ({ label: contact.name, value: contact.id }));
+  }, [customer]);
+  
+  const siteOptions = useMemo(() => {
+    if (!customer) return [];
+    return customer.sites.map(site => ({ label: site.name, value: site.id }));
+  }, [customer]);
+
 
   if (!customer) {
     return (
@@ -242,13 +253,13 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                                 <FormField control={siteForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Melbourne Office" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={siteForm.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={siteForm.control} name="primaryContactId" render={({ field }) => (
-                                                  <FormItem><FormLabel>Primary Contact</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            {customer.contacts.map(contact => <SelectItem key={contact.id} value={contact.id}>{contact.name}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
+                                                  <FormItem className="flex flex-col"><FormLabel>Primary Contact</FormLabel>
+                                                    <Combobox
+                                                        options={contactOptions}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select a contact"
+                                                    />
                                                   <FormMessage /></FormItem> )}/>
                                                 <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit">Add Site</Button></DialogFooter>
                                             </form></Form>
@@ -315,13 +326,13 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                             <form onSubmit={projectForm.handleSubmit(handleAddProject)} className="space-y-4">
                                                 <FormField control={projectForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Project Name</FormLabel><FormControl><Input placeholder="e.g., Office Network Setup" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={projectForm.control} name="siteId" render={({ field }) => (
-                                                  <FormItem><FormLabel>Site</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            {customer.sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
+                                                  <FormItem className="flex flex-col"><FormLabel>Site</FormLabel>
+                                                    <Combobox
+                                                        options={siteOptions}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select a site"
+                                                    />
                                                   <FormMessage /></FormItem> )}/>
                                                 <FormField control={projectForm.control} name="status" render={({ field }) => (
                                                   <FormItem><FormLabel>Status</FormLabel>
@@ -408,13 +419,13 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                                             </div>
 
                                             <FormField control={contactForm.control} name="siteId" render={({ field }) => (
-                                              <FormItem><FormLabel>Associate with Site (Optional)</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {customer.sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
+                                              <FormItem className="flex flex-col"><FormLabel>Associate with Site (Optional)</FormLabel>
+                                                <Combobox
+                                                    options={siteOptions}
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select a site"
+                                                />
                                               <FormMessage /></FormItem> 
                                             )}/>
                                             

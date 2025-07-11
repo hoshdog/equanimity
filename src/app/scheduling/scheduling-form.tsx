@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Lightbulb, UserCheck } from "lucide-react";
+import { mockEmployees } from "@/lib/mock-data";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 const formSchema = z.object({
   taskDescription: z.string().min(10, {
@@ -38,7 +40,6 @@ const formSchema = z.object({
   }),
 });
 
-const mockTechnicians = ["Alice", "Bob", "Charlie", "David", "Eve"];
 // This data is now managed on the Training page. This is kept for fallback.
 const mockPastTasks = JSON.stringify([
   { task: "Fix HVAC unit", technician: "Alice", efficiency: 0.9, accuracy: 0.95 },
@@ -52,11 +53,13 @@ export function SchedulingForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SuggestTechniciansForSchedulingOutput | null>(null);
 
+  const technicianOptions = useMemo(() => mockEmployees, []);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       taskDescription: "",
-      availableTechnicians: mockTechnicians,
+      availableTechnicians: technicianOptions.map(t => t.value),
     },
   });
 
@@ -66,8 +69,14 @@ export function SchedulingForm() {
     try {
       // In a real app, you'd fetch the dynamic training data here.
       // For now, we'll continue to use the mock data.
+      const technicianLabels = values.availableTechnicians.map(value => {
+        const tech = technicianOptions.find(t => t.value === value);
+        return tech ? tech.label : value;
+      });
+
       const response = await suggestTechniciansForScheduling({
-        ...values,
+        taskDescription: values.taskDescription,
+        availableTechnicians: technicianLabels,
         pastTaskData: mockPastTasks,
       });
       setResult(response);
@@ -104,23 +113,12 @@ export function SchedulingForm() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Available Technicians</FormLabel>
-                <Select
-                  onValueChange={(value) => field.onChange(value ? [value] : [])}
-                  defaultValue={field.value?.[0]}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a technician" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {mockTechnicians.map((tech) => (
-                      <SelectItem key={tech} value={tech}>
-                        {tech}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect
+                    options={technicianOptions}
+                    selected={technicianOptions.filter(option => field.value.includes(option.value))}
+                    onChange={(selectedOptions) => field.onChange(selectedOptions.map(option => option.value))}
+                    placeholder="Select technicians..."
+                />
                 <FormMessage />
               </FormItem>
             )}

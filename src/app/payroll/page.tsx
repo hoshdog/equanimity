@@ -1,7 +1,8 @@
+
 // src/app/payroll/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Banknote, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 
 const mockEmployees = {
   'EMP001': {
@@ -48,6 +50,12 @@ const mockEmployees = {
   },
 };
 
+const employeeList = [
+    { value: 'EMP001', label: 'Alice Johnson' },
+    { value: 'EMP002', label: 'Bob Smith' },
+    { value: 'EMP003', label: 'Charlie Brown' },
+];
+
 
 const formSchema = z.object({
   employeeId: z.string().nonempty('Please select an employee.'),
@@ -80,6 +88,11 @@ export default function PayrollPage() {
   });
 
   const selectedEmployeeId = form.watch('employeeId');
+  
+  const employeeOptions = useMemo(() => {
+    // In a real app, this would be fetched from an API
+    return employeeList;
+  }, []);
 
   useEffect(() => {
     if (selectedEmployeeId && mockEmployees[selectedEmployeeId as keyof typeof mockEmployees]) {
@@ -130,20 +143,14 @@ export default function PayrollPage() {
                   control={form.control}
                   name="employeeId"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Employee</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an employee" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="EMP001">Alice Johnson</SelectItem>
-                          <SelectItem value="EMP002">Bob Smith</SelectItem>
-                          <SelectItem value="EMP003">Charlie Brown</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        options={employeeOptions}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select an employee"
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
