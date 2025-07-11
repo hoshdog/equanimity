@@ -1,3 +1,4 @@
+
 // src/app/employees/employee-form-dialog.tsx
 'use client';
 
@@ -158,8 +159,8 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
 
   // Cost rate calculation logic
   const calculatedCostRate = React.useMemo(() => {
-    const payRate = watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38));
-    if (payRate === 0 || watchedEmploymentType === 'Casual') {
+    const payRate = parseFloat(String(watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38))));
+    if (isNaN(payRate) || payRate === 0 || watchedEmploymentType === 'Casual') {
         return payRate;
     }
 
@@ -368,7 +369,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                             <div className="grid grid-cols-3 gap-4 text-center">
                                 <div className="rounded-md border p-3">
                                     <p className="text-sm font-medium text-muted-foreground">Pay Rate</p>
-                                    <p className="text-2xl font-bold">${(watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38))).toFixed(2)}</p>
+                                    <p className="text-2xl font-bold">${parseFloat(String(watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38)))).toFixed(2)}</p>
                                     <p className="text-xs text-muted-foreground">per hour</p>
                                 </div>
                                 <div className="rounded-md border p-3">
