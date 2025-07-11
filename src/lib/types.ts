@@ -86,6 +86,7 @@ export interface Employee {
     email: string;
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
+    wage: number;
 }
 
 export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {

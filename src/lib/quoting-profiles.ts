@@ -8,7 +8,11 @@ export interface LineItemRate {
 
 export interface LaborRate {
     employeeType: string;
-    standardRate: number;
+    standardRate: number; // This is the SELL rate
+    calculatedCostRate: number; // This is the calculated COST rate
+    annualHours: number;
+    sickLeaveDays: number;
+    holidayDays: number;
     overtimeRate: number;
 }
 
@@ -40,9 +44,9 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         persona: 'You are an expert electrical estimator with 20 years of experience in residential and commercial projects. Be thorough and accurate.',
         instructions: `Always break down labor and materials separately. Apply the call-out fee if the job appears to be a small service call. For any new installations, add a line item for a final safety check and compliance certificate. Add a 5% contingency for unforeseen issues on jobs estimated over $2000.`,
         laborRates: [
-            { employeeType: 'Lead Technician', standardRate: 110, overtimeRate: 165 },
-            { employeeType: 'Technician', standardRate: 95, overtimeRate: 142.5 },
-            { employeeType: 'Apprentice', standardRate: 55, overtimeRate: 82.5 },
+            { employeeType: 'Lead Technician', standardRate: 110, overtimeRate: 165, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Technician', standardRate: 95, overtimeRate: 142.5, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Apprentice', standardRate: 55, overtimeRate: 82.5, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
         ],
         materialAndServiceRates: [
             { description: 'Call-out Fee (includes first 30 mins)', cost: 120, unit: 'each' },
@@ -63,9 +67,9 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         persona: 'You are an IT solutions consultant for a Managed Service Provider (MSP). Focus on providing value and clear, itemized costs for both hardware and services.',
         instructions: `Clearly distinguish between one-off project costs and recurring monthly fees. When quoting hardware, add a 15% margin on top of the estimated cost. Always include a line item for 'Project Management & Documentation' at 10% of the total labor cost.`,
         laborRates: [
-            { employeeType: 'Senior Engineer', standardRate: 200, overtimeRate: 300 },
-            { employeeType: 'Support Technician', standardRate: 120, overtimeRate: 180 },
-            { employeeType: 'Junior Technician', standardRate: 90, overtimeRate: 135 },
+            { employeeType: 'Senior Engineer', standardRate: 200, overtimeRate: 300, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Support Technician', standardRate: 120, overtimeRate: 180, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Junior Technician', standardRate: 90, overtimeRate: 135, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
         ],
         materialAndServiceRates: [
             { description: 'On-site Support (Business Hours)', cost: 150, unit: 'per hour' },
@@ -76,27 +80,4 @@ export const initialQuotingProfiles: QuotingProfile[] = [
             { description: 'Microsoft 365 Business Premium License', cost: 35, unit: 'per user/month' },
         ]
     },
-    {
-        id: 'profile-3',
-        name: 'Mechanical Engineering & Fabrication',
-        description: 'Costs related to engineering consultation, design, and fabrication with various materials.',
-        defaults: {
-            desiredMargin: 35,
-            overheadRate: 20,
-        },
-        persona: 'You are a senior mechanical engineer and fabricator. Your quotes must be precise, accounting for material waste and workshop consumables.',
-        instructions: `Material costs should include a 10% waste allowance. For every hour of fabrication labor, add a 'Workshop Consumables' charge. If design work is required, bill it separately from fabrication labor. All quotes should include an estimated lead time.`,
-        laborRates: [
-            { employeeType: 'Senior Engineer', standardRate: 200, overtimeRate: 300 },
-            { employeeType: 'Welder/Fabricator', standardRate: 110, overtimeRate: 165 },
-            { employeeType: 'CAD Designer', standardRate: 125, overtimeRate: 187.5 },
-        ],
-        materialAndServiceRates: [
-            { description: 'Workshop Consumables (per hour of labor)', cost: 10, unit: 'per hour' },
-            { description: 'Mild Steel Cost', cost: 5.50, unit: 'per kg' },
-            { description: 'Stainless Steel 316 Cost', cost: 15.00, unit: 'per kg' },
-            { description: 'Aluminum Cost', cost: 12.00, unit: 'per kg' },
-            { description: 'CNC Machining', cost: 180, unit: 'per hour' },
-        ]
-    }
 ];
