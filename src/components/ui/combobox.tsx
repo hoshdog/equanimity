@@ -1,23 +1,12 @@
+
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
-
-import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { ChevronsUpDown, Check } from "lucide-react"
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandGroup, CommandList } from "@/components/ui/command"
+import { cn } from "@/lib/utils"
 
 type ComboboxProps = {
   options: { label: string; value: string }[]
@@ -47,27 +36,20 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput placeholder="Search..." />
-          {/* Force the list container itself to allow selection */}
-          <CommandList className="!select-text">
+          <CommandList>
             <CommandEmpty>No option found.</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.label}
-                  // CAPTURE phase stops cmdk’s preventDefault() so the drag can select text
-                  onPointerDownCapture={(e) => e.stopPropagation()}
-                  onSelect={(currentValue) => {
-                    const selected = options.find(
-                      (opt) => opt.label.toLowerCase() === currentValue.toLowerCase()
-                    )
-                    if (selected) {
-                      onChange(selected.value === value ? "" : selected.value)
+                  onSelect={(currentLabel) => {
+                    const selectedOption = options.find(opt => opt.label.toLowerCase() === currentLabel.toLowerCase());
+                    if (selectedOption) {
+                      onChange(selectedOption.value);
                     }
                     setOpen(false)
                   }}
-                  // Tailwind !select-text adds user-select: text !important
-                  className="!select-text"
                 >
                   <Check
                     className={cn(
@@ -75,8 +57,7 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {/* Wrap the label too, just to be sure */}
-                  <span className="!select-text">{option.label}</span>
+                  {option.label}
                 </CommandItem>
               ))}
             </CommandGroup>
