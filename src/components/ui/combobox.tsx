@@ -60,14 +60,10 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label} // Value used for searching
-                  onSelect={() => {
-                    onChange(option.value)
+                  value={option.value}
+                  onSelect={(currentValue) => {
+                    onChange(currentValue === value ? "" : currentValue)
                     setOpen(false)
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
                   }}
                 >
                   <Check

@@ -64,7 +64,7 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, childre
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Add New Customer</DialogTitle>
           <DialogDescription>Create a new customer record.</DialogDescription>
