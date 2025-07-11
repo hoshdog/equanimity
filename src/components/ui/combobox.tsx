@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-type ComboboxOption = {
+export type ComboboxOption = {
     value: string;
     label: string;
 }
@@ -37,6 +37,10 @@ interface ComboboxProps {
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
+  const selectedLabel = React.useMemo(() => {
+    return options.find((option) => option.value === value)?.label
+  }, [options, value]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -46,9 +50,7 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
         >
-          {value
-            ? options.find((option) => option.value === value)?.label
-            : placeholder || "Select option..."}
+          {value ? selectedLabel : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -61,9 +63,14 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                     {options.map((option) => (
                         <CommandItem
                             key={option.value}
-                            value={option.value}
-                            onSelect={(currentValue) => {
-                                onChange(currentValue === value ? "" : currentValue)
+                            value={option.label} // Value used for search
+                            onSelect={(currentLabel) => {
+                                const selectedOption = options.find(
+                                  (opt) => opt.label.toLowerCase() === currentLabel.toLowerCase()
+                                );
+                                if (selectedOption) {
+                                  onChange(selectedOption.value === value ? "" : selectedOption.value)
+                                }
                                 setOpen(false)
                             }}
                         >
