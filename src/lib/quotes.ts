@@ -7,9 +7,30 @@ import {
   addDoc,
   serverTimestamp,
   orderBy,
-  doc
+  doc,
+  collectionGroup
 } from 'firebase/firestore';
 import type { Quote } from './types';
+
+
+// Get all quotes from all projects for the main list view
+export async function getQuotes(): Promise<Quote[]> {
+    const quotesRef = collectionGroup(db, 'quotes');
+    const q = query(quotesRef, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    
+    const quotes: Quote[] = [];
+    snapshot.forEach(doc => {
+        const path = doc.ref.path;
+        const pathSegments = path.split('/');
+        // The structure is projects/{projectId}/quotes/{quoteId}
+        const projectId = pathSegments[pathSegments.length - 3];
+        quotes.push({ id: doc.id, projectId, ...doc.data() } as Quote);
+    });
+
+    return quotes;
+}
+
 
 // Get all quotes for a specific project
 export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
