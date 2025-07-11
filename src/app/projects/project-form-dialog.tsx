@@ -90,19 +90,20 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, customerDetails]);
   
   React.useEffect(() => {
+    const selectedCustomer = customerOptions.find(opt => opt.value === watchedCustomerId);
+    setCustomerInputValue(selectedCustomer ? selectedCustomer.label : '');
     form.resetField('siteId', { defaultValue: '' });
     form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
-  }, [watchedCustomerId, form]);
+  }, [watchedCustomerId, form, customerOptions]);
 
-
-  const handleCustomerSelection = (customerName: string) => {
-    setCustomerInputValue(customerName);
-    const match = customerOptions.find(opt => opt.label.toLowerCase() === customerName.toLowerCase());
+  const handleCustomerInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setCustomerInputValue(value);
+    const match = customerOptions.find(opt => opt.label.toLowerCase() === value.toLowerCase());
     const customerId = match ? match.value : '';
     form.setValue('customerId', customerId, { shouldValidate: true });
   };
   
-
   function onSubmit(values: ProjectFormValues) {
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
         return mockEmployees.find(e => e.value === s.value) || { label: s.label, value: s.value };
@@ -127,8 +128,13 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   const handleContactAdded = (contactId: string) => {
     const currentProjectContacts = form.getValues('projectContacts');
-    if (currentProjectContacts.length > 0 && !currentProjectContacts[0].contactId) {
-        form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
+    const emptyContactIndex = currentProjectContacts.findIndex(c => !c.contactId);
+    if (emptyContactIndex !== -1) {
+       form.setValue(`projectContacts.${emptyContactIndex}.contactId`, contactId, { shouldValidate: true });
+    } else {
+       if (currentProjectContacts.length > 0) {
+         form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
+       }
     }
   }
 
@@ -147,249 +153,246 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
 
   return (
-    <>
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); } }}>
-          <DialogTrigger asChild>
-              <Button>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Project
-              </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
-              <DialogHeader>
-                  <DialogTitle>Create New Project</DialogTitle>
-                  <DialogDescription>Fill out the form below to create a new project.</DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                       <FormField control={form.control} name="name" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Project Name</FormLabel>
-                              <FormControl><Input placeholder="e.g., Website Redesign" {...field} /></FormControl>
-                              <FormMessage />
-                          </FormItem>
-                      )}/>
-                      <FormField control={form.control} name="description" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Description</FormLabel>
-                              <FormControl><Textarea placeholder="A brief description of the project..." {...field} /></FormControl>
-                              <FormMessage />
-                          </FormItem>
-                      )}/>
-
-                      <FormField control={form.control} name="customerId" render={({ field }) => (
-                          <FormItem>
-                               <div className="flex items-center justify-between">
-                                  <FormLabel>Customer</FormLabel>
-                                  <AddCustomerDialog 
-                                      setCustomerDetails={setCustomerDetails}
-                                      onCustomerAdded={handleCustomerAdded}
-                                  >
-                                      <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6">
-                                          <Plus className="h-4 w-4"/>
-                                      </Button>
-                                  </AddCustomerDialog>
-                               </div>
-                                <div className="flex items-center gap-2">
-                                    <FormControl>
-                                        <Input
-                                            list="customer-options"
-                                            placeholder="Select or type a customer name..."
-                                            value={customerInputValue}
-                                            onChange={(e) => handleCustomerSelection(e.target.value)}
-                                            autoComplete="off"
-                                        />
-                                    </FormControl>
-                                    <datalist id="customer-options">
-                                        {customerOptions.map(opt => (
-                                            <option key={opt.value} value={opt.label} />
-                                        ))}
-                                    </datalist>
-                                </div>
-                              <FormMessage />
-                          </FormItem>
-                      )}/>
-
-                      <FormField control={form.control} name="siteId" render={({ field }) => (
+    <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); } }}>
+        <DialogTrigger asChild>
+            <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Project
+            </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
+          <TooltipProvider>
+            <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+                <DialogDescription>Fill out the form below to create a new project.</DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Project Name</FormLabel>
+                            <FormControl><Input placeholder="e.g., Website Redesign" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl><Textarea placeholder="A brief description of the project..." {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="customerId" render={({ field }) => (
                           <FormItem>
                               <div className="flex items-center justify-between">
-                                  <FormLabel>Site</FormLabel>
-                                  <AddSiteDialog 
-                                      customerId={watchedCustomerId}
-                                      customerDetails={customerDetails}
-                                      setCustomerDetails={setCustomerDetails} 
-                                      onSiteAdded={handleSiteAdded}
-                                  >
-                                      <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
-                                          <Plus className="h-4 w-4"/>
-                                      </Button>
-                                  </AddSiteDialog>
+                              <FormLabel>Customer</FormLabel>
+                              <AddCustomerDialog 
+                                  setCustomerDetails={setCustomerDetails}
+                                  onCustomerAdded={handleCustomerAdded}
+                              >
+                                  <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6">
+                                      <Plus className="h-4 w-4"/>
+                                  </Button>
+                              </AddCustomerDialog>
                               </div>
-                              <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                  <FormControl>
-                                      <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                      {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                  </SelectContent>
-                              </Select>
+                               <FormControl>
+                                  <div>
+                                      <Input
+                                          {...field}
+                                          list="customer-options"
+                                          placeholder="Select or type a customer name..."
+                                          value={customerInputValue}
+                                          onChange={handleCustomerInputChange}
+                                          autoComplete="off"
+                                      />
+                                      <datalist id="customer-options">
+                                          {customerOptions.map(opt => (
+                                              <option key={opt.value} value={opt.label} />
+                                          ))}
+                                      </datalist>
+                                  </div>
+                              </FormControl>
                               <FormMessage />
                           </FormItem>
-                      )}/>
-                     
-                      <div className="space-y-2">
+                    )}/>
+
+                    <FormField control={form.control} name="siteId" render={({ field }) => (
+                        <FormItem>
                             <div className="flex items-center justify-between">
-                                <FormLabel>Project Contacts</FormLabel>
-                                <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
-                                    <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <DialogTrigger asChild>
-                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
-                                            </DialogTrigger>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>Manage Roles</p></TooltipContent>
-                                    </Tooltip>
-                                    </TooltipProvider>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Manage Contact Roles</DialogTitle>
-                                            <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4">
-                                            <div className="flex gap-2">
-                                                <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
-                                                <Button onClick={handleAddRole}>Add Role</Button>
-                                            </div>
-                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                                {commonRoles.map(role => (
-                                                    <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                                        <span className="text-sm">{role}</span>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <DialogFooter>
-                                            <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
+                                <FormLabel>Site</FormLabel>
+                                <AddSiteDialog 
+                                    customerId={watchedCustomerId}
+                                    customerDetails={customerDetails}
+                                    setCustomerDetails={setCustomerDetails} 
+                                    onSiteAdded={handleSiteAdded}
+                                >
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
+                                        <Plus className="h-4 w-4"/>
+                                    </Button>
+                                </AddSiteDialog>
                             </div>
-                           {fields.map((field, index) => (
-                              <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
-                                  <div className="grid grid-cols-2 gap-2 flex-1">
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    
+                    <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Project Contacts</FormLabel>
+                            <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DialogTrigger asChild>
+                                            <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                        </DialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Manage Roles</p></TooltipContent>
+                                </Tooltip>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Manage Contact Roles</DialogTitle>
+                                        <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                        <div className="flex gap-2">
+                                            <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                                            <Button onClick={handleAddRole}>Add Role</Button>
+                                        </div>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                            {commonRoles.map(role => (
+                                                <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                    <span className="text-sm">{role}</span>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                          </div>
+                          {fields.map((field, index) => (
+                            <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
+                                <div className="grid grid-cols-2 gap-2 flex-1">
+                                    <FormField
+                                        control={form.control}
+                                        name={`projectContacts.${index}.contactId`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex items-center gap-1">
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select contact" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <AddContactDialog 
+                                                                customerId={watchedCustomerId}
+                                                                setCustomerDetails={setCustomerDetails} 
+                                                                onContactAdded={handleContactAdded}
+                                                            >
+                                                                <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                                                    <Plus className="h-4 w-4"/>
+                                                                </Button>
+                                                            </AddContactDialog>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Add New Contact</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                       <FormField
-                                          control={form.control}
-                                          name={`projectContacts.${index}.contactId`}
-                                          render={({ field }) => (
-                                              <FormItem>
-                                                  <div className="flex items-center gap-1">
-                                                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!watchedCustomerId}>
-                                                          <FormControl>
-                                                              <SelectTrigger>
-                                                                  <SelectValue placeholder="Select contact" />
-                                                              </SelectTrigger>
-                                                          </FormControl>
-                                                          <SelectContent>
-                                                              {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                          </SelectContent>
-                                                      </Select>
-                                                      <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <AddContactDialog 
-                                                                    customerId={watchedCustomerId}
-                                                                    setCustomerDetails={setCustomerDetails} 
-                                                                    onContactAdded={handleContactAdded}
-                                                                >
-                                                                    <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
-                                                                        <Plus className="h-4 w-4"/>
-                                                                    </Button>
-                                                                </AddContactDialog>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Add New Contact</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                      </TooltipProvider>
-                                                  </div>
-                                                  <FormMessage />
-                                              </FormItem>
-                                          )}
-                                      />
-                                       <FormField
-                                          control={form.control}
-                                          name={`projectContacts.${index}.role`}
-                                          render={({ field }) => (
-                                              <FormItem>
-                                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                      <FormControl>
-                                                          <SelectTrigger>
-                                                              <SelectValue placeholder="Select a role" />
-                                                          </Trigger>
-                                                      </FormControl>
-                                                      <SelectContent>
-                                                          {commonRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                                                      </SelectContent>
-                                                  </Select>
-                                                  <FormMessage />
-                                              </FormItem>
-                                          )}
-                                      />
-                                  </div>
-                                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                              </div>
-                          ))}
-                          <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => append({ contactId: '', role: '' })}
-                              disabled={!watchedCustomerId}
-                          >
-                             <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
-                          </Button>
-                          <FormMessage>
-                              {form.formState.errors.projectContacts && (
-                                  <p className="text-sm font-medium text-destructive">
-                                      {form.formState.errors.projectContacts.message ||
-                                      (form.formState.errors.projectContacts as any)?.root?.message}
-                                  </p>
-                              )}
-                          </FormMessage>
-                      </div>
+                                        control={form.control}
+                                        name={`projectContacts.${index}.role`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select a role" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {commonRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => append({ contactId: '', role: '' })}
+                            disabled={!watchedCustomerId}
+                        >
+                            <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
+                        </Button>
+                        <FormMessage>
+                            {form.formState.errors.projectContacts && (
+                                <p className="text-sm font-medium text-destructive">
+                                    {form.formState.errors.projectContacts.message ||
+                                    (form.formState.errors.projectContacts as any)?.root?.message}
+                                </p>
+                            )}
+                        </FormMessage>
+                    </div>
 
-
-                      <FormField
-                          control={form.control}
-                          name="assignedStaff"
-                          render={({ field }) => (
-                              <FormItem>
-                                  <FormLabel>Assign Staff</FormLabel>
-                                  <MultiSelect
-                                      options={mockEmployees}
-                                      selected={field.value || []}
-                                      onChange={field.onChange}
-                                      placeholder="Select staff..."
-                                      className="w-full"
-                                  />
-                                  <FormMessage />
-                              </FormItem>
-                          )}
-                      />
-                      <DialogFooter>
-                          <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                          <Button type="submit">Create Project</Button>
-                      </DialogFooter>
-                  </form>
-              </Form>
-          </DialogContent>
-      </Dialog>
-    </>
+                    <FormField
+                        control={form.control}
+                        name="assignedStaff"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Assign Staff</FormLabel>
+                                <FormControl>
+                                    <MultiSelect
+                                        options={mockEmployees}
+                                        selected={field.value || []}
+                                        onChange={field.onChange}
+                                        placeholder="Select staff..."
+                                        className="w-full"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                        <Button type="submit">Create Project</Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+          </TooltipProvider>
+        </DialogContent>
+    </Dialog>
   );
 }
