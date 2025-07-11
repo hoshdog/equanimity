@@ -1,4 +1,3 @@
-
 // src/app/projects/project-form-dialog.tsx
 'use client';
 
@@ -30,10 +29,6 @@ const customerSchema = z.object({
     type: z.string().min(2, { message: "Please select a customer type." }),
 });
 
-interface ProjectFormDialogProps {
-    onProjectCreated: (project: Project) => void;
-}
-
 const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
@@ -52,6 +47,11 @@ const projectSchema = z.object({
         })
     ).min(1, "At least one staff member must be assigned."),
 });
+
+
+interface ProjectFormDialogProps {
+    onProjectCreated: (project: Project) => void;
+}
 
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -161,7 +161,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                         )}/>
                         <DialogFooter>
                              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                            <Button type="submit" disabled={loading}>Add Customer</Button>
+                            <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Add Customer'}</Button>
                         </DialogFooter>
                     </form>
                 </Form>
@@ -169,7 +169,6 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
         </Dialog>
     );
 }
-
 
 export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -483,9 +482,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                         </Button>
                         <FormMessage>
                           {form.formState.errors.projectContacts && (
-                            <p className="text-sm font-medium text-destructive">
-                              {form.formState.errors.projectContacts.message || (form.formState.errors.projectContacts as any)?.root?.message}
-                            </p>
+                            form.formState.errors.projectContacts.message || (form.formState.errors.projectContacts as any)?.root?.message
                           )}
                         </FormMessage>
                     </div>
@@ -534,9 +531,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                         </Button>
                          <FormMessage>
                             {form.formState.errors.assignedStaff && (
-                                <p className="text-sm font-medium text-destructive">
-                                    {form.formState.errors.assignedStaff.message || (form.formState.errors.assignedStaff as any)?.root?.message}
-                                </p>
+                                form.formState.errors.assignedStaff.message || (form.formState.errors.assignedStaff as any)?.root?.message
                             )}
                         </FormMessage>
                     </div>
@@ -552,5 +547,3 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     </Dialog>
   );
 }
-
-    
