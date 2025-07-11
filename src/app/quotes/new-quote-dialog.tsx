@@ -131,7 +131,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                             <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="phone" render={({ field }) => (
-                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormMessage>
                         )}/>
                         <FormField control={form.control} name="type" render={({ field }) => (
                             <FormItem>
@@ -164,6 +164,11 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
     );
 }
 
+const scheduleOfRateSchema = z.object({
+  description: z.string(),
+  cost: z.number(),
+  unit: z.string(),
+});
 
 const formSchema = z.object({
   customerId: z.string().min(1, "Please select a customer."),
@@ -174,7 +179,7 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
-  quotingStandards: z.string().optional(),
+  scheduleOfRates: z.array(scheduleOfRateSchema).optional(),
   persona: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -202,7 +207,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
       overheadRate: quotingProfiles[0].defaults.overheadRate,
       callOutFee: quotingProfiles[0].defaults.callOutFee,
-      quotingStandards: quotingProfiles[0].standards,
+      scheduleOfRates: quotingProfiles[0].scheduleOfRates,
       persona: quotingProfiles[0].persona,
       instructions: quotingProfiles[0].instructions,
     },
@@ -245,7 +250,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
             desiredMargin: profile.defaults.desiredMargin,
             overheadRate: profile.defaults.overheadRate,
             callOutFee: profile.defaults.callOutFee,
-            quotingStandards: profile.standards,
+            scheduleOfRates: profile.scheduleOfRates,
             persona: profile.persona,
             instructions: profile.instructions,
         });
@@ -318,7 +323,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
         desiredMargin: profile.defaults.desiredMargin,
         overheadRate: profile.defaults.overheadRate,
         callOutFee: profile.defaults.callOutFee,
-        quotingStandards: profile.standards,
+        scheduleOfRates: profile.scheduleOfRates,
         persona: profile.persona,
         instructions: profile.instructions,
       });
@@ -387,6 +392,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
+                                        <SelectItem value=" ">None</SelectItem>
                                         {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
@@ -473,7 +479,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                             )}
                           />
                         </div>
-                        <input type="hidden" {...form.register("quotingStandards")} />
+                        <input type="hidden" {...form.register("scheduleOfRates")} />
                         <input type="hidden" {...form.register("persona")} />
                         <input type="hidden" {...form.register("instructions")} />
                          <input type="hidden" {...form.register("callOutFee")} />

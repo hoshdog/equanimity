@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useFieldArray } from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -13,10 +13,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { DollarSign, Percent } from 'lucide-react';
+import { DollarSign, Percent, PlusCircle, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function ProfileForm() {
   const { control } = useFormContext();
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "scheduleOfRates",
+  });
 
   return (
     <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
@@ -101,6 +106,57 @@ export function ProfileForm() {
                 )}
             />
        </div>
+       
+        <div className="space-y-2">
+            <FormLabel>Schedule of Rates</FormLabel>
+            <FormDescription>
+                This is the core data the AI uses for material and labor calculations.
+            </FormDescription>
+            <div className="space-y-2">
+            {fields.map((field, index) => (
+                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                    <div className="grid grid-cols-12 gap-2 flex-grow">
+                        <div className="col-span-12 sm:col-span-6">
+                        <FormField
+                            control={control}
+                            name={`scheduleOfRates.${index}.description`}
+                            render={({ field }) => (
+                                <FormItem><FormControl><Input placeholder="Item description" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                        <div className="col-span-6 sm:col-span-3">
+                            <FormField
+                                control={control}
+                                name={`scheduleOfRates.${index}.cost`}
+                                render={({ field }) => (
+                                    <FormItem><FormControl>
+                                        <div className="relative">
+                                            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" />
+                                            <Input type="number" placeholder="Cost" className="pl-6" {...field} />
+                                        </div>
+                                    </FormControl><FormMessage /></FormItem>
+                                )} />
+                        </div>
+                         <div className="col-span-6 sm:col-span-3">
+                            <FormField
+                                control={control}
+                                name={`scheduleOfRates.${index}.unit`}
+                                render={({ field }) => (
+                                    <FormItem><FormControl><Input placeholder="per hour, each" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                        </div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                        <Trash2 className="h-4 w-4 text-destructive"/>
+                    </Button>
+                </div>
+            ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => append({ description: "", cost: 0, unit: "each" })}>
+                <PlusCircle className="mr-2 h-4 w-4" /> New Rate
+            </Button>
+        </div>
+
 
       <FormField
         control={control}
@@ -137,26 +193,6 @@ export function ProfileForm() {
             </FormControl>
              <FormDescription>
                 Provide specific rules or defaults for the AI to follow.
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="standards"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Schedule of Rates & Costs</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="Standard Labor Rate: $95/hour..."
-                rows={8}
-                {...field}
-              />
-            </FormControl>
-             <FormDescription>
-                This is the core data the AI uses for material and labor calculations.
             </FormDescription>
             <FormMessage />
           </FormItem>

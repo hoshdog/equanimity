@@ -1,5 +1,11 @@
 // src/lib/quoting-profiles.ts
 
+export interface ScheduleOfRate {
+    description: string;
+    cost: number;
+    unit: string;
+}
+
 export interface QuotingProfile {
     id: string;
     name: string;
@@ -11,7 +17,7 @@ export interface QuotingProfile {
     };
     persona: string;
     instructions: string;
-    standards: string;
+    scheduleOfRates: ScheduleOfRate[];
 }
 
 export const initialQuotingProfiles: QuotingProfile[] = [
@@ -26,14 +32,15 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         },
         persona: 'You are an expert electrical estimator with 20 years of experience in residential and commercial projects. Be thorough and accurate.',
         instructions: `Always break down labor and materials separately. Apply the call-out fee if the job appears to be a small service call. For any new installations, add a line item for a final safety check and compliance certificate. Add a 5% contingency for unforeseen issues on jobs estimated over $2000.`,
-        standards: `Standard Labor Rate: $95/hour
-Apprentice Labor Rate: $55/hour
-Call-out Fee (includes first 30 mins): $120
-Standard GPO (Supply & Install): $85 per unit
-Standard Downlight (Supply & Install): $75 per unit
-Switchboard Upgrade (Standard): $1200
-Wire per meter (2.5mm Twin & Earth): $2.50
-`
+        scheduleOfRates: [
+            { description: 'Standard Labor Rate', cost: 95, unit: 'per hour' },
+            { description: 'Apprentice Labor Rate', cost: 55, unit: 'per hour' },
+            { description: 'Call-out Fee (includes first 30 mins)', cost: 120, unit: 'each' },
+            { description: 'Standard GPO (Supply & Install)', cost: 85, unit: 'each' },
+            { description: 'Standard Downlight (Supply & Install)', cost: 75, unit: 'each' },
+            { description: 'Switchboard Upgrade (Standard)', cost: 1200, unit: 'each' },
+            { description: 'Wire per meter (2.5mm Twin & Earth)', cost: 2.50, unit: 'per meter' },
+        ]
     },
     {
         id: 'profile-2',
@@ -45,15 +52,16 @@ Wire per meter (2.5mm Twin & Earth): $2.50
         },
         persona: 'You are an IT solutions consultant for a Managed Service Provider (MSP). Focus on providing value and clear, itemized costs for both hardware and services.',
         instructions: `Clearly distinguish between one-off project costs and recurring monthly fees. When quoting hardware, add a 15% margin on top of the estimated cost. Always include a line item for 'Project Management & Documentation' at 10% of the total labor cost.`,
-        standards: `On-site Support (Business Hours): $150/hour
-Remote Support (Business Hours): $120/hour
-After-Hours Emergency Support: $250/hour (2-hour minimum)
-Standard Workstation Setup: $180
-Server Setup (Basic): $1500
-Managed Services (Per User/Month): $65
-Microsoft 365 Business Premium License (Per User/Month): $35
-Standard Network Switch (8-port, unmanaged): $100
-`
+        scheduleOfRates: [
+            { description: 'On-site Support (Business Hours)', cost: 150, unit: 'per hour' },
+            { description: 'Remote Support (Business Hours)', cost: 120, unit: 'per hour' },
+            { description: 'After-Hours Emergency Support', cost: 250, unit: 'per hour' },
+            { description: 'Standard Workstation Setup', cost: 180, unit: 'each' },
+            { description: 'Server Setup (Basic)', cost: 1500, unit: 'each' },
+            { description: 'Managed Services (Per User)', cost: 65, unit: 'per month' },
+            { description: 'Microsoft 365 Business Premium License', cost: 35, unit: 'per user/month' },
+            { description: 'Standard Network Switch (8-port, unmanaged)', cost: 100, unit: 'each' },
+        ]
     },
     {
         id: 'profile-3',
@@ -65,14 +73,15 @@ Standard Network Switch (8-port, unmanaged): $100
         },
         persona: 'You are a senior mechanical engineer and fabricator. Your quotes must be precise, accounting for material waste and workshop consumables.',
         instructions: `Material costs should include a 10% waste allowance. For every hour of fabrication labor, add a 'Workshop Consumables' charge. If design work is required, bill it separately from fabrication labor. All quotes should include an estimated lead time.`,
-        standards: `Engineering Consultation Rate: $200/hour
-CAD Design & Drafting Rate: $125/hour
-Welder/Fabricator Labor Rate: $110/hour
-Workshop Consumables (per hour of labor): $10
-Mild Steel Cost (per kg): $5.50
-Stainless Steel 316 Cost (per kg): $15.00
-Aluminum Cost (per kg): $12.00
-CNC Machining (per hour): $180
-`
+        scheduleOfRates: [
+            { description: 'Engineering Consultation Rate', cost: 200, unit: 'per hour' },
+            { description: 'CAD Design & Drafting Rate', cost: 125, unit: 'per hour' },
+            { description: 'Welder/Fabricator Labor Rate', cost: 110, unit: 'per hour' },
+            { description: 'Workshop Consumables (per hour of labor)', cost: 10, unit: 'per hour' },
+            { description: 'Mild Steel Cost', cost: 5.50, unit: 'per kg' },
+            { description: 'Stainless Steel 316 Cost', cost: 15.00, unit: 'per kg' },
+            { description: 'Aluminum Cost', cost: 12.00, unit: 'per kg' },
+            { description: 'CNC Machining', cost: 180, unit: 'per hour' },
+        ]
     }
 ];

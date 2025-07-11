@@ -37,6 +37,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
 
+const scheduleOfRateSchema = z.object({
+  description: z.string(),
+  cost: z.number(),
+  unit: z.string(),
+});
 
 const formSchema = z.object({
   prompt: z
@@ -45,7 +50,7 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
-  quotingStandards: z.string().optional(),
+  scheduleOfRates: z.array(scheduleOfRateSchema).optional(),
   persona: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -70,7 +75,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
       overheadRate: quotingProfiles[0].defaults.overheadRate,
       callOutFee: quotingProfiles[0].defaults.callOutFee,
-      quotingStandards: quotingProfiles[0].standards,
+      scheduleOfRates: quotingProfiles[0].scheduleOfRates,
       persona: quotingProfiles[0].persona,
       instructions: quotingProfiles[0].instructions,
     },
@@ -85,7 +90,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
             desiredMargin: profile.defaults.desiredMargin,
             overheadRate: profile.defaults.overheadRate,
             callOutFee: profile.defaults.callOutFee,
-            quotingStandards: profile.standards,
+            scheduleOfRates: profile.scheduleOfRates,
             persona: profile.persona,
             instructions: profile.instructions,
         });
@@ -118,7 +123,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
         status: 'Draft' as const,
       };
       
-      const newQuoteId = await addQuote(projectId, quoteData);
+      const newQuoteId = await addQuote(quoteData);
       const newQuote: Quote = {
         id: newQuoteId,
         ...quoteData,
@@ -149,7 +154,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
         desiredMargin: profile.defaults.desiredMargin,
         overheadRate: profile.defaults.overheadRate,
         callOutFee: profile.defaults.callOutFee,
-        quotingStandards: profile.standards,
+        scheduleOfRates: profile.scheduleOfRates,
         persona: profile.persona,
         instructions: profile.instructions,
       });
@@ -257,7 +262,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                             )}
                           />
                         </div>
-                        <input type="hidden" {...form.register("quotingStandards")} />
+                        <input type="hidden" {...form.register("scheduleOfRates")} />
                         <input type="hidden" {...form.register("persona")} />
                         <input type="hidden" {...form.register("instructions")} />
                          <input type="hidden" {...form.register("callOutFee")} />

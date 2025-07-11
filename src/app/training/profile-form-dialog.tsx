@@ -21,6 +21,12 @@ import { useToast } from '@/hooks/use-toast';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileForm } from './profile-form';
 
+const scheduleOfRateSchema = z.object({
+  description: z.string().min(2, "Description is required."),
+  cost: z.coerce.number().min(0, "Cost must be a positive number."),
+  unit: z.string().min(2, "Unit is required (e.g., 'per hour', 'each')."),
+});
+
 const profileSchema = z.object({
   id: z.string(),
   name: z.string().min(3, "Profile name must be at least 3 characters."),
@@ -32,7 +38,7 @@ const profileSchema = z.object({
   }),
   persona: z.string().min(10, "Persona description is required."),
   instructions: z.string().optional(),
-  standards: z.string().min(10, "Costing and labor standards are required."),
+  scheduleOfRates: z.array(scheduleOfRateSchema).min(1, "At least one rate is required."),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -54,7 +60,7 @@ const getDefaultValues = (): ProfileFormValues => ({
   },
   persona: "You are a helpful quoting assistant for a services business.",
   instructions: "",
-  standards: "Standard Labor Rate: $90/hour"
+  scheduleOfRates: [{ description: "Standard Labor", cost: 90, unit: "per hour" }],
 });
 
 export function ProfileFormDialog({ children, profile, onProfileSaved }: ProfileFormDialogProps) {

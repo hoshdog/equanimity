@@ -27,7 +27,11 @@ const GenerateQuoteFromPromptInputSchema = z.object({
       'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
     ),
   callOutFee: z.coerce.number().min(0).optional().describe('A fixed call-out fee to be applied if the job is determined to be a small service call.'),
-  quotingStandards: z.string().optional().describe('A string containing the business-specific quoting standards, such as labor rates and standard material costs.'),
+  scheduleOfRates: z.array(z.object({
+    description: z.string(),
+    cost: z.number(),
+    unit: z.string(),
+  })).optional().describe('A structured list of standard material costs and labor rates.'),
   persona: z.string().optional().describe('The AI persona to adopt when generating the quote.'),
   instructions: z.string().optional().describe('Special instructions for the AI to follow.'),
 });
@@ -100,10 +104,12 @@ Business Rules:
 - Call-out Fee: \${{{callOutFee}}}. Apply this if the job appears to be a small service call. If you apply it, ensure it's a line item.
 {{/if}}
 
-{{#if quotingStandards}}
+{{#if scheduleOfRates}}
 - Use the following business-specific standards for costs and rates:
   """
-  {{{quotingStandards}}}
+  {{#each scheduleOfRates}}
+  - {{this.description}}: \${{this.cost}} {{this.unit}}
+  {{/each}}
   """
 {{else}}
 - Use reasonable, typical industry costs for parts and labor if not specified. For labor, assume a standard hourly rate (e.g., $90/hour) unless the job implies a different skill level.
