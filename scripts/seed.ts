@@ -1,6 +1,6 @@
 // scripts/seed.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
+import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
@@ -24,42 +24,83 @@ const mockEmployees = [
     { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Junior Technician', status: 'Active' },
     { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave' },
     { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Field Technician', status: 'Inactive' },
+    { id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Senior Technician', status: 'Active' },
+    { id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active' },
+    { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active' },
+    { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active' },
+    { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active' },
 ];
 
-const mockCustomerDetails = {
-    '1': { 
+const mockCustomers = [
+    {
         id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', type: 'Corporate Client',
         primaryContactName: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888',
-        contacts: [
-            { id: 'C1A', name: 'John Doe', emails: ['john.doe@innovate.com'], phones: ['02 9999 8888'] },
-            { id: 'C1B', name: 'Sarah Lee', emails: ['sarah.lee@innovate.com', 's.lee.personal@email.com'], phones: ['02 9999 8889'] },
-        ],
-        sites: [
-            { id: 'S1A', name: 'Sydney HQ', address: '123 Tech Park, Sydney NSW 2000', primaryContactId: 'C1A' },
-            { id: 'S1B', name: 'Melbourne Office', address: '55 Collins St, Melbourne VIC 3000', primaryContactId: 'C1B' },
-        ],
-        projects: [
-            { id: 'P1A1', siteId: 'S1A', name: 'Website Redesign', status: 'In Progress', value: 25000 },
-            { id: 'P1A2', siteId: 'S1A', name: 'Server Upgrade', status: 'Completed', value: 15000 },
-            { id: 'P1B1', siteId: 'S1B', name: 'Office Network Setup', status: 'Planning', value: 35000 },
-        ]
     },
-    '2': { 
+    {
         id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', type: 'Construction Partner',
         primaryContactName: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777',
-         contacts: [
-            { id: 'C2A', name: 'Jane Smith', emails: ['jane.smith@builders.com'], phones: ['03 8888 7777'] },
-        ],
-        sites: [
-            { id: 'S2A', name: 'Main Yard', address: '456 Construction Ave, Melbourne VIC 3000', primaryContactId: 'C2A'},
-        ],
-        projects: [
-            { id: 'P2A1', siteId: 'S2A', name: 'New Apartment Complex Wiring', status: 'In Progress', value: 120000 },
-            { id: 'P2A2', siteId: 'S2A', name: 'Security System Install', status: 'In Progress', value: 18000 },
-        ]
-     },
+    },
+    {
+        id: '3', name: 'Greenleaf Cafe', address: '789 Garden Lane, Brisbane QLD 4000', type: 'Small Business',
+        primaryContactName: 'Sam Green', email: 'sam.g@greenleaf.com', phone: '07 1111 2222',
+    }
+];
+
+const mockContacts = {
+    '1': [
+        { id: 'C1A', name: 'John Doe', emails: ['john.doe@innovate.com'], phones: ['02 9999 8888'], jobTitle: 'IT Manager' },
+        { id: 'C1B', name: 'Sarah Lee', emails: ['sarah.lee@innovate.com', 's.lee.personal@email.com'], phones: ['02 9999 8889'], jobTitle: 'Office Manager' },
+    ],
+    '2': [
+        { id: 'C2A', name: 'Jane Smith', emails: ['jane.smith@builders.com'], phones: ['03 8888 7777'], jobTitle: 'Site Foreman' },
+        { id: 'C2B', name: 'Mike Ross', emails: ['mike.r@builders.com'], phones: ['03 8888 7778'], jobTitle: 'Project Coordinator' },
+    ],
+    '3': [
+        { id: 'C3A', name: 'Sam Green', emails: ['sam.g@greenleaf.com'], phones: ['07 1111 2222'], jobTitle: 'Owner' },
+    ],
 };
 
+const mockSites = {
+    '1': [
+        { id: 'S1A', name: 'Sydney HQ', address: '123 Tech Park, Sydney NSW 2000', primaryContactId: 'C1A' },
+        { id: 'S1B', name: 'Melbourne Office', address: '55 Collins St, Melbourne VIC 3000', primaryContactId: 'C1B' },
+    ],
+    '2': [
+        { id: 'S2A', name: 'Main Yard', address: '456 Construction Ave, Melbourne VIC 3000', primaryContactId: 'C2A' },
+        { id: 'S2B', name: 'New Development Site', address: '100 Development Rd, Geelong VIC 3220', primaryContactId: 'C2B'},
+    ],
+    '3': [
+        { id: 'S3A', name: 'Cafe Location', address: '789 Garden Lane, Brisbane QLD 4000', primaryContactId: 'C3A' },
+    ],
+};
+
+const mockProjects = [
+    // Innovate Corp Projects
+    { id: 'PROJ001', name: 'Website Redesign', description: 'Complete overhaul of the corporate website.', customerId: '1', siteId: 'S1A', status: 'In Progress' },
+    { id: 'PROJ002', name: 'Server Upgrade', description: 'Upgrade all production servers.', customerId: '1', siteId: 'S1A', status: 'Completed' },
+    { id: 'PROJ003', name: 'Office Network Setup', description: 'New network infrastructure for Melbourne office.', customerId: '1', siteId: 'S1B', status: 'Planning' },
+    // Builders Pty Ltd Projects
+    { id: 'PROJ004', name: 'New Apartment Complex Wiring', description: 'Electrical wiring for a 50-unit complex.', customerId: '2', siteId: 'S2B', status: 'In Progress' },
+    { id: 'PROJ005', name: 'Main Yard Security System', description: 'Install new security cameras and alarm system.', customerId: '2', siteId: 'S2A', status: 'On Hold' },
+    // Greenleaf Cafe Projects
+    { id: 'PROJ006', name: 'Kitchen Appliance Test & Tag', description: 'Annual safety check for all kitchen equipment.', customerId: '3', siteId: 'S3A', status: 'Completed' },
+    { id: 'PROJ007', name: 'POS System Upgrade', description: 'Install new Point of Sale hardware and software.', customerId: '3', siteId: 'S3A', status: 'Planning' },
+];
+
+const mockJobs = {
+    'PROJ001': [
+        { id: 'JOB001', description: 'Design new homepage mockup', status: 'Completed', technicianId: 'EMP001' },
+        { id: 'JOB002', description: 'Develop frontend components', status: 'In Progress', technicianId: 'EMP006' },
+    ],
+    'PROJ004': [
+        { id: 'JOB003', description: 'Run conduit for Level 1', status: 'In Progress', technicianId: 'EMP002' },
+        { id: 'JOB004', description: 'Pull cabling for Level 1', status: 'Not Started', technicianId: 'EMP003' },
+        { id: 'JOB005', description: 'Install distribution board', status: 'Not Started', technicianId: 'EMP002' },
+    ],
+    'PROJ006': [
+        { id: 'JOB006', description: 'Test and tag all kitchen appliances', status: 'Completed', technicianId: 'EMP005' },
+    ],
+};
 
 async function seedDatabase() {
     console.log('Starting to seed database...');
@@ -71,32 +112,55 @@ async function seedDatabase() {
         const docRef = doc(employeesCollection, employee.id);
         batch.set(docRef, employee);
     });
-    console.log('Employees queued for seeding.');
+    console.log(`${mockEmployees.length} employees queued for seeding.`);
 
-    // Seed Customers and their subcollections
+    // Seed Customers
     const customersCollection = collection(db, 'customers');
-    Object.values(mockCustomerDetails).forEach(customerData => {
-        const { contacts, sites, projects, ...customerCoreData } = customerData;
-        
-        const customerDocRef = doc(customersCollection, customerCoreData.id);
-        batch.set(customerDocRef, customerCoreData);
-
+    mockCustomers.forEach(customerData => {
+        const customerDocRef = doc(customersCollection, customerData.id);
+        batch.set(customerDocRef, customerData);
+    });
+    console.log(`${mockCustomers.length} customers queued for seeding.`);
+    
+    // Seed Contacts (Subcollection)
+    Object.entries(mockContacts).forEach(([customerId, contacts]) => {
         contacts.forEach(contact => {
-            const contactDocRef = doc(db, 'customers', customerCoreData.id, 'contacts', contact.id);
+            const contactDocRef = doc(db, 'customers', customerId, 'contacts', contact.id);
             batch.set(contactDocRef, contact);
         });
-
+        console.log(`Queued ${contacts.length} contacts for customer ${customerId}.`);
+    });
+    
+    // Seed Sites (Subcollection)
+    Object.entries(mockSites).forEach(([customerId, sites]) => {
         sites.forEach(site => {
-            const siteDocRef = doc(db, 'customers', customerCoreData.id, 'sites', site.id);
+            const siteDocRef = doc(db, 'customers', customerId, 'sites', site.id);
             batch.set(siteDocRef, site);
         });
+        console.log(`Queued ${sites.length} sites for customer ${customerId}.`);
+    });
 
-        projects.forEach(project => {
-            const projectDocRef = doc(db, 'customers', customerCoreData.id, 'projects', project.id);
-            batch.set(projectDocRef, project);
+    // Seed Projects (Root Collection)
+    const projectsCollection = collection(db, 'projects');
+    mockProjects.forEach(project => {
+        const { id, ...projectData } = project;
+        const projectDocRef = doc(projectsCollection, id);
+        batch.set(projectDocRef, {
+            ...projectData,
+            createdAt: serverTimestamp()
         });
     });
-    console.log('Customers and subcollections queued for seeding.');
+    console.log(`${mockProjects.length} projects queued for seeding.`);
+    
+    // Seed Jobs (Subcollection of Projects)
+    Object.entries(mockJobs).forEach(([projectId, jobs]) => {
+        jobs.forEach(job => {
+            const { id, ...jobData } = job;
+            const jobDocRef = doc(db, 'projects', projectId, 'jobs', id);
+            batch.set(jobDocRef, jobData);
+        });
+        console.log(`Queued ${jobs.length} jobs for project ${projectId}.`);
+    });
 
 
     try {
@@ -108,3 +172,5 @@ async function seedDatabase() {
 }
 
 seedDatabase();
+
+    
