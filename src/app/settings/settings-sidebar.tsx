@@ -74,7 +74,7 @@ export function SettingsSidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1">
+    <nav className="flex flex-col space-y-1">
       {sidebarNavItems.map((item) => (
         <Link
           key={item.href}
