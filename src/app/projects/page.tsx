@@ -3,6 +3,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Briefcase, LayoutGrid, List, Columns } from "lucide-react";
@@ -17,20 +20,56 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
 };
 
-export default function ProjectsPage() {
-  const [view, setView] = useState('grid');
-  const router = useRouter();
-  const projects = [
+const initialProjects = [
     { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5 },
     { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8 },
     { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie', teamSize: 3 },
     { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice', teamSize: 4 },
-  ];
+];
+
+const projectSchema = z.object({
+    name: z.string().min(3, "Project name must be at least 3 characters."),
+    description: z.string().min(10, "Description must be at least 10 characters."),
+    manager: z.string().min(2, "Manager name is required."),
+    teamSize: z.coerce.number().min(1, "Team size must be at least 1."),
+});
+
+type Project = Omit<typeof initialProjects[0], 'id' | 'status'> & { id?: number; status?: string };
+
+
+export default function ProjectsPage() {
+  const [view, setView] = useState('grid');
+  const [projects, setProjects] = useState(initialProjects);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const form = useForm<z.infer<typeof projectSchema>>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: { name: "", description: "", manager: "", teamSize: 1 },
+  });
+
+  function onSubmit(values: z.infer<typeof projectSchema>) {
+    const newProject = { 
+        ...values, 
+        id: Date.now(),
+        status: 'Planning'
+    };
+    setProjects([...projects, newProject]);
+    toast({ title: "Project Created", description: `"${values.name}" has been added.` });
+    setIsFormOpen(false);
+    form.reset();
+  }
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
     'Project Name': true,
@@ -96,10 +135,58 @@ export default function ProjectsPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Project
-            </Button>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Project
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create New Project</DialogTitle>
+                        <DialogDescription>Fill out the form below to create a new project.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                             <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Project Name</FormLabel>
+                                    <FormControl><Input placeholder="e.g., Website Redesign" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                            <FormField control={form.control} name="description" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Description</FormLabel>
+                                    <FormControl><Textarea placeholder="A brief description of the project..." {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="manager" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Manager</FormLabel>
+                                        <FormControl><Input placeholder="e.g., Alice" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name="teamSize" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Team Size</FormLabel>
+                                        <FormControl><Input type="number" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                                <Button type="submit">Create Project</Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
       </div>
       {view === 'grid' ? (
