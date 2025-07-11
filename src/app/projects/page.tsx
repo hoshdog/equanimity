@@ -5,11 +5,22 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Briefcase, LayoutGrid, List } from "lucide-react";
+import { PlusCircle, Briefcase, LayoutGrid, List, Columns } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
+type ColumnVisibilityState = {
+  [key: string]: boolean;
+};
 
 export default function ProjectsPage() {
   const [view, setView] = useState('grid');
@@ -20,6 +31,13 @@ export default function ProjectsPage() {
     { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie', teamSize: 3 },
     { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice', teamSize: 4 },
   ];
+
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
+    'Project Name': true,
+    'Manager': true,
+    'Status': true,
+    'Team Size': true,
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -35,6 +53,13 @@ export default function ProjectsPage() {
     router.push(`/projects/${id}`);
   };
 
+  const toggleColumn = (column: string) => {
+    setColumnVisibility(prev => ({ ...prev, [column]: !prev[column] }));
+  };
+
+  const visibleColumns = Object.keys(columnVisibility).filter(key => columnVisibility[key]);
+
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -48,6 +73,29 @@ export default function ProjectsPage() {
                     <List className="h-5 w-5" />
                 </Button>
             </div>
+             {view === 'list' && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                            <Columns className="mr-2 h-4 w-4" />
+                            View
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {Object.keys(columnVisibility).map(key => (
+                           <DropdownMenuCheckboxItem
+                                key={key}
+                                checked={columnVisibility[key]}
+                                onCheckedChange={() => toggleColumn(key)}
+                           >
+                               {key}
+                           </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
             <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 New Project
@@ -84,23 +132,25 @@ export default function ProjectsPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Project Name</TableHead>
-                        <TableHead>Manager</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Team Size</TableHead>
+                        {visibleColumns.includes('Project Name') && <TableHead>Project Name</TableHead>}
+                        {visibleColumns.includes('Manager') && <TableHead>Manager</TableHead>}
+                        {visibleColumns.includes('Status') && <TableHead>Status</TableHead>}
+                        {visibleColumns.includes('Team Size') && <TableHead>Team Size</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {projects.map(project => (
                         <TableRow key={project.id} onClick={() => handleRowClick(project.id)} className="cursor-pointer">
-                            <TableCell className="font-medium">{project.name}</TableCell>
-                            <TableCell>{project.manager}</TableCell>
+                           {visibleColumns.includes('Project Name') && <TableCell className="font-medium">{project.name}</TableCell>}
+                           {visibleColumns.includes('Manager') && <TableCell>{project.manager}</TableCell>}
+                           {visibleColumns.includes('Status') &&
                             <TableCell>
                                 <span className={cn('font-semibold', getStatusColor(project.status))}>
                                     {project.status}
                                 </span>
                             </TableCell>
-                            <TableCell>{project.teamSize}</TableCell>
+                           }
+                           {visibleColumns.includes('Team Size') && <TableCell>{project.teamSize}</TableCell>}
                         </TableRow>
                     ))}
                 </TableBody>
