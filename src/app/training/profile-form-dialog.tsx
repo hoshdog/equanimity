@@ -40,7 +40,6 @@ const profileSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   defaults: z.object({
       desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
-      overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
       callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
   }),
   persona: z.string().min(10, "Persona description is required."),
@@ -63,7 +62,6 @@ const getDefaultValues = (): ProfileFormValues => ({
   description: "",
   defaults: {
     desiredMargin: 25,
-    overheadRate: 15,
     callOutFee: 0,
   },
   persona: "You are a helpful quoting assistant for a services business.",

@@ -20,11 +20,11 @@ const GenerateQuoteFromPromptInputSchema = z.object({
     .min(0)
     .max(100)
     .describe('The desired profit margin percentage (e.g., 25 for 25%).'),
-  overheadRate: z
+  overheadCost: z
     .number()
     .min(0)
     .describe(
-      'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
+      'The calculated overhead cost to be included in the quote.'
     ),
   callOutFee: z.coerce.number().min(0).optional().describe('A fixed call-out fee to be applied if the job is determined to be a small service call.'),
   laborRates: z.array(z.object({
@@ -103,7 +103,7 @@ Job Description:
 
 Business Rules:
 - Desired Profit Margin: {{{desiredMargin}}}%
-- Overhead Rate: {{{overheadRate}}}% of total parts and labor cost.
+- Pre-calculated Overhead Cost: {{{overheadCost}}} to be added to the total cost base. This is a fixed value, not a percentage.
 - GST (Goods and Services Tax): 10% on the final price before tax.
 {{#if callOutFee}}
 - Call-out Fee: \${{{callOutFee}}}. Apply this if the job appears to be a small service call. If you apply it, ensure it's a line item.
@@ -137,7 +137,7 @@ Special Instructions to follow:
 Calculation Steps:
 1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Use the provided rates and costs where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item.
 2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
-3.  **Calculate Overheads**: Apply the overhead rate to the subtotal.
+3.  **Set Overheads**: The overheads value is fixed at \${{{overheadCost}}}. Set the 'overheads' field to this value.
 4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.
 5.  **Calculate Markup**: The desired margin is on the final selling price. The formula to find the selling price from a cost and a desired margin is: Selling Price = Total Cost / (1 - (Desired Margin / 100)). The markup amount is the Selling Price minus the Total Cost.
 6.  **Calculate Total Before Tax**: This is the Total Cost plus the Markup Amount (or, the Selling Price).
@@ -147,13 +147,13 @@ Calculation Steps:
 
 Example Calculation:
 - Subtotal (Parts + Labor) = $100
-- Overheads (15%) = $15
-- Total Cost = $115
+- Overheads (Fixed) = $50
+- Total Cost = $150
 - Desired Margin = 25%
-- Selling Price (Total Before Tax) = $115 / (1 - 0.25) = $153.33
-- Markup Amount = $153.33 - $115 = $38.33
-- GST (10%) = $15.33
-- Final Total = $153.33 + $15.33 = $168.66
+- Selling Price (Total Before Tax) = $150 / (1 - 0.25) = $200.00
+- Markup Amount = $200.00 - $150 = $50.00
+- GST (10%) = $20.00
+- Final Total = $200.00 + $20.00 = $220.00
 
 Provide the final response in the specified JSON format.
 `,

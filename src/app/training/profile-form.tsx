@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { DollarSign, Percent, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { getEmployees } from '@/lib/employees';
+import { getEmployeesWithWageData } from '@/lib/employees';
 import { Employee, LaborRate } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,7 +59,7 @@ function LaborRateDialog({
     async function fetchEmps() {
         if (isOpen) {
             try {
-                const employeesData = await getEmployees();
+                const employeesData = await getEmployeesWithWageData();
                 setEmployees(employeesData);
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load employees for wage calculation.' });
@@ -88,7 +88,7 @@ function LaborRateDialog({
     const actualCostRate = annualCost / productiveHours;
     
     return parseFloat(actualCostRate.toFixed(2));
-  }, [employees, role, FULL_TIME_ANNUAL_HOURS, FULL_TIME_SICK_DAYS, FULL_TIME_HOLIDAY_DAYS]);
+  }, [employees, role]);
 
   const costRate = React.useMemo(() => calculateCostRate(), [calculateCostRate]);
   const margin = sellRate > 0 ? ((sellRate - costRate) / sellRate) * 100 : 0;
@@ -355,22 +355,6 @@ export function ProfileForm() {
                         <div className="relative">
                             <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input type="number" placeholder="25" className="pl-8" {...field} />
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={control}
-                name="defaults.overheadRate"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Overhead Rate</FormLabel>
-                        <FormControl>
-                        <div className="relative">
-                            <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="number" placeholder="15" className="pl-8" {...field} />
                         </div>
                     </FormControl>
                     <FormMessage />

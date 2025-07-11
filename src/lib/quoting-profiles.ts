@@ -19,7 +19,6 @@ export interface QuotingProfile {
     description: string;
     defaults: {
         desiredMargin: number;
-        overheadRate: number;
         callOutFee?: number;
     };
     persona: string;
@@ -35,7 +34,6 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         description: 'Standard rates for residential and commercial electrical work, including common materials and labor.',
         defaults: {
             desiredMargin: 25,
-            overheadRate: 15,
             callOutFee: 120,
         },
         persona: 'You are an expert electrical estimator with 20 years of experience in residential and commercial projects. Be thorough and accurate.',
@@ -59,7 +57,6 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         description: 'Rates for IT support, hardware/software sales, and managed service contracts.',
         defaults: {
             desiredMargin: 30,
-            overheadRate: 10,
         },
         persona: 'You are an IT solutions consultant for a Managed Service Provider (MSP). Focus on providing value and clear, itemized costs for both hardware and services.',
         instructions: `Clearly distinguish between one-off project costs and recurring monthly fees. When quoting hardware, add a 15% margin on top of the estimated cost. Always include a line item for 'Project Management & Documentation' at 10% of the total labor cost.`,

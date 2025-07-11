@@ -1,8 +1,7 @@
-
 // src/app/quotes/new-quote-dialog.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -30,12 +29,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileText, Sparkles, Percent, PlusCircle, Plus } from 'lucide-react';
+import { Loader2, FileText, Sparkles, Percent, PlusCircle, Plus, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Quote, Project, Customer, OptionType } from '@/lib/types';
+import type { Quote, Project, Customer, OptionType, Employee } from '@/lib/types';
 import { addQuote } from '@/lib/quotes';
 import { getProjects } from '@/lib/projects';
 import { getCustomers, addCustomer as addDbCustomer } from '@/lib/customers';
+import { getEmployeesWithWageData } from '@/lib/employees';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
@@ -184,7 +184,7 @@ const formSchema = z.object({
     .string()
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
-  overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
+  overheadCost: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
   materialAndServiceRates: z.array(lineItemRateSchema).optional(),
   laborRates: z.array(laborRateSchema).optional(),
@@ -201,6 +201,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
   const [quotingProfiles, setQuotingProfiles] = useState<QuotingProfile[]>(initialQuotingProfiles);
   const [selectedProfileId, setSelectedProfileId] = useState<string>(quotingProfiles[0].id);
@@ -213,7 +214,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       projectId: '',
       prompt: '',
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
-      overheadRate: quotingProfiles[0].defaults.overheadRate,
+      overheadCost: 0,
       callOutFee: quotingProfiles[0].defaults.callOutFee,
       laborRates: quotingProfiles[0].laborRates,
       materialAndServiceRates: quotingProfiles[0].materialAndServiceRates,
@@ -224,17 +225,38 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
 
   const watchedCustomerId = form.watch("customerId");
 
+  // Calculate overhead cost
+  useEffect(() => {
+    const overheadEmployees = employees.filter(e => e.isOverhead);
+    if (overheadEmployees.length > 0) {
+        const totalAnnualWages = overheadEmployees.reduce((acc, emp) => {
+            const annualWage = (emp.wage || 0) * 38 * 52; // 38hr week
+            return acc + annualWage;
+        }, 0);
+        
+        // This is a simplified calculation. A real app would use a more complex formula.
+        // For this demo, let's assume overhead is 2% of the total annual wage bill of overhead staff.
+        const calculatedOverhead = totalAnnualWages * 0.02;
+        form.setValue('overheadCost', calculatedOverhead);
+    } else {
+        form.setValue('overheadCost', 0);
+    }
+  }, [employees, form]);
+
+
   useEffect(() => {
     if (isOpen) {
         async function fetchData() {
             setLoading(true);
             try {
-                const [projectsData, customersData] = await Promise.all([
+                const [projectsData, customersData, employeesData] = await Promise.all([
                     getProjects(),
-                    getCustomers()
+                    getCustomers(),
+                    getEmployeesWithWageData()
                 ]);
                 setProjects(projectsData);
                 setCustomers(customersData);
+                setEmployees(employeesData);
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load data.' });
             } finally {
@@ -257,7 +279,6 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
         form.reset({
             ...form.getValues(), // Keep existing values
             desiredMargin: profile.defaults.desiredMargin,
-            overheadRate: profile.defaults.overheadRate,
             callOutFee: profile.defaults.callOutFee,
             laborRates: profile.laborRates,
             materialAndServiceRates: profile.materialAndServiceRates,
@@ -331,7 +352,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
         projectId: '',
         prompt: '',
         desiredMargin: profile.defaults.desiredMargin,
-        overheadRate: profile.defaults.overheadRate,
+        overheadCost: 0,
         callOutFee: profile.defaults.callOutFee,
         laborRates: profile.laborRates,
         materialAndServiceRates: profile.materialAndServiceRates,
@@ -474,14 +495,14 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                           />
                            <FormField
                             control={form.control}
-                            name="overheadRate"
+                            name="overheadCost"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Overheads Rate</FormLabel>
+                                <FormLabel>Calculated Overhead</FormLabel>
                                  <FormControl>
                                   <div className="relative">
-                                     <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                     <Input type="number" placeholder="15" className="pl-8" {...field} />
+                                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                     <Input type="number" className="pl-8" {...field} readOnly />
                                   </div>
                                 </FormControl>
                                 <FormMessage />

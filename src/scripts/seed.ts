@@ -1,4 +1,3 @@
-
 // scripts/seed.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
@@ -20,18 +19,18 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
 const mockEmployees = [
-    { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', wage: 55, employmentType: 'Full-time' },
-    { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active', wage: 50, employmentType: 'Full-time' },
-    { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Technician', status: 'Active', wage: 42, employmentType: 'Full-time' },
-    { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', wage: 40, employmentType: 'Full-time' },
-    { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', wage: 40, employmentType: 'Casual' },
-    { id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Lead Technician', status: 'Active', wage: 52, employmentType: 'Full-time' },
-    { id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', wage: 48, employmentType: 'Full-time' },
-    { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active', wage: 25, employmentType: 'Full-time' },
-    { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', wage: 60, employmentType: 'Full-time' },
-    { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', wage: 90, employmentType: 'Full-time' },
-    { id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', wage: 38, employmentType: 'Full-time' },
-    { id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', wage: 35, employmentType: 'Part-time' },
+    { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', wage: 55, employmentType: 'Full-time', isOverhead: true },
+    { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active', wage: 50, employmentType: 'Full-time', isOverhead: false },
+    { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Technician', status: 'Active', wage: 42, employmentType: 'Full-time', isOverhead: false },
+    { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', wage: 40, employmentType: 'Full-time', isOverhead: true },
+    { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', wage: 40, employmentType: 'Casual', isOverhead: false },
+    { id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Lead Technician', status: 'Active', wage: 52, employmentType: 'Full-time', isOverhead: false },
+    { id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', wage: 48, employmentType: 'Full-time', isOverhead: true },
+    { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active', wage: 25, employmentType: 'Full-time', isOverhead: false },
+    { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', wage: 60, employmentType: 'Full-time', isOverhead: true },
+    { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', wage: 90, employmentType: 'Full-time', isOverhead: true },
+    { id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', wage: 38, employmentType: 'Full-time', isOverhead: false },
+    { id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', wage: 35, employmentType: 'Part-time', isOverhead: true },
 ];
 
 const mockCustomers = [
@@ -209,5 +208,3 @@ async function seedDatabase() {
 }
 
 seedDatabase();
-
-    

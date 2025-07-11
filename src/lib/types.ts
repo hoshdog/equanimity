@@ -88,6 +88,7 @@ export interface Employee {
     status: 'Active' | 'On Leave' | 'Inactive';
     wage?: number; // Optional wage
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
+    isOverhead?: boolean;
 }
 
 export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {
