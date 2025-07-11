@@ -89,21 +89,7 @@ const mockEmployees = [
         employmentType: 'Full-time', isOverhead: true, tfn: '000-111-222', award: 'N/A',
         leaveBalances: { annual: 200, sick: 100, banked: 0 },
         superannuation: { fundName: 'Aware Super', memberNumber: 'A1112223D' }
-    },
-    { 
-        id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', 
-        payType: 'Hourly', wage: 38, calculatedCostRate: 44.86,
-        employmentType: 'Full-time', isOverhead: false, tfn: '111-333-444', award: 'Professional Employees Award 2020',
-        leaveBalances: { annual: 76, sick: 38, banked: 0 },
-        superannuation: { fundName: 'Hostplus', memberNumber: 'H4445556M' }
-    },
-    { 
-        id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', 
-        payType: 'Hourly', wage: 35, calculatedCostRate: 20.66, // Note: Part-time calculation is different
-        employmentType: 'Part-time', isOverhead: true, tfn: '222-444-555', award: 'Clerks - Private Sector Award 2020',
-        leaveBalances: { annual: 38, sick: 19, banked: 2.5 },
-        superannuation: { fundName: 'REST Super', memberNumber: 'R7778889P' }
-    },
+    }
 ];
 
 const mockCustomers = [
@@ -281,3 +267,5 @@ async function seedDatabase() {
 }
 
 seedDatabase();
+
+    
