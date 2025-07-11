@@ -3,20 +3,40 @@
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import * as fs from 'fs';
+import * as path from 'path';
 
-// Check if the service account key is available
-if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    console.error('GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
-    console.error('Please create a service account key and set the path in your .env.local file.');
+// Load environment variables from .env.local
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
+// --- FIX: Explicitly load the service account key ---
+// This is a more robust way to ensure credentials are loaded.
+
+const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+if (!serviceAccountPath) {
+    console.error('ERROR: The GOOGLE_APPLICATION_CREDENTIALS environment variable is not set in your .env.local file.');
+    console.error('Please set it to the path of your Firebase service account key JSON file.');
     process.exit(1);
 }
 
+const absoluteServiceAccountPath = path.resolve(process.cwd(), serviceAccountPath);
+
+if (!fs.existsSync(absoluteServiceAccountPath)) {
+    console.error(`ERROR: The service account file was not found at: ${absoluteServiceAccountPath}`);
+    console.error('Please ensure the path in your .env.local file is correct.');
+    process.exit(1);
+}
+
+const serviceAccount = JSON.parse(fs.readFileSync(absoluteServiceAccountPath, 'utf8'));
+// --- End of Fix ---
+
+
 // Initialize Firebase Admin SDK
-// The SDK automatically uses the GOOGLE_APPLICATION_CREDENTIALS env var
 if (admin.apps.length === 0) {
     admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
+        // Use the explicitly loaded service account
+        credential: admin.credential.cert(serviceAccount),
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
 }
@@ -271,5 +291,3 @@ async function seedDatabase() {
 }
 
 seedDatabase();
-
-    
