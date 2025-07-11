@@ -153,12 +153,33 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: Empl
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
-    defaultValues: isEditing ? employee : defaultValues,
+    defaultValues: defaultValues,
   });
 
   React.useEffect(() => {
     if (isOpen) {
-      form.reset(isEditing ? employee : defaultValues);
+      if (isEditing && employee) {
+        // Ensure all fields have a defined value to prevent uncontrolled -> controlled error
+        form.reset({
+          ...defaultValues,
+          ...employee,
+          wage: employee.wage ?? 0,
+          annualSalary: employee.annualSalary ?? 0,
+          award: employee.award ?? '',
+          tfn: employee.tfn ?? '',
+          superannuation: {
+            fundName: employee.superannuation?.fundName ?? '',
+            memberNumber: employee.superannuation?.memberNumber ?? ''
+          },
+          leaveBalances: {
+            annual: employee.leaveBalances?.annual ?? 0,
+            sick: employee.leaveBalances?.sick ?? 0,
+            banked: employee.leaveBalances?.banked ?? 0
+          }
+        });
+      } else {
+        form.reset(defaultValues);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, isEditing, employee, form]);
