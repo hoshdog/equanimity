@@ -30,10 +30,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileText, Sparkles, Percent, DollarSign } from 'lucide-react';
+import { Loader2, FileText, Sparkles, Percent, DollarSign, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
+import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
+
 
 const formSchema = z.object({
   prompt: z
@@ -50,9 +52,8 @@ const formSchema = z.object({
 export default function QuotesPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
-  // In a real app, these would be fetched from a database
   const [quotingProfiles, setQuotingProfiles] = useState<QuotingProfile[]>(initialQuotingProfiles);
-  const [selectedProfile, setSelectedProfile] = useState<QuotingProfile>(quotingProfiles[0]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(quotingProfiles[0].id);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -61,21 +62,33 @@ export default function QuotesPage() {
       prompt: '',
       desiredMargin: 25,
       overheadRate: 15,
-      quotingStandards: selectedProfile.standards,
-      persona: selectedProfile.persona,
-      instructions: selectedProfile.instructions,
+      quotingStandards: quotingProfiles[0].standards,
+      persona: quotingProfiles[0].persona,
+      instructions: quotingProfiles[0].instructions,
     },
   });
   
   const handleProfileChange = (profileId: string) => {
     const profile = quotingProfiles.find(p => p.id === profileId);
     if (profile) {
-        setSelectedProfile(profile);
+        setSelectedProfileId(profile.id);
         form.setValue('quotingStandards', profile.standards);
         form.setValue('persona', profile.persona);
         form.setValue('instructions', profile.instructions);
     }
   }
+
+  const handleProfileSaved = (savedProfile: QuotingProfile) => {
+    const existingIndex = quotingProfiles.findIndex(p => p.id === savedProfile.id);
+    let updatedProfiles;
+    if (existingIndex > -1) {
+        updatedProfiles = quotingProfiles.map(p => p.id === savedProfile.id ? savedProfile : p);
+    } else {
+        updatedProfiles = [...quotingProfiles, savedProfile];
+    }
+    setQuotingProfiles(updatedProfiles);
+    handleProfileChange(savedProfile.id); // Select the new or updated profile
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -113,18 +126,25 @@ export default function QuotesPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                  <FormItem>
                     <FormLabel>Quoting Profile</FormLabel>
-                    <Select onValueChange={handleProfileChange} defaultValue={selectedProfile.id}>
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a quoting profile" />
-                            </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {quotingProfiles.map(profile => (
-                                <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                        <Select onValueChange={handleProfileChange} value={selectedProfileId}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a quoting profile" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {quotingProfiles.map(profile => (
+                                    <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <ProfileFormDialog onProfileSaved={handleProfileSaved}>
+                             <Button type="button" variant="outline" size="icon">
+                                <PlusCircle className="h-4 w-4" />
+                            </Button>
+                        </ProfileFormDialog>
+                    </div>
                      <FormDescription>
                         Select a profile to load pre-defined costing and labor rates.
                     </FormDescription>
