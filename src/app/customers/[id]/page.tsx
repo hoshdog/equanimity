@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -110,7 +110,11 @@ const getStatusColor = (status: string) => {
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
   const { toast } = useToast();
   const [mockData, setMockData] = useState(initialMockData);
-  const customer = mockData[params.id as keyof typeof mockData];
+  
+  const customer = useMemo(() => {
+    return mockData[params.id as keyof typeof mockData] || null;
+  }, [params.id, mockData]);
+  
   const primaryContact = customer?.contacts.find(c => c.id === customer.sites.find(s => s.primaryContactId)?.primaryContactId) || customer?.contacts[0];
 
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(customer?.sites[0]?.id || null);
