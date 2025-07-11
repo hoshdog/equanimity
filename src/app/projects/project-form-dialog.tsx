@@ -20,6 +20,7 @@ import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -30,8 +31,7 @@ interface ProjectFormDialogProps {
 const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
-    customerName: z.string({ required_error: "Please select or enter a customer."}).min(1, "Please select or enter a customer."),
-    customerId: z.string().optional(),
+    customerId: z.string({ required_error: "Please select a customer."}).min(1, "Please select a customer."),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
     projectContacts: z.array(
         z.object({
@@ -61,7 +61,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerName: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
+    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
   });
   
   const { fields, append, remove } = useFieldArray({
@@ -69,7 +69,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     name: "projectContacts",
   });
   
-  const watchedCustomerName = form.watch('customerName');
   const watchedCustomerId = form.watch('customerId');
 
   const customerOptions = React.useMemo(() => Object.values(customerDetails).map(c => ({
@@ -87,37 +86,17 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, customerDetails]);
   
   React.useEffect(() => {
-    const matchingCustomer = customerOptions.find(c => c.label.toLowerCase() === watchedCustomerName.toLowerCase());
-    if (matchingCustomer) {
-      if (form.getValues('customerId') !== matchingCustomer.value) {
-        form.setValue('customerId', matchingCustomer.value, { shouldValidate: true });
-      }
-    } else {
-      if (form.getValues('customerId')) {
-         form.setValue('customerId', '', { shouldValidate: true });
-      }
-    }
-  }, [watchedCustomerName, customerOptions, form]);
-
-  React.useEffect(() => {
     form.resetField('siteId', { defaultValue: '' });
     form.resetField('projectContacts', { defaultValue: [{ contactId: '', role: '' }] });
   }, [watchedCustomerId, form]);
 
 
   function onSubmit(values: ProjectFormValues) {
-    let finalCustomerId = values.customerId;
-
-    if (!finalCustomerId) {
-        toast({ variant: "destructive", title: "Invalid Customer", description: "Please select a valid customer from the list or create a new one."});
-        return;
-    }
-
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
         return mockEmployees.find(e => e.value === s.value) || { label: s.label, value: s.value };
     }) || [];
 
-    onProjectCreated({ ...values, customerId: finalCustomerId, assignedStaff: assignedStaffWithFullDetails });
+    onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
     setIsFormOpen(false);
     form.reset();
@@ -126,7 +105,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   const handleCustomerAdded = (customerId: string) => {
     const newCustomer = customerDetails[customerId];
     if (newCustomer) {
-        form.setValue('customerName', newCustomer.name, { shouldValidate: true });
         form.setValue('customerId', newCustomer.id, { shouldValidate: true });
     }
   }
@@ -186,8 +164,8 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                         </FormItem>
                     )}/>
 
-                    <FormField control={form.control} name="customerName" render={({ field }) => (
-                        <FormItem>
+                    <FormField control={form.control} name="customerId" render={({ field }) => (
+                        <FormItem className="flex flex-col">
                              <div className="flex items-center justify-between">
                                 <FormLabel>Customer</FormLabel>
                                 <AddCustomerDialog 
@@ -199,12 +177,12 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                     </Button>
                                 </AddCustomerDialog>
                              </div>
-                            <FormControl>
-                                <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
-                            </FormControl>
-                             <datalist id="customer-options">
-                                {customerOptions.map(opt => <option key={opt.value} value={opt.label} />)}
-                             </datalist>
+                             <Combobox
+                                options={customerOptions}
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select a customer"
+                            />
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -349,7 +327,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                             onClick={() => append({ contactId: '', role: '' })}
                             disabled={!watchedCustomerId}
                         >
-                           <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
+                           <PlusCircle className="mr-2 h-4"/> Add Another Contact
                         </Button>
                         <FormMessage>
                             {form.formState.errors.projectContacts && (
