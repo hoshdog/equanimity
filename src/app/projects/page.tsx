@@ -28,19 +28,11 @@ import { useToast } from '@/hooks/use-toast';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { mockEmployees } from '@/lib/mock-data';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
 };
-
-// Mock data, in a real app this would come from a database
-const mockEmployees = [
-    { value: 'EMP001', label: 'Alice Johnson' },
-    { value: 'EMP002', label: 'Bob Smith' },
-    { value: 'EMP003', label: 'Charlie Brown' },
-    { value: 'EMP004', label: 'Diana Prince' },
-    { value: 'EMP005', label: 'Ethan Hunt' },
-];
 
 const initialProjects = [
     { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', assignedStaff: [mockEmployees[0], mockEmployees[2]] },
