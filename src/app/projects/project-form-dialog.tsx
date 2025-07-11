@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus } from "lucide-react";
+import { PlusCircle, Plus, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,7 @@ const projectSchema = z.object({
     customerId: z.string({ required_error: "Please select a customer."}).min(1, "Please select a customer."),
     siteId: z.string({ required_error: "Please select a site."}).min(1, "Please select a site."),
     contactId: z.string({ required_error: "Please select a primary contact."}).min(1, "Please select a primary contact."),
-    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })),
+    assignedStaff: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -40,6 +40,8 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const { toast } = useToast();
+  const [customerSearch, setCustomerSearch] = React.useState('');
+
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -88,10 +90,10 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
 
   function onSubmit(values: ProjectFormValues) {
-    const assignedStaffWithFullDetails = values.assignedStaff.map(s => {
+    const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
         const fullEmployee = mockEmployees.find(e => e.value === s.value);
         return fullEmployee || { label: s.label, value: s.value };
-    });
+    }) || [];
 
     onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
@@ -102,6 +104,18 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   const handleSetCustomer = (customerId: string) => {
     form.setValue('customerId', customerId);
   }
+
+  const handleCheckCustomer = () => {
+    if (!customerSearch) return;
+    const foundCustomer = Object.values(customerDetails).find(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()));
+    if(foundCustomer) {
+        handleSetCustomer(foundCustomer.id);
+        toast({ title: 'Customer Found', description: `Selected existing customer: ${foundCustomer.name}` });
+    } else {
+        toast({ variant: 'destructive', title: 'Customer Not Found', description: 'No existing customer matches your search. You can add a new one.' });
+    }
+  }
+
 
   const handleSetSite = (siteId: string) => {
     form.setValue('siteId', siteId);
@@ -144,6 +158,17 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="customerId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Customer</FormLabel>
+                             {!field.value && (
+                                <div className="flex gap-2">
+                                     <Input
+                                        placeholder="Search for existing customer..."
+                                        value={customerSearch}
+                                        onChange={(e) => setCustomerSearch(e.target.value)}
+                                     />
+                                      <Button type="button" variant="secondary" size="icon" onClick={handleCheckCustomer}><Search/></Button>
+                                </div>
+                            )}
+
                             <div className="flex gap-2">
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
@@ -153,7 +178,9 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={handleSetCustomer} />
+                                 <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={handleSetCustomer}>
+                                   <Button type="button" variant="outline" size="icon"><Plus /></Button>
+                                </AddCustomerDialog>
                             </div>
                             <FormMessage />
                         </FormItem>
@@ -196,6 +223,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 </Select>
                                 <AddContactDialog 
                                     customerId={watchedCustomerId} 
+                                    customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails} 
                                     onContactAdded={handleSetContact}
                                 >
@@ -214,7 +242,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 <FormLabel>Assign Staff</FormLabel>
                                 <MultiSelect
                                     options={mockEmployees}
-                                    selected={field.value}
+                                    selected={field.value || []}
                                     onChange={field.onChange}
                                     placeholder="Select staff..."
                                     className="w-full"

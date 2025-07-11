@@ -17,6 +17,7 @@ import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-i
 interface AddCustomerDialogProps {
   setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
   onCustomerAdded: (customerId: string) => void;
+  children: React.ReactNode;
 }
 
 const customerSchema = z.object({
@@ -28,7 +29,7 @@ const customerSchema = z.object({
     type: z.string().default('Corporate Client'), // Default value
 });
 
-export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCustomerDialogProps) {
+export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, children }: AddCustomerDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
 
@@ -62,9 +63,7 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCu
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="icon"><Plus /></Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add New Customer</DialogTitle>
@@ -92,7 +91,9 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCu
                   <AddressAutocompleteInput 
                     placeholder="e.g., 123 Tech Park, Sydney" 
                     onPlaceSelect={(place) => {
-                      form.setValue('address', place.formatted_address || '', { shouldValidate: true });
+                      if (place) {
+                        form.setValue('address', place.formatted_address || '', { shouldValidate: true });
+                      }
                     }}
                     {...field}
                   />

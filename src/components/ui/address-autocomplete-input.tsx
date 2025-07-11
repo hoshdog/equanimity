@@ -36,7 +36,7 @@ function AutocompleteInput({ onPlaceSelect, searchType = 'address', ...props }: 
       const place = autocomplete.getPlace();
       onPlaceSelect(place);
       if (place) {
-        setInputValue(place.name || '');
+        setInputValue(place.formatted_address || place.name || '');
       }
     });
 
@@ -48,6 +48,9 @@ function AutocompleteInput({ onPlaceSelect, searchType = 'address', ...props }: 
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
+    if (props.onChange) {
+        props.onChange(event);
+    }
   };
   
   React.useEffect(() => {
@@ -68,7 +71,7 @@ function AutocompleteInput({ onPlaceSelect, searchType = 'address', ...props }: 
   );
 }
 
-export function AddressAutocompleteInput({ onPlaceSelect, ...rest }: AddressAutocompleteInputProps) {
+export function AddressAutocompleteInput({ ...rest }: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [apiError, setApiError] = React.useState<string | null>(null);
 
@@ -114,7 +117,7 @@ export function AddressAutocompleteInput({ onPlaceSelect, ...rest }: AddressAuto
 
   return (
     <APIProvider apiKey={apiKey} libraries={['places']}>
-      <AutocompleteInput onPlaceSelect={onPlaceSelect} {...rest} />
+      <AutocompleteInput {...rest} />
     </APIProvider>
   );
 }
