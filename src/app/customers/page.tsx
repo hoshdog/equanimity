@@ -1,23 +1,51 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+  VisibilityState,
+} from "@tanstack/react-table"
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Building2, Phone, Mail, User, LayoutGrid, List, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, Building2, Pencil, Trash2, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Checkbox } from '@/components/ui/checkbox';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 
 const initialCustomers = [
     { id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', primaryContact: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888', type: 'Corporate Client' },
@@ -27,6 +55,7 @@ const initialCustomers = [
 ];
 
 const customerSchema = z.object({
+    id: z.string().optional(),
     name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
     address: z.string().min(10, { message: "Address must be at least 10 characters." }),
     primaryContact: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
@@ -35,9 +64,10 @@ const customerSchema = z.object({
     type: z.string().min(2, { message: "Please select a customer type." }),
 });
 
+type Customer = z.infer<typeof customerSchema>;
+
 export default function CustomersPage() {
-    const [view, setView] = useState('grid');
-    const [customers, setCustomers] = useState(initialCustomers);
+    const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
     const [customerTypes, setCustomerTypes] = useState([
         'Corporate Client', 
         'Construction Partner', 
@@ -45,34 +75,38 @@ export default function CustomersPage() {
         'Government',
         'Private'
     ]);
-    const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = useState(false);
     const [isManageTypesDialogOpen, setIsManageTypesDialogOpen] = useState(false);
+    const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
     const [newType, setNewType] = useState('');
     const { toast } = useToast();
     const router = useRouter();
 
-    const form = useForm<z.infer<typeof customerSchema>>({
+    const form = useForm<Customer>({
         resolver: zodResolver(customerSchema),
-        defaultValues: {
-            name: "",
-            address: "",
-            primaryContact: "",
-            email: "",
-            phone: "",
-            type: "",
-        },
+        defaultValues: { name: "", address: "", primaryContact: "", email: "", phone: "", type: "" },
     });
+    
+    useEffect(() => {
+        if (isFormDialogOpen && editingCustomer) {
+            form.reset(editingCustomer);
+        } else {
+            form.reset({ name: "", address: "", primaryContact: "", email: "", phone: "", type: "" });
+        }
+    }, [isFormDialogOpen, editingCustomer, form]);
 
-    function onSubmit(values: z.infer<typeof customerSchema>) {
-        const newCustomer = { ...values, id: `C${customers.length + 1}` };
-        setCustomers([...customers, newCustomer]);
-        toast({
-            title: "Customer Added",
-            description: `${values.name} has been successfully added.`,
-        });
-        console.log("New Customer Added:", newCustomer);
-        setIsAddCustomerDialogOpen(false); 
-        form.reset();
+    function onSubmit(values: Customer) {
+        if (editingCustomer) { // Editing existing customer
+            setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...c, ...values } : c));
+            toast({ title: "Customer Updated", description: `${values.name} has been updated.` });
+        } else { // Adding new customer
+            const newCustomer = { ...values, id: `CUST-${Date.now()}` };
+            setCustomers([...customers, newCustomer]);
+            toast({ title: "Customer Added", description: `${values.name} has been added.` });
+        }
+        setIsFormDialogOpen(false);
+        setEditingCustomer(null);
     }
 
     const handleAddType = () => {
@@ -88,35 +122,109 @@ export default function CustomersPage() {
         toast({ title: "Type Removed", description: `"${typeToDelete}" has been removed.` });
     };
 
-    const handleRowClick = (id: string) => {
-        router.push(`/customers/${id}`);
-    };
-  
+    const handleEditClick = (customer: Customer) => {
+        setEditingCustomer(customer);
+        setIsFormDialogOpen(true);
+    }
+    
+    const handleDeleteCustomer = (customerId: string) => {
+        setCustomers(customers.filter(c => c.id !== customerId));
+        toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
+    }
+    
+    const columns: ColumnDef<Customer>[] = [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "name",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+        cell: ({ row }) => {
+          return (
+            <Link href={`/customers/${row.original.id}`}>
+                <div className="font-medium hover:underline">{row.original.name}</div>
+                <div className="text-sm text-muted-foreground md:hidden">{row.original.primaryContact}</div>
+            </Link>
+          )
+        }
+      },
+      {
+        accessorKey: "primaryContact",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Primary Contact" />,
+      },
+      {
+        accessorKey: "email",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+      },
+      {
+        accessorKey: "type",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+        cell: ({ row }) => <Badge variant="secondary">{row.original.type}</Badge>,
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const customer = row.original
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => router.push(`/customers/${customer.id}`)}>
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditClick(customer)}>
+                  Edit Customer
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCustomer(customer.id!)}>
+                  Delete Customer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ]
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
             <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
             <div className="flex items-center space-x-2">
-                 <div className="hidden md:flex items-center">
-                    <Button variant={view === 'grid' ? 'default' : 'ghost'} size="icon" onClick={() => setView('grid')}>
-                        <LayoutGrid className="h-5 w-5" />
-                    </Button>
-                     <Button variant={view === 'list' ? 'default' : 'ghost'} size="icon" onClick={() => setView('list')}>
-                        <List className="h-5 w-5" />
-                    </Button>
-                </div>
-                <Dialog open={isAddCustomerDialogOpen} onOpenChange={setIsAddCustomerDialogOpen}>
+                <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={() => setIsAddCustomerDialogOpen(true)}>
+                        <Button onClick={() => setEditingCustomer(null)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add New Customer
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle>Add New Customer</DialogTitle>
+                            <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
                             <DialogDescription>
-                                Fill in the details below to add a new customer to the system.
+                                {editingCustomer ? `Update the details for ${editingCustomer.name}.` : 'Fill in the details below to add a new customer.'}
                             </DialogDescription>
                         </DialogHeader>
                         <Form {...form}>
@@ -136,38 +244,26 @@ export default function CustomersPage() {
                                 <FormField control={form.control} name="phone" render={({ field }) => (
                                     <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
-                                <FormField
-                                    control={form.control}
-                                    name="type"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <div className="flex items-center justify-between">
-                                                <FormLabel>Customer Type</FormLabel>
-                                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsManageTypesDialogOpen(true)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a customer type" />
-                                                </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {customerTypes.map(type => (
-                                                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <FormField control={form.control} name="type" render={({ field }) => (
+                                    <FormItem>
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Customer Type</FormLabel>
+                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.preventDefault(); setIsManageTypesDialogOpen(true); }}>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Select a customer type" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {customerTypes.map(type => ( <SelectItem key={type} value={type}>{type}</SelectItem> ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
                                 <DialogFooter>
-                                     <DialogClose asChild>
-                                        <Button type="button" variant="secondary">Cancel</Button>
-                                     </DialogClose>
-                                    <Button type="submit">Add Customer</Button>
+                                     <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                                    <Button type="submit">{editingCustomer ? "Save Changes" : "Add Customer"}</Button>
                                 </DialogFooter>
                             </form>
                         </Form>
@@ -202,87 +298,13 @@ export default function CustomersPage() {
                 </Dialog>
             </div>
       </div>
-      {view === 'grid' || (view === 'list' && customers.length === 0) ? (
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-            {customers.map(customer => (
-                <Link href={`/customers/${customer.id}`} key={customer.id}>
-                    <Card className="hover:border-primary transition-colors h-full">
-                        <CardHeader>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Building2 className="h-5 w-5 text-primary"/>
-                                        {customer.name}
-                                    </CardTitle>
-                                    <CardDescription>{customer.address}</CardDescription>
-                                </div>
-                                <Badge variant="secondary">{customer.type}</Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="text-sm text-muted-foreground space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <User className="h-4 w-4" />
-                                    <span>Primary Contact: {customer.primaryContact}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4" />
-                                    <span className="hover:underline break-all">{customer.email}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4" />
-                                    <span>{customer.phone}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-            ))}
-        </div>
-      ) : (
-        <Card className="block md:hidden">
-             {customers.map(customer => (
-                <Link href={`/customers/${customer.id}`} key={customer.id}>
-                    <div className="border-b p-4">
-                         <div className="flex items-start justify-between">
-                            <div>
-                                <div className="font-semibold flex items-center gap-2">
-                                    <Building2 className="h-5 w-5 text-primary"/>
-                                    {customer.name}
-                                </div>
-                                <div className="text-sm text-muted-foreground">{customer.primaryContact}</div>
-                            </div>
-                            <Badge variant="secondary">{customer.type}</Badge>
-                        </div>
-                    </div>
-                </Link>
-             ))}
-        </Card>
-      )}
-      <Card className="hidden md:block">
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Primary Contact</TableHead>
-                    <TableHead className="hidden lg:table-cell">Email</TableHead>
-                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
-                    <TableHead>Type</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {customers.map(customer => (
-                    <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer">
-                        <TableCell className="font-medium">{customer.name}</TableCell>
-                        <TableCell>{customer.primaryContact}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{customer.email}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{customer.phone}</TableCell>
-                        <TableCell><Badge variant="secondary">{customer.type}</Badge></TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+      <Card>
+        <CardContent className='p-0'>
+            <DataTable columns={columns} data={customers} />
+        </CardContent>
       </Card>
     </div>
   );
 }
+
+    
