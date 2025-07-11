@@ -24,6 +24,7 @@ function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.
 }
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+  const projectId = params.id;
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,10 +32,10 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     async function fetchData() {
-        if (!params.id) return;
+        if (!projectId) return;
         setLoading(true);
         try {
-            const projectData = await getProject(params.id);
+            const projectData = await getProject(projectId);
             setProject(projectData);
             if (projectData) {
                 const customerData = await getCustomer(projectData.customerId);
@@ -48,7 +49,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         }
     }
     fetchData();
-  }, [params.id, toast]);
+  }, [projectId, toast]);
 
   if (loading) {
       return (
@@ -147,5 +148,3 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     </div>
   );
 }
-
-    

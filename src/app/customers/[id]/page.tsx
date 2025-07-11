@@ -58,6 +58,7 @@ const getStatusColor = (status: string) => {
 
 export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const { toast } = useToast();
+  const customerId = params.id;
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -68,9 +69,9 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
 
   useEffect(() => {
     async function fetchCustomerData() {
+        if (!customerId) return;
         setLoading(true);
         try {
-            const customerId = params.id;
             const [customerData, contactsData, sitesData, projectsData] = await Promise.all([
                 getCustomer(customerId),
                 getCustomerContacts(customerId),
@@ -94,7 +95,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
         }
     }
     fetchCustomerData();
-  }, [params.id, toast]);
+  }, [customerId, toast]);
 
 
   const primaryContact = useMemo(() => {
@@ -437,5 +438,3 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     </div>
   );
 }
-
-    
