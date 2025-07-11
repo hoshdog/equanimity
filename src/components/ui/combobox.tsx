@@ -37,17 +37,16 @@ interface ComboboxProps {
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
+  // Find the label for the currently selected value.
   const selectedLabel = React.useMemo(() => {
     return options.find((option) => option.value === value)?.label;
   }, [options, value]);
 
+  // This is the correct handler for when an item is selected.
+  // `currentValue` will be the `value` prop from the `CommandItem`, which we set to the option's unique ID.
   const handleSelect = (currentValue: string) => {
-    // currentValue is the label of the item
-    const option = options.find(opt => opt.label.toLowerCase() === currentValue.toLowerCase());
-    if (option) {
-        onChange(option.value);
-    }
-    setOpen(false);
+    onChange(currentValue); // Update the form state with the unique value.
+    setOpen(false);       // Close the popover.
   };
 
   return (
@@ -72,8 +71,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                     {options.map((option) => (
                         <CommandItem
                             key={option.value}
-                            value={option.label}
-                            onSelect={handleSelect}
+                            value={option.value} // The value used for selection *must* be the unique ID.
+                            onSelect={handleSelect} // The onSelect event provides the `value`.
                         >
                             <Check
                                 className={cn(
