@@ -34,8 +34,54 @@ interface ComboboxProps {
     className?: string;
 }
 
+const ComboboxContent = React.memo(function ComboboxContent({
+    options,
+    value,
+    notFoundContent,
+    onSelect,
+}: {
+    options: ComboboxOption[];
+    value: string;
+    notFoundContent?: React.ReactNode;
+    onSelect: (value: string) => void;
+}) {
+    return (
+        <Command>
+            <CommandInput placeholder="Search..." />
+            <CommandList>
+                <CommandEmpty>{notFoundContent || "No option found."}</CommandEmpty>
+                <CommandGroup>
+                    {options.map((option) => (
+                        <CommandItem
+                            key={option.value}
+                            value={option.value}
+                            onSelect={(currentValue) => {
+                                onSelect(currentValue === value ? "" : currentValue);
+                            }}
+                        >
+                            <Check
+                                className={cn(
+                                    "mr-2 h-4 w-4",
+                                    value === option.value ? "opacity-100" : "opacity-0"
+                                )}
+                            />
+                            {option.label}
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </CommandList>
+        </Command>
+    );
+});
+
+
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+
+  const handleSelect = React.useCallback((selectedValue: string) => {
+    onChange(selectedValue);
+    setOpen(false);
+  }, [onChange]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -53,32 +99,12 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search..." />
-          <CommandList>
-            <CommandEmpty>{notFoundContent || "No option found."}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onChange(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        <ComboboxContent
+            options={options}
+            value={value}
+            notFoundContent={notFoundContent}
+            onSelect={handleSelect}
+        />
       </PopoverContent>
     </Popover>
   )
