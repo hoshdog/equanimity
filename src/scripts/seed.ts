@@ -267,5 +267,3 @@ async function seedDatabase() {
 }
 
 seedDatabase();
-
-    
