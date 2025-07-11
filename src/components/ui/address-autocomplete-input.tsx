@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { Input } from '@/components/ui/input';
-import { APIProvider, useAutocomplete } from '@vis.gl/react-google-maps';
+import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
 
 interface AddressAutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -13,22 +13,37 @@ interface AddressAutocompleteInputProps extends React.InputHTMLAttributes<HTMLIn
 function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = React.useState('');
+  const places = useMapsLibrary('places');
+  const [autocomplete, setAutocomplete] =
+    React.useState<google.maps.places.Autocomplete | null>(null);
 
-  const onPlaceChanged = (place: google.maps.places.PlaceResult | null) => {
-    onPlaceSelect(place);
-    if (place) {
-      setInputValue(place.formatted_address || '');
-    }
-  };
+  React.useEffect(() => {
+    if (!places || !inputRef.current) return;
 
-  useAutocomplete({
-    inputField: inputRef && inputRef.current,
-    onPlaceChanged,
-    options: {
-        componentRestrictions: { country: "au" }, // Restrict to Australia
+    const ac = new places.Autocomplete(inputRef.current, {
+        componentRestrictions: { country: "au" },
         types: ["address"],
-    }
-  });
+        fields: ['formatted_address', 'geometry', 'name'],
+    });
+    setAutocomplete(ac);
+  }, [places]);
+
+  React.useEffect(() => {
+    if (!autocomplete) return;
+
+    const listener = autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      onPlaceSelect(place);
+      if (place) {
+        setInputValue(place.formatted_address || '');
+      }
+    });
+
+    return () => {
+      listener.remove();
+    };
+  }, [autocomplete, onPlaceSelect]);
+
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
@@ -46,7 +61,6 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
 
 export function AddressAutocompleteInput(props: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const { toast } = useToast();
 
   if (!apiKey) {
     if (process.env.NODE_ENV !== "production") {
