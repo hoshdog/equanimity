@@ -14,7 +14,6 @@ import type { CustomerDetails } from '@/lib/types';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddContactDialog } from './add-contact-dialog';
-import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
 
 
 interface AddSiteDialogProps {
@@ -84,19 +83,12 @@ export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails,
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add New Site</DialogTitle>
-          <DialogDescription>Add a new site for the selected customer.</DialogDescription>
+          <DialogDescription>Add a new site for {customerDetails[customerId]?.name || 'the selected customer'}.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Melbourne Office" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-            <FormField control={form.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl>
-                <AddressAutocompleteInput 
-                    placeholder="e.g., 55 Collins St, Melbourne" 
-                    onPlaceSelect={(place) => {
-                      form.setValue('address', place.formatted_address || '', { shouldValidate: true });
-                    }}
-                  />
-            </FormControl><FormMessage /></FormItem> )}/>
+            <FormField control={form.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
             <FormField control={form.control} name="primaryContactId" render={({ field }) => (
                 <FormItem><FormLabel>Primary Contact</FormLabel>
                   <div className="flex gap-2">

@@ -17,6 +17,8 @@ import { mockEmployees } from '@/lib/mock-data';
 import type { Project, CustomerDetails } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddCustomerDialog } from './add-customer-dialog';
+import { AddSiteDialog } from './add-site-dialog';
+import { AddContactDialog } from './add-contact-dialog';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -84,24 +86,9 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   function onSubmit(values: ProjectFormValues) {
     let finalCustomerId = values.customerId;
 
-    // If customerId is not set, it's a new customer.
     if (!finalCustomerId) {
-        const newId = `CUST-${Date.now()}`;
-        finalCustomerId = newId;
-        const newCustomer = {
-            id: newId,
-            name: values.customerName,
-            address: 'N/A',
-            type: 'Corporate Client',
-            primaryContactName: 'N/A',
-            email: 'N/A',
-            phone: 'N/A',
-            contacts: [],
-            sites: [],
-            projects: [],
-        };
-        setCustomerDetails(prev => ({ ...prev, [newId]: newCustomer }));
-        toast({ title: "New Customer Created", description: `"${values.customerName}" has been added.` });
+        toast({ variant: "destructive", title: "Invalid Customer", description: "Please select a valid customer from the list or create a new one."});
+        return;
     }
 
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
@@ -120,6 +107,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
         form.setValue('customerName', newCustomer.name, { shouldValidate: true });
         form.setValue('customerId', newCustomer.id, { shouldValidate: true });
     }
+  }
+
+  const handleSiteAdded = (siteId: string) => {
+    form.setValue('siteId', siteId, { shouldValidate: true });
+  };
+  
+  const handleContactAdded = (contactId: string) => {
+    form.setValue('contactId', contactId, { shouldValidate: true });
   }
 
   return (
@@ -178,28 +173,51 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Site</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                <FormControl>
-                                    <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex gap-2 items-center">
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <AddSiteDialog 
+                                    customerId={watchedCustomerId}
+                                    customerDetails={customerDetails}
+                                    setCustomerDetails={setCustomerDetails} 
+                                    onSiteAdded={handleSiteAdded}
+                                >
+                                    <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                        <Plus className="h-4 w-4"/>
+                                    </Button>
+                                </AddSiteDialog>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="contactId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Primary Contact</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                <FormControl>
-                                    <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                             <div className="flex gap-2 items-center">
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {contactOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <AddContactDialog 
+                                    customerId={watchedCustomerId}
+                                    setCustomerDetails={setCustomerDetails} 
+                                    onContactAdded={handleContactAdded}
+                                >
+                                     <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                        <Plus className="h-4 w-4"/>
+                                    </Button>
+                                </AddContactDialog>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}/>
