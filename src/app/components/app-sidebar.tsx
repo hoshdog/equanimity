@@ -31,11 +31,13 @@ import {
   ClipboardList,
   Menu,
   Receipt,
+  ChevronLeft,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -56,29 +58,28 @@ const navItems = [
 ];
 
 export function AppSidebar() {
+  const { toggleSidebar, state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
-  const { setOpenMobile, isMobile, state } = useSidebar();
 
   const handleLinkClick = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
   };
-
+  
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className={cn(
-            "flex items-center gap-2",
-            "group-data-[state=expanded]:ml-1"
-        )}>
-          <Waves className="h-6 w-6 text-primary" />
-          <span className={cn(
-              "text-lg font-semibold text-primary",
-              "group-data-[state=collapsed]:hidden"
-          )}>
-            Equanimity
-          </span>
+        <div className="flex items-center justify-between">
+           <div className={cn("flex items-center gap-2", state === 'collapsed' && 'invisible')}>
+              <Waves className="h-6 w-6 text-primary" />
+              <span className="text-lg font-semibold text-primary">
+                Equanimity
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:flex hidden">
+                <ChevronLeft className={cn("h-6 w-6 transition-transform", state === 'collapsed' && 'rotate-180')} />
+            </Button>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -88,7 +89,7 @@ export function AppSidebar() {
                <SidebarMenuButton
                 asChild
                 isActive={pathname === item.href}
-                tooltip={item.label}
+                tooltip={{children: item.label, side: 'right'}}
                 className="w-full"
                 onClick={handleLinkClick}
               >
@@ -108,11 +109,11 @@ export function AppSidebar() {
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
             <div className={cn(
-              "flex flex-col",
+              "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-sm font-semibold">Jane Doe</span>
-                <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
+                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
+                <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
               "ml-auto",
