@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -21,10 +20,10 @@ import {
 } from "@/components/ui/popover"
 
 type ComboboxProps = {
-    options: { label: string; value: string }[]
-    value: string
-    onChange: (value: string) => void
-    placeholder?: string
+  options: { label: string; value: string }[]
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
 }
 
 export function Combobox({ options, value, onChange, placeholder }: ComboboxProps) {
@@ -40,7 +39,7 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
           className="w-full justify-between"
         >
           {value
-            ? options.find((option) => option.value === value)?.label
+            ? options.find((opt) => opt.value === value)?.label
             : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -48,26 +47,38 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput placeholder="Search..." />
-          <CommandList>
+          {/* Force the list container itself to allow selection */}
+          <CommandList className="!select-text">
             <CommandEmpty>No option found.</CommandEmpty>
             <CommandGroup>
-                {options.map((option) => (
+              {options.map((option) => (
                 <CommandItem
-                    key={option.value}
-                    onSelect={() => {
-                      onChange(option.value === value ? "" : option.value)
-                      setOpen(false)
-                    }}
+                  key={option.value}
+                  value={option.label}
+                  // CAPTURE phase stops cmdk’s preventDefault() so the drag can select text
+                  onPointerDownCapture={(e) => e.stopPropagation()}
+                  onSelect={(currentValue) => {
+                    const selected = options.find(
+                      (opt) => opt.label.toLowerCase() === currentValue.toLowerCase()
+                    )
+                    if (selected) {
+                      onChange(selected.value === value ? "" : selected.value)
+                    }
+                    setOpen(false)
+                  }}
+                  // Tailwind !select-text adds user-select: text !important
+                  className="!select-text"
                 >
-                    <Check
+                  <Check
                     className={cn(
-                        "mr-2 h-4 w-4",
-                        value === option.value ? "opacity-100" : "opacity-0"
+                      "mr-2 h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
                     )}
-                    />
-                    {option.label}
+                  />
+                  {/* Wrap the label too, just to be sure */}
+                  <span className="!select-text">{option.label}</span>
                 </CommandItem>
-                ))}
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
