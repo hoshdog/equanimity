@@ -42,8 +42,8 @@ const projectSchema = z.object({
     ).min(1, "At least one project contact is required."),
     assignedStaff: z.array(
         z.object({
-            value: z.string().min(1, "Please select a staff member."),
-            label: z.string(),
+            employeeId: z.string().min(1, "Please select a staff member."),
+            role: z.string().min(2, "Role is required."),
         })
     ).min(1, "At least one staff member must be assigned."),
 });
@@ -172,15 +172,25 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
 
 export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [isRoleManagerOpen, setIsRoleManagerOpen] = React.useState(false);
-  const [newRole, setNewRole] = React.useState('');
-  const [commonRoles, setCommonRoles] = React.useState([
+  const [isContactRoleManagerOpen, setIsContactRoleManagerOpen] = React.useState(false);
+  const [isStaffRoleManagerOpen, setIsStaffRoleManagerOpen] = React.useState(false);
+  const [newContactRole, setNewContactRole] = React.useState('');
+  const [newStaffRole, setNewStaffRole] = React.useState('');
+  const [contactRoles, setContactRoles] = React.useState([
     "Primary", 
     "Site Contact", 
     "Accounts", 
     "Tenant", 
     "Project Manager", 
     "Client Representative"
+  ]);
+   const [staffRoles, setStaffRoles] = React.useState([
+    "Project Manager",
+    "Lead Technician",
+    "Technician",
+    "Apprentice",
+    "Estimator",
+    "Safety Officer",
   ]);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [sites, setSites] = React.useState<Site[]>([]);
@@ -192,7 +202,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
+    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [{employeeId: '', role: ''}] },
   });
   
   const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
@@ -298,18 +308,32 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     }
   }
 
-  const handleAddRole = () => {
-    if (newRole && !commonRoles.includes(newRole)) {
-      setCommonRoles([...commonRoles, newRole]);
-      setNewRole('');
-      toast({ title: "Role Added", description: `"${newRole}" has been added to the list.` });
+  const handleAddContactRole = () => {
+    if (newContactRole && !contactRoles.includes(newContactRole)) {
+      setContactRoles([...contactRoles, newContactRole]);
+      setNewContactRole('');
+      toast({ title: "Role Added", description: `"${newContactRole}" has been added.` });
     }
   };
 
-  const handleDeleteRole = (roleToDelete: string) => {
-    setCommonRoles(commonRoles.filter(role => role !== roleToDelete));
+  const handleDeleteContactRole = (roleToDelete: string) => {
+    setContactRoles(contactRoles.filter(role => role !== roleToDelete));
     toast({ title: "Role Removed", description: `"${roleToDelete}" has been removed.` });
   };
+    
+  const handleAddStaffRole = () => {
+    if (newStaffRole && !staffRoles.includes(newStaffRole)) {
+      setStaffRoles([...staffRoles, newStaffRole]);
+      setNewStaffRole('');
+      toast({ title: "Role Added", description: `"${newStaffRole}" has been added.` });
+    }
+  };
+
+  const handleDeleteStaffRole = (roleToDelete: string) => {
+    setStaffRoles(staffRoles.filter(role => role !== roleToDelete));
+    toast({ title: "Role Removed", description: `"${roleToDelete}" has been removed.` });
+  };
+
   
   const handleCustomerAdded = (newCustomer: Customer) => {
       setCustomers(prev => [...prev, newCustomer]);
@@ -324,7 +348,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                 New Project
             </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-xl max-h-[90svh] overflow-y-auto" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
+        <DialogContent className="sm:max-w-xl max-h-[90svh] overflow-y-auto" onInteractOutside={(e) => { if(isContactRoleManagerOpen || isStaffRoleManagerOpen) e.preventDefault(); }}>
           <TooltipProvider>
             <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -390,7 +414,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                           <FormLabel>Project Contacts</FormLabel>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                              <Dialog open={isContactRoleManagerOpen} onOpenChange={setIsContactRoleManagerOpen}>
                                 <DialogTrigger asChild>
                                   <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
                                 </DialogTrigger>
@@ -401,14 +425,14 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                                   </DialogHeader>
                                   <div className="space-y-4">
                                     <div className="flex gap-2">
-                                      <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
-                                      <Button onClick={handleAddRole}>Add Role</Button>
+                                      <Input value={newContactRole} onChange={(e) => setNewContactRole(e.target.value)} placeholder="New role name..." />
+                                      <Button onClick={handleAddContactRole}>Add Role</Button>
                                     </div>
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                      {commonRoles.map(role => (
+                                      {contactRoles.map(role => (
                                         <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
                                           <span className="text-sm">{role}</span>
-                                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteContactRole(role)}>
                                             <Trash2 className="h-4 w-4" />
                                           </Button>
                                         </div>
@@ -416,12 +440,12 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                                     </div>
                                   </div>
                                   <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                    <Button variant="outline" onClick={() => setIsContactRoleManagerOpen(false)}>Done</Button>
                                   </DialogFooter>
                                 </DialogContent>
                               </Dialog>
                             </TooltipTrigger>
-                            <TooltipContent><p>Manage Roles</p></TooltipContent>
+                            <TooltipContent><p>Manage Contact Roles</p></TooltipContent>
                           </Tooltip>
                         </div>
                         {contactFields.map((field, index) => (
@@ -458,7 +482,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {commonRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                        {contactRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                                       </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -480,59 +504,107 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                         >
                           <PlusCircle className="mr-2 h-4 w-4"/> Add Another Contact
                         </Button>
-                        <FormMessage>
-                          {form.formState.errors.projectContacts && (
-                            form.formState.errors.projectContacts.message || (form.formState.errors.projectContacts as any)?.root?.message
-                          )}
+                         <FormMessage>
+                          {form.formState.errors.projectContacts && (form.formState.errors.projectContacts.message || (form.formState.errors.projectContacts as any)?.root?.message)}
                         </FormMessage>
                     </div>
 
                     <div className="space-y-2">
-                        <FormLabel>Assign Staff</FormLabel>
+                        <div className="flex items-center justify-between">
+                            <FormLabel>Assign Staff</FormLabel>
+                             <Tooltip>
+                                <TooltipTrigger asChild>
+                                <Dialog open={isStaffRoleManagerOpen} onOpenChange={setIsStaffRoleManagerOpen}>
+                                    <DialogTrigger asChild>
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Manage Staff Roles</DialogTitle>
+                                        <DialogDescription>Add or remove staff roles from the list of suggestions.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                        <div className="flex gap-2">
+                                        <Input value={newStaffRole} onChange={(e) => setNewStaffRole(e.target.value)} placeholder="New role name..." />
+                                        <Button onClick={handleAddStaffRole}>Add Role</Button>
+                                        </div>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                        {staffRoles.map(role => (
+                                            <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                            <span className="text-sm">{role}</span>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteStaffRole(role)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            </div>
+                                        ))}
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsStaffRoleManagerOpen(false)}>Done</Button>
+                                    </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Manage Staff Roles</p></TooltipContent>
+                            </Tooltip>
+                        </div>
                         {staffFields.map((field, index) => (
-                          <div key={field.id} className="flex items-center gap-2">
-                            <FormField
-                              control={form.control}
-                              name={`assignedStaff.${index}`}
-                              render={({ field: selectField }) => (
-                                <FormItem className="flex-1">
-                                  <Select 
-                                    onValueChange={(value) => {
-                                        const selectedEmployee = employeeOptions.find(e => e.value === value);
-                                        selectField.onChange(selectedEmployee ? { value: selectedEmployee.value, label: selectedEmployee.label } : { value: '', label: ''});
-                                    }} 
-                                    value={selectField.value.value}
-                                   >
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select a staff member" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {employeeOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                           <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                                <FormField
+                                control={form.control}
+                                name={`assignedStaff.${index}.employeeId`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select staff" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {employeeOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <FormField
+                                control={form.control}
+                                name={`assignedStaff.${index}.role`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a role" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {staffRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            </div>
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)} disabled={staffFields.length <= 1}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                          </div>
+                            </div>
                         ))}
                         <Button
                           type="button"
                           variant="secondary"
                           size="sm"
-                          onClick={() => appendStaff({ value: '', label: '' })}
+                          onClick={() => appendStaff({ employeeId: '', role: '' })}
                         >
                           <PlusCircle className="mr-2 h-4 w-4"/> Add Staff Member
                         </Button>
                          <FormMessage>
-                            {form.formState.errors.assignedStaff && (
-                                form.formState.errors.assignedStaff.message || (form.formState.errors.assignedStaff as any)?.root?.message
-                            )}
+                            {form.formState.errors.assignedStaff && (form.formState.errors.assignedStaff.message || (form.formState.errors.assignedStaff as any)?.root?.message)}
                         </FormMessage>
                     </div>
 

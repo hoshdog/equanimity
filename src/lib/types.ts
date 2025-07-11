@@ -54,8 +54,8 @@ export interface ProjectContact {
 }
 
 export interface AssignedStaff {
-    value: string; // Employee ID
-    label: string; // Employee Name
+    employeeId: string;
+    role: string;
 }
 
 export interface Project {
@@ -77,5 +77,3 @@ export interface Employee {
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
 }
-
-    
