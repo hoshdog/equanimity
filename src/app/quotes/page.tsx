@@ -32,6 +32,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, FileText, Sparkles, Percent, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { quotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 
 const formSchema = z.object({
   prompt: z
@@ -42,20 +44,11 @@ const formSchema = z.object({
   quotingStandards: z.string().optional(),
 });
 
-// This would typically be loaded from a database where the user saves their standards.
-// For now, it's a mock value.
-const mockQuotingStandards = `Standard Labor Rate: $95/hour
-Apprentice Labor Rate: $55/hour
-Call-out Fee: $120 (includes first 30 minutes of labor)
-Standard GPO (Supply & Install): $85 per unit
-Standard Downlight (Supply & Install): $75 per unit
-Wire per meter: $2.50
-`;
-
 
 export default function QuotesPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<QuotingProfile>(quotingProfiles[0]);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -64,9 +57,17 @@ export default function QuotesPage() {
       prompt: '',
       desiredMargin: 25,
       overheadRate: 15,
-      quotingStandards: mockQuotingStandards,
+      quotingStandards: selectedProfile.standards,
     },
   });
+  
+  const handleProfileChange = (profileName: string) => {
+    const profile = quotingProfiles.find(p => p.name === profileName);
+    if (profile) {
+        setSelectedProfile(profile);
+        form.setValue('quotingStandards', profile.standards);
+    }
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -102,6 +103,24 @@ export default function QuotesPage() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormItem>
+                    <FormLabel>Quoting Profile</FormLabel>
+                    <Select onValueChange={handleProfileChange} defaultValue={selectedProfile.name}>
+                        <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a quoting profile" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {quotingProfiles.map(profile => (
+                                <SelectItem key={profile.name} value={profile.name}>{profile.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <FormDescription>
+                        Select a profile to load pre-defined costing and labor rates.
+                    </FormDescription>
+                </FormItem>
                 <FormField
                   control={form.control}
                   name="prompt"

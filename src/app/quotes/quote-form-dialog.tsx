@@ -33,6 +33,9 @@ import { Loader2, FileText, Sparkles, Percent, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Quote } from '@/lib/types';
 import { addQuote } from '@/lib/quotes';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { quotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
+
 
 const formSchema = z.object({
   prompt: z
@@ -43,14 +46,6 @@ const formSchema = z.object({
   quotingStandards: z.string().optional(),
 });
 
-const mockQuotingStandards = `Standard Labor Rate: $95/hour
-Apprentice Labor Rate: $55/hour
-Call-out Fee: $120 (includes first 30 minutes of labor)
-Standard GPO (Supply & Install): $85 per unit
-Standard Downlight (Supply & Install): $75 per unit
-Wire per meter: $2.50
-`;
-
 interface QuoteFormDialogProps {
   onQuoteCreated: (quote: Quote) => void;
   projectId: string;
@@ -60,6 +55,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<QuotingProfile>(quotingProfiles[0]);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -68,9 +64,17 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       prompt: '',
       desiredMargin: 25,
       overheadRate: 15,
-      quotingStandards: mockQuotingStandards,
+      quotingStandards: selectedProfile.standards,
     },
   });
+  
+  const handleProfileChange = (profileName: string) => {
+    const profile = quotingProfiles.find(p => p.name === profileName);
+    if (profile) {
+        setSelectedProfile(profile);
+        form.setValue('quotingStandards', profile.standards);
+    }
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -112,7 +116,13 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset();
+      form.reset({
+        prompt: '',
+        desiredMargin: 25,
+        overheadRate: 15,
+        quotingStandards: quotingProfiles[0].standards,
+      });
+      setSelectedProfile(quotingProfiles[0]);
       setResult(null);
       setLoading(false);
     }
@@ -137,6 +147,24 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                  <div className="space-y-4">
                      <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormItem>
+                            <FormLabel>Quoting Profile</FormLabel>
+                            <Select onValueChange={handleProfileChange} defaultValue={selectedProfile.name}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a quoting profile" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {quotingProfiles.map(profile => (
+                                        <SelectItem key={profile.name} value={profile.name}>{profile.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                Select a profile to load pre-defined costing and labor rates.
+                            </FormDescription>
+                        </FormItem>
                         <FormField
                           control={form.control}
                           name="prompt"
@@ -275,11 +303,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                  </div>
             </div>
              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="secondary" onClick={() => {
-                  form.reset();
-                  setResult(null);
-                  setLoading(false);
-                }}>Close</Button></DialogClose>
+                <DialogClose asChild><Button type="button" variant="secondary">Close</Button></DialogClose>
             </DialogFooter>
         </DialogContent>
     </Dialog>
