@@ -13,12 +13,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  PopoverPortal,
-} from "@/components/ui/popover"
 
 export type ComboboxOption = {
     value: string;
@@ -35,27 +29,60 @@ interface ComboboxProps {
 }
 
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
-  const [open, setOpen] = React.useState(false)
-  const [triggerRef, setTriggerRef] = React.useState<HTMLButtonElement | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState(value ? options.find(o => o.value === value)?.label : "");
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            setOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setInputValue(value ? options.find(o => o.value === value)?.label : "");
+  }, [value, options]);
+
+  const handleSelect = (currentValue: string) => {
+    const option = options.find(o => o.value === currentValue);
+    if (option) {
+        setInputValue(option.label);
+        onChange(option.value);
+    }
+    setOpen(false);
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          ref={setTriggerRef}
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full justify-between font-normal", className)}
+    <div ref={containerRef} className="relative w-full">
+      <Button
+        ref={triggerRef}
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        className={cn("w-full justify-between font-normal", className)}
+        onClick={() => setOpen(prev => !prev)}
+      >
+        <span className="truncate">
+            {value
+              ? options.find((option) => option.value === value)?.label
+              : placeholder || "Select option..."}
+        </span>
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      {open && (
+        <div
+          className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-0 shadow-md"
+          style={{
+            width: triggerRef.current?.offsetWidth
+          }}
         >
-          {value
-            ? options.find((option) => option.value === value)?.label
-            : placeholder || "Select option..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverPortal container={triggerRef?.offsetParent}>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command>
             <CommandInput placeholder="Search..." />
             <CommandList>
@@ -64,15 +91,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
-                    onSelect={() => {
-                      onChange(option.value)
-                      setOpen(false)
-                    }}
-                    onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }}
+                    value={option.value}
+                    onSelect={handleSelect}
                   >
                     <Check
                       className={cn(
@@ -86,8 +106,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
               </CommandGroup>
             </CommandList>
           </Command>
-        </PopoverContent>
-      </PopoverPortal>
-    </Popover>
+        </div>
+      )}
+    </div>
   )
 }
