@@ -57,9 +57,9 @@ export function Combobox({ options, value, onChange, placeholder, className }: C
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.value}
-                    onSelect={(currentValue) => {
-                      onChange(currentValue === value ? "" : currentValue)
+                    value={option.label} // Use label for filtering
+                    onSelect={() => { // Use value for selection
+                      onChange(option.value === value ? "" : option.value)
                       setOpen(false)
                     }}
                   >
