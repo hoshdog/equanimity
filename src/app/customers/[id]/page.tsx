@@ -1,3 +1,4 @@
+
 // src/app/customers/[id]/page.tsx
 'use client';
 
@@ -56,9 +57,8 @@ const getStatusColor = (status: string) => {
     }
 }
 
-export default function CustomerDetailPage({ params }: CustomerPageProps) {
+export default function CustomerDetailPage({ params: { id: customerId } }: CustomerPageProps) {
   const { toast } = useToast();
-  const customerId = params.id;
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
