@@ -16,6 +16,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { mockEmployees } from '@/lib/mock-data';
 import type { Project, CustomerDetails } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AddCustomerDialog } from './add-customer-dialog';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -112,6 +113,14 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     setIsFormOpen(false);
     form.reset();
   }
+  
+  const handleCustomerAdded = (customerId: string) => {
+    const newCustomer = customerDetails[customerId];
+    if (newCustomer) {
+        form.setValue('customerName', newCustomer.name, { shouldValidate: true });
+        form.setValue('customerId', newCustomer.id, { shouldValidate: true });
+    }
+  }
 
   return (
     <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) form.reset(); }}>
@@ -146,9 +155,19 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="customerName" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Customer</FormLabel>
-                             <FormControl>
-                                <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
-                             </FormControl>
+                             <div className="flex gap-2 items-center">
+                                <FormControl>
+                                    <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
+                                </FormControl>
+                                <AddCustomerDialog 
+                                    setCustomerDetails={setCustomerDetails} 
+                                    onCustomerAdded={handleCustomerAdded}
+                                >
+                                    <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                        <Plus className="h-4 w-4"/>
+                                    </Button>
+                                </AddCustomerDialog>
+                             </div>
                              <datalist id="customer-options">
                                 {customerOptions.map(opt => <option key={opt.value} value={opt.label} />)}
                              </datalist>
