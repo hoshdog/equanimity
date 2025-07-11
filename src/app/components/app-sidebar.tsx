@@ -37,7 +37,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useRef } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -60,7 +59,6 @@ const navItems = [
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
-  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -69,7 +67,7 @@ export function AppSidebar() {
   };
   
   return (
-    <Sidebar ref={sidebarRef}>
+    <Sidebar>
       <SidebarHeader>
         <div className="flex items-center justify-between">
            <div className={cn("flex items-center gap-2", state === 'collapsed' && 'invisible')}>
