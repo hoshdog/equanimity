@@ -19,12 +19,13 @@ export default function EmployeeProfilePage({ params }: { params: { id: string }
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const router = useRouter();
+    const { id } = params;
 
     useEffect(() => {
         async function fetchEmployee() {
             setLoading(true);
             try {
-                const employeeData = await getEmployee(params.id);
+                const employeeData = await getEmployee(id);
                 if (employeeData) {
                     setEmployee(employeeData);
                 } else {
@@ -39,10 +40,10 @@ export default function EmployeeProfilePage({ params }: { params: { id: string }
             }
         }
 
-        if (params.id) {
+        if (id) {
             fetchEmployee();
         }
-    }, [params.id, toast, router]);
+    }, [id, toast, router]);
 
     if (loading) {
         return (
