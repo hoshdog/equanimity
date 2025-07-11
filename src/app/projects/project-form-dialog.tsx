@@ -127,7 +127,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   };
   
   const handleContactAdded = (contactId: string) => {
-    // When a new contact is added to the customer, we can set it as the selection in the *first* project contact row
     const currentProjectContacts = form.getValues('projectContacts');
     if (currentProjectContacts.length > 0 && !currentProjectContacts[0].contactId) {
         form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
@@ -166,20 +165,20 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
                     <FormField control={form.control} name="customerName" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Customer</FormLabel>
-                             <div className="flex gap-2 items-center">
-                                <FormControl>
-                                    <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
-                                </FormControl>
+                             <div className="flex items-center justify-between">
+                                <FormLabel>Customer</FormLabel>
                                 <AddCustomerDialog 
                                     setCustomerDetails={setCustomerDetails} 
                                     onCustomerAdded={handleCustomerAdded}
                                 >
-                                    <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6">
                                         <Plus className="h-4 w-4"/>
                                     </Button>
                                 </AddCustomerDialog>
                              </div>
+                            <FormControl>
+                                <Input list="customer-options" placeholder="Select or type a customer name..." {...field} />
+                            </FormControl>
                              <datalist id="customer-options">
                                 {customerOptions.map(opt => <option key={opt.value} value={opt.label} />)}
                              </datalist>
@@ -189,27 +188,27 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
 
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Site</FormLabel>
-                            <div className="flex gap-2 items-center">
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                            <div className="flex items-center justify-between">
+                                <FormLabel>Site</FormLabel>
                                 <AddSiteDialog 
                                     customerId={watchedCustomerId}
                                     customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails} 
                                     onSiteAdded={handleSiteAdded}
                                 >
-                                    <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
                                         <Plus className="h-4 w-4"/>
                                     </Button>
                                 </AddSiteDialog>
                             </div>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -217,24 +216,26 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <FormLabel>Project Contacts</FormLabel>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AddContactDialog 
-                                      customerId={watchedCustomerId}
-                                      setCustomerDetails={setCustomerDetails} 
-                                      onContactAdded={handleContactAdded}
-                                  >
-                                      <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
-                                          <Plus className="h-4 w-4"/>
-                                      </Button>
-                                  </AddContactDialog>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Add New Contact</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <div className="flex items-center gap-2">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AddContactDialog 
+                                          customerId={watchedCustomerId}
+                                          setCustomerDetails={setCustomerDetails} 
+                                          onContactAdded={handleContactAdded}
+                                      >
+                                          <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6" disabled={!watchedCustomerId}>
+                                              <Plus className="h-4 w-4"/>
+                                          </Button>
+                                      </AddContactDialog>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Add New Contact</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                            </div>
                         </div>
                          {fields.map((field, index) => (
                             <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
