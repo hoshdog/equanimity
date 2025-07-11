@@ -10,9 +10,6 @@ export interface LaborRate {
     employeeType: string;
     standardRate: number; // This is the SELL rate
     calculatedCostRate: number; // This is the calculated COST rate
-    annualHours: number;
-    sickLeaveDays: number;
-    holidayDays: number;
     overtimeRate: number;
 }
 
@@ -44,9 +41,9 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         persona: 'You are an expert electrical estimator with 20 years of experience in residential and commercial projects. Be thorough and accurate.',
         instructions: `Always break down labor and materials separately. Apply the call-out fee if the job appears to be a small service call. For any new installations, add a line item for a final safety check and compliance certificate. Add a 5% contingency for unforeseen issues on jobs estimated over $2000.`,
         laborRates: [
-            { employeeType: 'Lead Technician', standardRate: 110, overtimeRate: 165, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
-            { employeeType: 'Technician', standardRate: 95, overtimeRate: 142.5, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
-            { employeeType: 'Apprentice', standardRate: 55, overtimeRate: 82.5, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Lead Technician', standardRate: 110, overtimeRate: 165, calculatedCostRate: 0 },
+            { employeeType: 'Technician', standardRate: 95, overtimeRate: 142.5, calculatedCostRate: 0 },
+            { employeeType: 'Apprentice', standardRate: 55, overtimeRate: 82.5, calculatedCostRate: 0 },
         ],
         materialAndServiceRates: [
             { description: 'Call-out Fee (includes first 30 mins)', cost: 120, unit: 'each' },
@@ -67,9 +64,9 @@ export const initialQuotingProfiles: QuotingProfile[] = [
         persona: 'You are an IT solutions consultant for a Managed Service Provider (MSP). Focus on providing value and clear, itemized costs for both hardware and services.',
         instructions: `Clearly distinguish between one-off project costs and recurring monthly fees. When quoting hardware, add a 15% margin on top of the estimated cost. Always include a line item for 'Project Management & Documentation' at 10% of the total labor cost.`,
         laborRates: [
-            { employeeType: 'Senior Engineer', standardRate: 200, overtimeRate: 300, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
-            { employeeType: 'Support Technician', standardRate: 120, overtimeRate: 180, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
-            { employeeType: 'Junior Technician', standardRate: 90, overtimeRate: 135, calculatedCostRate: 0, annualHours: 2080, sickLeaveDays: 10, holidayDays: 20 },
+            { employeeType: 'Senior Engineer', standardRate: 200, overtimeRate: 300, calculatedCostRate: 0 },
+            { employeeType: 'Support Technician', standardRate: 120, overtimeRate: 180, calculatedCostRate: 0 },
+            { employeeType: 'Junior Technician', standardRate: 90, overtimeRate: 135, calculatedCostRate: 0 },
         ],
         materialAndServiceRates: [
             { description: 'On-site Support (Business Hours)', cost: 150, unit: 'per hour' },

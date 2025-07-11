@@ -21,6 +21,7 @@ import { Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 function LaborRatesManager() {
@@ -32,6 +33,12 @@ function LaborRatesManager() {
   
   const [employees, setEmployees] = React.useState<Employee[]>([]);
   const { toast } = useToast();
+
+  // Standard Australian employment values for a full-time employee
+  const FULL_TIME_ANNUAL_HOURS = 2080; // 40 hours * 52 weeks
+  const FULL_TIME_SICK_DAYS = 10;
+  const FULL_TIME_HOLIDAY_DAYS = 20;
+
 
   React.useEffect(() => {
     async function fetchEmps() {
@@ -47,7 +54,7 @@ function LaborRatesManager() {
 
   const watchedLaborRates = watch("laborRates");
 
-  const calculateCostRate = (rate: any) => {
+  const calculateCostRate = React.useCallback((rate: any) => {
     const employeeType = rate.employeeType;
     if (!employeeType || !employees.length) return 0;
     
@@ -59,20 +66,19 @@ function LaborRatesManager() {
     
     if (maxWage === 0) return 0;
 
-    const annualHours = rate.annualHours || 2080; // 40 * 52
-    const sickDays = rate.sickLeaveDays || 0;
-    const holidayDays = rate.holidayDays || 0;
-    
-    const nonProductiveHours = (sickDays + holidayDays) * 8; // Assuming 8-hour days
-    const productiveHours = annualHours - nonProductiveHours;
+    // Use hardcoded full-time standards for calculation
+    const nonProductiveHours = (FULL_TIME_SICK_DAYS + FULL_TIME_HOLIDAY_DAYS) * 8; // Assuming 8-hour days
+    const productiveHours = FULL_TIME_ANNUAL_HOURS - nonProductiveHours;
 
     if (productiveHours <= 0) return 0;
     
-    const annualCost = annualHours * maxWage;
+    // Annual cost based on total hours * wage
+    const annualCost = FULL_TIME_ANNUAL_HOURS * maxWage; 
+    // Actual cost rate spread across productive hours
     const actualCostRate = annualCost / productiveHours;
     
     return parseFloat(actualCostRate.toFixed(2));
-  };
+  }, [employees]);
   
   // Effect to update calculated cost rate when inputs change
   React.useEffect(() => {
@@ -83,8 +89,7 @@ function LaborRatesManager() {
             setValue(`laborRates.${index}.calculatedCostRate`, newCostRate, { shouldValidate: true });
         }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedLaborRates, employees, setValue]);
+  }, [watchedLaborRates, calculateCostRate, setValue]);
 
 
   const laborErrors = errors.laborRates as any;
@@ -100,9 +105,6 @@ function LaborRatesManager() {
             employeeType: "",
             standardRate: 0,
             overtimeRate: 0,
-            annualHours: 2080,
-            sickLeaveDays: 10,
-            holidayDays: 20,
             calculatedCostRate: 0
         })}>
             <PlusCircle className="mr-2 h-4 w-4" /> New Labor Type
@@ -147,33 +149,29 @@ function LaborRatesManager() {
                                 />
                             </div>
                             
-                            <Accordion type="single" collapsible className="w-full">
-                                <AccordionItem value="item-1">
-                                    <AccordionTrigger className="text-sm">Cost Rate Calculator</AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                                            <FormField control={control} name={`laborRates.${index}.annualHours`} render={({ field }) => (<FormItem><FormLabel>Annual Hours</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={control} name={`laborRates.${index}.sickLeaveDays`} render={({ field }) => (<FormItem><FormLabel>Sick Days</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={control} name={`laborRates.${index}.holidayDays`} render={({ field }) => (<FormItem><FormLabel>Holidays</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormItem>
-                                                <FormLabel>Highest Wage</FormLabel>
-                                                <Input disabled value={`$${(employees.filter(e => e.role === watchedLaborRates[index]?.employeeType).reduce((max, e) => Math.max(max, e.wage || 0), 0) || 0).toFixed(2)}`} />
-                                            </FormItem>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
+                           <Card className="bg-secondary/30">
+                             <CardHeader className="p-3">
+                               <CardTitle className="text-base">Cost Rate Calculation</CardTitle>
+                               <CardDescription className="text-xs">Based on standard Australian full-time employment (38hr week, 10 sick/20 annual leave days).</CardDescription>
+                             </CardHeader>
+                             <CardContent className="p-3 pt-0">
+                               <div className="flex items-center justify-between gap-6 text-sm">
+                                  <div className="text-left">
+                                      <p className="text-muted-foreground">Highest Wage for Role</p>
+                                      <p className="font-bold text-base">${(employees.filter(e => e.role === watchedLaborRates[index]?.employeeType).reduce((max, e) => Math.max(max, e.wage || 0), 0) || 0).toFixed(2)}/hr</p>
+                                  </div>
+                                  <div className="text-right">
+                                      <p className="text-muted-foreground">Calculated Cost Rate</p>
+                                      <p className="font-bold text-base">${costRate.toFixed(2)}/hr</p>
+                                  </div>
+                                   <div className="text-right">
+                                      <p className="text-muted-foreground">Gross Margin</p>
+                                      <p className={cn("font-bold text-base", margin < 20 ? 'text-destructive' : 'text-primary')}>{margin.toFixed(1)}%</p>
+                                  </div>
+                              </div>
+                             </CardContent>
+                           </Card>
 
-                             <div className="flex items-center justify-end gap-6 text-sm pt-2">
-                                <div className="text-right">
-                                    <p className="text-muted-foreground">Calculated Cost Rate</p>
-                                    <p className="font-bold text-base">${costRate.toFixed(2)}/hr</p>
-                                </div>
-                                 <div className="text-right">
-                                    <p className="text-muted-foreground">Gross Margin</p>
-                                    <p className={cn("font-bold text-base", margin < 20 ? 'text-destructive' : 'text-primary')}>{margin.toFixed(1)}%</p>
-                                </div>
-                            </div>
                         </div>
 
                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>

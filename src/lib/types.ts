@@ -87,6 +87,7 @@ export interface Employee {
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
     wage: number;
+    employmentType?: 'Full-time' | 'Part-time' | 'Casual';
 }
 
 export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {

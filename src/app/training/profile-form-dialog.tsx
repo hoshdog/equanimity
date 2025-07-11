@@ -32,9 +32,6 @@ const laborRateSchema = z.object({
   standardRate: z.coerce.number().min(0, "Rate must be a positive number."),
   overtimeRate: z.coerce.number().min(0, "Rate must be a positive number."),
   calculatedCostRate: z.coerce.number().min(0),
-  annualHours: z.coerce.number().min(0),
-  sickLeaveDays: z.coerce.number().min(0),
-  holidayDays: z.coerce.number().min(0),
 });
 
 const profileSchema = z.object({
@@ -76,9 +73,6 @@ const getDefaultValues = (): ProfileFormValues => ({
       standardRate: 90,
       overtimeRate: 135,
       calculatedCostRate: 0,
-      annualHours: 2080,
-      sickLeaveDays: 10,
-      holidayDays: 20,
   }],
   materialAndServiceRates: [{ description: "Service Van Stock", cost: 25, unit: "each" }],
 });

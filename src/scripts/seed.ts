@@ -20,18 +20,18 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
 const mockEmployees = [
-    { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', wage: 55 },
-    { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active', wage: 50 },
-    { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Technician', status: 'Active', wage: 42 },
-    { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', wage: 40 },
-    { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', wage: 40 },
-    { id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Lead Technician', status: 'Active', wage: 52 },
-    { id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', wage: 48 },
-    { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active', wage: 25 },
-    { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', wage: 60 },
-    { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', wage: 90 },
-    { id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', wage: 38 },
-    { id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', wage: 35 },
+    { id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', wage: 55, employmentType: 'Full-time' },
+    { id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active', wage: 50, employmentType: 'Full-time' },
+    { id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Technician', status: 'Active', wage: 42, employmentType: 'Full-time' },
+    { id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', wage: 40, employmentType: 'Full-time' },
+    { id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', wage: 40, employmentType: 'Casual' },
+    { id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Lead Technician', status: 'Active', wage: 52, employmentType: 'Full-time' },
+    { id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', wage: 48, employmentType: 'Full-time' },
+    { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active', wage: 25, employmentType: 'Full-time' },
+    { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', wage: 60, employmentType: 'Full-time' },
+    { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', wage: 90, employmentType: 'Full-time' },
+    { id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', wage: 38, employmentType: 'Full-time' },
+    { id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', wage: 35, employmentType: 'Part-time' },
 ];
 
 const mockCustomers = [
