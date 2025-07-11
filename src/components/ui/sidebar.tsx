@@ -133,7 +133,7 @@ const Sidebar = React.forwardRef<
   React.ComponentProps<"div"> & {
     side?: "left" | "right"
     variant?: "sidebar" | "floating" | "inset"
-    collapsible?: "offcanvas" | "icon" | "none"
+    collapsible?: "icon" | "none"
   }
 >(
   (
@@ -179,33 +179,22 @@ const Sidebar = React.forwardRef<
     }
 
     return (
-      <div
-        ref={ref}
-        className={cn("group peer hidden md:block text-sidebar-foreground")}
-        data-state={state}
-        data-collapsible={collapsible}
-        data-variant={variant}
-        data-side={side}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-      >
         <div
-          className={cn(
-            "relative h-svh bg-transparent transition-[width] ease-in-out duration-300",
-            "group-data-[state=collapsed]:w-[--sidebar-width-icon]",
-            "group-data-[state=expanded]:w-[var(--sidebar-width,16rem)]"
-          )}
-        />
-        <div
+          ref={ref}
           className={cn(
             "fixed inset-y-0 z-10 hidden h-svh transition-[left,right,width] ease-in-out duration-300 md:flex",
+            "group text-sidebar-foreground",
             side === "left" ? "left-0" : "right-0",
-            "group-data-[state=collapsed]:w-[--sidebar-width-icon]",
-            "group-data-[state=expanded]:w-[var(--sidebar-width,16rem)]",
-            "group-data-[side=left]:border-r",
-            "group-data-[side=right]:border-l",
+            state === 'collapsed' ? "w-[--sidebar-width-icon]" : "w-[var(--sidebar-width,16rem)]",
+            side === "left" ? "border-r" : "border-l",
             className
           )}
+          data-state={state}
+          data-collapsible={collapsible}
+          data-variant={variant}
+          data-side={side}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
           {...props}
         >
           <div
@@ -215,7 +204,6 @@ const Sidebar = React.forwardRef<
             {children}
           </div>
         </div>
-      </div>
     )
   }
 )
