@@ -20,7 +20,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addEmployee } from '@/lib/employees';
@@ -54,9 +54,62 @@ interface EmployeeFormDialogProps {
   onEmployeeSaved: (employee: Employee) => void;
 }
 
+function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open: boolean, onOpenChange: (open: boolean) => void, roles: string[], onRolesChange: (roles: string[]) => void }) {
+    const [newRole, setNewRole] = React.useState('');
+    const { toast } = useToast();
+
+    const handleAddRole = () => {
+        if (newRole && !roles.includes(newRole)) {
+            onRolesChange([...roles, newRole]);
+            setNewRole('');
+            toast({ title: 'Role Added', description: `"${newRole}" has been added.` });
+        }
+    };
+
+    const handleDeleteRole = (roleToDelete: string) => {
+        onRolesChange(roles.filter(role => role !== roleToDelete));
+        toast({ title: 'Role Removed', description: `"${roleToDelete}" has been removed.`, variant: 'destructive' });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Manage Employee Roles</DialogTitle>
+                    <DialogDescription>Add or remove roles from the dropdown list.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="flex gap-2">
+                        <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                        <Button onClick={handleAddRole}>Add Role</Button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {roles.map(role => (
+                            <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                <span className="text-sm">{role}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Done</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isRolesDialogOpen, setIsRolesDialogOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [employeeRoles, setEmployeeRoles] = React.useState([
+      'Technician', 'Lead Technician', 'Apprentice', 'Project Manager', 'Office Administrator', 'Sales Manager', 'HR Specialist', 'IT Support', 'CEO'
+  ]);
   const { toast } = useToast();
   const isEditing = !!employee;
 
@@ -108,7 +161,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
           Add Employee
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => { if (isRolesDialogOpen) e.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
           <DialogDescription>
@@ -150,7 +203,19 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
               <TabsContent value="employment" className="pt-4">
                  <div className="space-y-4">
                     <FormField control={form.control} name="role" render={({ field }) => (
-                        <FormItem><FormLabel>Role / Position</FormLabel><FormControl><Input placeholder="e.g., Lead Technician" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><div className="flex items-center justify-between">
+                            <FormLabel>Role / Position</FormLabel>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsRolesDialogOpen(true)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        </div>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        <FormMessage /></FormItem>
                     )} />
                      <FormField control={form.control} name="employmentType" render={({ field }) => (
                         <FormItem><FormLabel>Employment Type</FormLabel>
@@ -225,6 +290,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
             </DialogFooter>
           </form>
         </Form>
+        <ManageRolesDialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen} roles={employeeRoles} onRolesChange={setEmployeeRoles} />
       </DialogContent>
     </Dialog>
   );
