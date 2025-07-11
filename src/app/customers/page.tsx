@@ -46,13 +46,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
-
-const initialCustomers = [
-    { id: '1', name: 'Innovate Corp', address: '123 Tech Park, Sydney NSW 2000', primaryContact: 'John Doe', email: 'john.doe@innovate.com', phone: '02 9999 8888', type: 'Corporate Client' },
-    { id: '2', name: 'Builders Pty Ltd', address: '456 Construction Ave, Melbourne VIC 3000', primaryContact: 'Jane Smith', email: 'jane.smith@builders.com', phone: '03 8888 7777', type: 'Construction Partner' },
-    { id: '3', name: 'Greenleaf Cafe', address: '789 Garden St, Brisbane QLD 4000', primaryContact: 'Peter Chen', email: 'peter.chen@greenleaf.com', phone: '07 7777 6666', type: 'Small Business' },
-    { id: '4', name: 'State Gov Dept', address: '101 Parliament Pl, Canberra ACT 2600', primaryContact: 'Susan Reid', email: 's.reid@gov.au', phone: '02 6666 5555', type: 'Government' },
-];
+import { mockCustomerDetails } from '@/lib/mock-data';
 
 const customerSchema = z.object({
     id: z.string().optional(),
@@ -64,7 +58,26 @@ const customerSchema = z.object({
     type: z.string().min(2, { message: "Please select a customer type." }),
 });
 
-type Customer = z.infer<typeof customerSchema>;
+type Customer = z.infer<typeof customerSchema> & {
+    activeProjects: number;
+    projectValue: number;
+};
+
+const initialCustomers = Object.values(mockCustomerDetails).map(c => {
+    const activeProjects = c.projects.filter(p => p.status === 'In Progress');
+    return {
+        id: c.id,
+        name: c.name,
+        address: c.address,
+        primaryContact: c.primaryContactName,
+        email: c.email,
+        phone: c.phone,
+        type: c.type,
+        activeProjects: activeProjects.length,
+        projectValue: activeProjects.reduce((acc, p) => acc + p.value, 0),
+    }
+});
+
 
 export default function CustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
@@ -83,7 +96,7 @@ export default function CustomersPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const form = useForm<Customer>({
+    const form = useForm<Omit<Customer, 'activeProjects' | 'projectValue'>>({
         resolver: zodResolver(customerSchema),
         defaultValues: { name: "", address: "", primaryContact: "", email: "", phone: "", type: "" },
     });
@@ -96,12 +109,12 @@ export default function CustomersPage() {
         }
     }, [isFormDialogOpen, editingCustomer, form]);
 
-    function onSubmit(values: Customer) {
+    function onSubmit(values: Omit<Customer, 'activeProjects' | 'projectValue'>) {
         if (editingCustomer) { // Editing existing customer
-            setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...c, ...values } : c));
+            setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...editingCustomer, ...values } : c));
             toast({ title: "Customer Updated", description: `${values.name} has been updated.` });
         } else { // Adding new customer
-            const newCustomer = { ...values, id: `CUST-${Date.now()}` };
+            const newCustomer: Customer = { ...values, id: `CUST-${Date.now()}`, activeProjects: 0, projectValue: 0 };
             setCustomers([...customers, newCustomer]);
             toast({ title: "Customer Added", description: `${values.name} has been added.` });
         }
@@ -169,8 +182,20 @@ export default function CustomersPage() {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Primary Contact" />,
       },
       {
-        accessorKey: "email",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+        accessorKey: "activeProjects",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Active Projects" />,
+        cell: ({ row }) => <div className="text-center">{row.original.activeProjects}</div>
+      },
+      {
+        accessorKey: "projectValue",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Project Value" />,
+        cell: ({ row }) => {
+            return (
+                <div className="text-right font-medium">
+                    {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(row.original.projectValue)}
+                </div>
+            )
+        }
       },
       {
         accessorKey: "type",
