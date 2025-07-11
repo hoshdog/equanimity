@@ -1,8 +1,9 @@
+
 // src/app/quotes/new-quote-dialog.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -15,7 +16,8 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle
+  CardTitle,
+  CardDescription as UiCardDescription
 } from '@/components/ui/card';
 import {
   Form,
@@ -29,7 +31,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileText, Sparkles, Percent, PlusCircle, Plus, DollarSign } from 'lucide-react';
+import { Loader2, FileText, Sparkles, Percent, PlusCircle, Plus, DollarSign, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Quote, Project, Customer, OptionType, Employee } from '@/lib/types';
 import { addQuote } from '@/lib/quotes';
@@ -40,6 +42,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
 import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const customerSchema = z.object({
     name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
@@ -165,7 +169,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
     );
 }
 
-const lineItemRateSchema = z.object({
+const materialLineItemSchema = z.object({
   description: z.string(),
   cost: z.number(),
   unit: z.string(),
@@ -175,6 +179,7 @@ const laborRateSchema = z.object({
   employeeType: z.string(),
   standardRate: z.number(),
   overtimeRate: z.number(),
+  calculatedCostRate: z.number(),
 });
 
 const formSchema = z.object({
@@ -186,8 +191,8 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadCost: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
-  materialAndServiceRates: z.array(lineItemRateSchema).optional(),
-  laborRates: z.array(laborRateSchema).optional(),
+  materialAndServiceRates: z.array(materialLineItemSchema),
+  laborRates: z.array(laborRateSchema),
   persona: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -222,6 +227,9 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       instructions: quotingProfiles[0].instructions,
     },
   });
+  
+  const { fields: laborRateFields, update: updateLaborRate } = useFieldArray({ control: form.control, name: "laborRates" });
+  const { fields: materialRateFields, update: updateMaterialRate } = useFieldArray({ control: form.control, name: "materialAndServiceRates" });
 
   const watchedCustomerId = form.watch("customerId");
 
@@ -277,7 +285,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
     if (profile) {
         setSelectedProfileId(profile.id);
         form.reset({
-            ...form.getValues(), // Keep existing values
+            ...form.getValues(), // Keep existing values like prompt, customerId etc.
             desiredMargin: profile.defaults.desiredMargin,
             callOutFee: profile.defaults.callOutFee,
             laborRates: profile.laborRates,
@@ -373,17 +381,17 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                 Create New Quote
             </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-             <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
+            <DialogHeader>
                 <DialogTitle>Create New Quote</DialogTitle>
                 <DialogDescription>
                   Describe the job, and the AI will generate and save a draft quote.
                 </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden">
+                <ScrollArea className="h-full pr-4">
                      <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <form id="quote-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="customerId"
@@ -424,39 +432,14 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                        {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value} >{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
                                 </FormItem>
                             )}
                         />
-                        <FormItem>
-                            <FormLabel>Quoting Profile</FormLabel>
-                             <div className="flex items-center gap-2">
-                                <Select onValueChange={handleProfileChange} value={selectedProfileId}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a quoting profile" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {quotingProfiles.map(profile => (
-                                            <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                 <ProfileFormDialog onProfileSaved={handleProfileSaved}>
-                                     <Button type="button" variant="outline" size="icon">
-                                        <PlusCircle className="h-4 w-4" />
-                                    </Button>
-                                </ProfileFormDialog>
-                             </div>
-                            <FormDescription>
-                                Select a profile to load pre-defined costing and labor rates.
-                            </FormDescription>
-                        </FormItem>
-                        <FormField
+                         <FormField
                           control={form.control}
                           name="prompt"
                           render={({ field }) => (
@@ -465,7 +448,7 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                               <FormControl>
                                 <Textarea
                                   placeholder="e.g., 'Supply and install 3 downlights in the kitchen, and replace 5 GPOs in the living room.'"
-                                  rows={6}
+                                  rows={4}
                                   {...field}
                                 />
                               </FormControl>
@@ -476,129 +459,159 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                             </FormItem>
                           )}
                         />
-                        <div className="grid grid-cols-2 gap-4">
-                           <FormField
-                            control={form.control}
-                            name="desiredMargin"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Desired Margin</FormLabel>
-                                <FormControl>
-                                  <div className="relative">
-                                     <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                     <Input type="number" placeholder="25" className="pl-8" {...field} />
-                                  </div>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                           <FormField
-                            control={form.control}
-                            name="overheadCost"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Calculated Overhead</FormLabel>
-                                 <FormControl>
-                                  <div className="relative">
-                                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                     <Input type="number" className="pl-8" {...field} readOnly />
-                                  </div>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                        <Separator />
+                        <div className="space-y-4 pt-2">
+                           <div className="flex justify-between items-center">
+                                <h3 className="font-semibold">Quoting Overrides</h3>
+                                <ProfileFormDialog onProfileSaved={handleProfileSaved}>
+                                     <Button type="button" variant="outline" size="sm">
+                                        <Edit className="mr-2 h-4 w-4"/> Manage Profiles
+                                    </Button>
+                                </ProfileFormDialog>
+                           </div>
+                             <FormField
+                                control={form.control}
+                                name="desiredMargin"
+                                render={({ field }) => (
+                                <FormItem className="grid grid-cols-3 items-center">
+                                    <FormLabel>Target Margin</FormLabel>
+                                    <FormControl className="col-span-2">
+                                    <div className="relative">
+                                        <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" placeholder="25" className="pl-8" {...field} />
+                                    </div>
+                                    </FormControl>
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="overheadCost"
+                                render={({ field }) => (
+                                <FormItem className="grid grid-cols-3 items-center">
+                                    <FormLabel>Calculated Overhead</FormLabel>
+                                    <FormControl className="col-span-2">
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input type="number" className="pl-8" {...field} readOnly />
+                                    </div>
+                                    </FormControl>
+                                </FormItem>
+                                )}
+                            />
                         </div>
-                        <input type="hidden" {...form.register("materialAndServiceRates")} />
-                        <input type="hidden" {...form.register("laborRates")} />
-                        <input type="hidden" {...form.register("persona")} />
-                        <input type="hidden" {...form.register("instructions")} />
-                         <input type="hidden" {...form.register("callOutFee")} />
-                        <Button type="submit" disabled={loading} className="w-full">
-                          {loading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating & Saving...
-                            </>
-                          ) : (
-                            'Generate Quote'
-                          )}
-                        </Button>
+                        <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Labor Rates (for this quote)</h4>
+                            {laborRateFields.map((field, index) => (
+                                <div key={field.id} className="grid grid-cols-3 gap-2">
+                                    <Input value={field.employeeType} className="bg-secondary text-muted-foreground" readOnly/>
+                                    <Input type="number" {...form.register(`laborRates.${index}.standardRate`)} />
+                                    <Input type="number" {...form.register(`laborRates.${index}.overtimeRate`)} />
+                                </div>
+                            ))}
+                        </div>
+                         <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Material Rates (for this quote)</h4>
+                            {materialRateFields.map((field, index) => (
+                                <div key={field.id} className="grid grid-cols-12 gap-2">
+                                    <div className="col-span-6">
+                                        <Input {...form.register(`materialAndServiceRates.${index}.description`)} />
+                                    </div>
+                                    <div className="col-span-3">
+                                        <Input type="number" {...form.register(`materialAndServiceRates.${index}.cost`)} />
+                                    </div>
+                                    <div className="col-span-3">
+                                        <Input {...form.register(`materialAndServiceRates.${index}.unit`)} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                       </form>
                     </Form>
-                 </div>
-                 <div className="space-y-4">
-                   {!result && !loading && (
-                        <Card className="flex flex-col items-center justify-center text-center p-8 h-full">
-                        <FileText className="h-16 w-16 text-muted-foreground" />
-                        <p className="mt-4 text-lg font-semibold">
-                            Your generated quote will appear here
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Enter a job description to get started.
-                        </p>
-                        </Card>
-                    )}
-                    {loading && !result && (
-                        <Card className="flex flex-col items-center justify-center text-center p-8 h-full">
-                        <Loader2 className="h-16 w-16 text-primary animate-spin" />
-                        <p className="mt-4 text-lg font-semibold">
-                            AI is preparing your quote...
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            This may take a few moments.
-                        </p>
-                        </Card>
-                    )}
-                     {result && (
-                        <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2">
-                            <Sparkles className="text-primary" />
-                            Generated Quote
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <div className="space-y-2 rounded-lg border p-4">
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${result.subtotal.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Overheads</span><span>${result.overheads.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Markup</span><span>${result.markupAmount.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Total (excl. GST)</span><span>${result.totalBeforeTax.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">GST (10%)</span><span>${result.taxAmount.toFixed(2)}</span></div>
-                                    <div className="border-t my-2"></div>
-                                    <div className="flex justify-between font-bold text-lg"><span >Quote Total</span><span className="text-primary">${result.totalAmount.toFixed(2)}</span></div>
-                                </div>
-                                <div className='text-sm'>
-                                    <h4 className="font-semibold mb-2">Cost Breakdown</h4>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Desc.</TableHead>
-                                                <TableHead className="text-center">QTY</TableHead>
-                                                <TableHead className="text-right">Total</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {result.lineItems.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{item.description}</TableCell>
-                                                    <TableCell className="text-center">{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">${item.totalCost.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-                        </CardContent>
-                        </Card>
-                    )}
-                 </div>
+                </ScrollArea>
+                <ScrollArea className="h-full">
+                     <div className="space-y-4 pr-4">
+                        {!result && !loading && (
+                                <Card className="flex flex-col items-center justify-center text-center p-8 h-full">
+                                <FileText className="h-16 w-16 text-muted-foreground" />
+                                <p className="mt-4 text-lg font-semibold">
+                                    Your generated quote will appear here
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Enter a job description to get started.
+                                </p>
+                                </Card>
+                            )}
+                            {loading && !result && (
+                                <Card className="flex flex-col items-center justify-center text-center p-8 h-full">
+                                <Loader2 className="h-16 w-16 text-primary animate-spin" />
+                                <p className="mt-4 text-lg font-semibold">
+                                    AI is preparing your quote...
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    This may take a few moments.
+                                </p>
+                                </Card>
+                            )}
+                            {result && (
+                                <Card>
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="flex items-center gap-2">
+                                    <Sparkles className="text-primary" />
+                                    Generated Quote
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="space-y-2 rounded-lg border p-4">
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${result.subtotal.toFixed(2)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Overheads</span><span>${result.overheads.toFixed(2)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Markup</span><span>${result.markupAmount.toFixed(2)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Total (excl. GST)</span><span>${result.totalBeforeTax.toFixed(2)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">GST (10%)</span><span>${result.taxAmount.toFixed(2)}</span></div>
+                                            <div className="border-t my-2"></div>
+                                            <div className="flex justify-between font-bold text-lg"><span >Quote Total</span><span className="text-primary">${result.totalAmount.toFixed(2)}</span></div>
+                                        </div>
+                                        <div className='text-sm'>
+                                            <h4 className="font-semibold mb-2">Cost Breakdown</h4>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Desc.</TableHead>
+                                                        <TableHead className="text-center">QTY</TableHead>
+                                                        <TableHead className="text-right">Total</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {result.lineItems.map((item, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>{item.description}</TableCell>
+                                                            <TableCell className="text-center">{item.quantity}</TableCell>
+                                                            <TableCell className="text-right">${item.totalCost.toFixed(2)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                                </Card>
+                            )}
+                    </div>
+                </ScrollArea>
             </div>
-             <DialogFooter>
+             <DialogFooter className="pt-4 border-t">
                 <DialogClose asChild><Button type="button" variant="secondary">Close</Button></DialogClose>
+                 <Button type="submit" form="quote-form" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating & Saving...
+                    </>
+                  ) : (
+                    'Generate Quote'
+                  )}
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
