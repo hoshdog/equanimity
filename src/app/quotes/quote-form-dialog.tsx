@@ -54,7 +54,7 @@ const formSchema = z.object({
     .string()
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
-  overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
+  overheadCost: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
   laborRates: z.array(laborRateSchema).optional(),
   materialAndServiceRates: z.array(lineItemRateSchema).optional(),
@@ -80,7 +80,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
     defaultValues: {
       prompt: '',
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
-      overheadRate: quotingProfiles[0].defaults.overheadRate,
+      overheadCost: 0, // This will be calculated
       callOutFee: quotingProfiles[0].defaults.callOutFee,
       laborRates: quotingProfiles[0].laborRates,
       materialAndServiceRates: quotingProfiles[0].materialAndServiceRates,
@@ -96,7 +96,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
         form.reset({
             prompt: form.getValues('prompt'),
             desiredMargin: profile.defaults.desiredMargin,
-            overheadRate: profile.defaults.overheadRate,
+            overheadCost: form.getValues('overheadCost'),
             callOutFee: profile.defaults.callOutFee,
             laborRates: profile.laborRates,
             materialAndServiceRates: profile.materialAndServiceRates,
@@ -135,6 +135,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       const newQuoteId = await addQuote(quoteData);
       const newQuote: Quote = {
         id: newQuoteId,
+        customerId: '', // This should be derived from the project in a real app
         ...quoteData,
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       };
@@ -161,7 +162,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       form.reset({
         prompt: '',
         desiredMargin: profile.defaults.desiredMargin,
-        overheadRate: profile.defaults.overheadRate,
+        overheadCost: 0,
         callOutFee: profile.defaults.callOutFee,
         laborRates: profile.laborRates,
         materialAndServiceRates: profile.materialAndServiceRates,
@@ -255,28 +256,14 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                               </FormItem>
                             )}
                           />
-                           <FormField
-                            control={form.control}
-                            name="overheadRate"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Overheads Rate</FormLabel>
-                                 <FormControl>
-                                  <div className="relative">
-                                     <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                     <Input type="number" placeholder="15" className="pl-8" {...field} />
-                                  </div>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                           {/* OverheadRate is replaced by overheadCost which is calculated dynamically */}
                         </div>
                         <input type="hidden" {...form.register("laborRates")} />
                         <input type="hidden" {...form.register("materialAndServiceRates")} />
                         <input type="hidden" {...form.register("persona")} />
                         <input type="hidden" {...form.register("instructions")} />
                          <input type="hidden" {...form.register("callOutFee")} />
+                         <input type="hidden" {...form.register("overheadCost")} />
                         <Button type="submit" disabled={loading} className="w-full">
                           {loading ? (
                             <>

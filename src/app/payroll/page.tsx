@@ -14,56 +14,57 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Banknote, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Combobox } from '@/components/ui/combobox';
-import { getEmployees } from '@/lib/employees';
-import type { Employee, OptionType } from '@/lib/types';
+import { getEmployeesWithWageData } from '@/lib/employees';
+import type { Employee, OptionType, LaborRate } from '@/lib/types';
 
 
 // This would be replaced with dynamic timesheet data from your database
-const mockEmployeeTimesheets: { [key: string]: any } = {
-  'EMP001': {
-    details: 'Employee: Alice Johnson (TFN: 111 222 333)\nPay Rate: $35/hour\nAllowances: $50 for tools',
-    timesheet: JSON.stringify([
-      { date: '2024-05-20', hours: 8 },
-      { date: '2024-05-21', hours: 8 },
-      { date: '2024-05-22', hours: 9, overtime: 1 },
-      { date: '2024-05-23', hours: 8 },
-      { date: '2024-05-24', hours: 7 },
-    ], null, 2),
-  },
-  'EMP002': {
-    details: 'Employee: Bob Smith (TFN: 444 555 666)\nPay Rate: $45/hour',
-    timesheet: JSON.stringify([
-      { date: '2024-05-20', hours: 8 },
-      { date: '2024-05-21', hours: 8 },
-      { date: '2024-05-22', hours: 8 },
-      { date: '2024-05-23', hours: 10, overtime: 2 },
-      { date: '2024-05-24', hours: 8 },
-    ], null, 2),
-  },
-    'EMP003': {
-    details: 'Employee: Charlie Brown (TFN: 777 888 999)\nPay Rate: $28/hour',
-    timesheet: JSON.stringify([
-      { date: '2024-05-20', hours: 7.5 },
-      { date: '2024-05-21', hours: 7.5 },
-      { date: '2024-05-22', hours: 7.5 },
-      { date: '2024-05-23', hours: 7.5 },
-      { date: '2024-05-24', hours: 8, overtime: 0.5 },
-    ], null, 2),
-  },
+const mockEmployeeTimesheets: { [key: string]: any[] } = {
+  'EMP002': [
+      { date: '2024-06-03', hours: 8, description: "Site inspection" }, // Monday
+      { date: '2024-06-04', hours: 9, description: "Installations" }, // Tuesday (1hr OT)
+      { date: '2024-06-05', hours: 8, description: "Client meeting" }, // Wednesday
+      { date: '2024-06-06', hours: 11, description: "Emergency call-out" }, // Thursday (1hr OT, 2hr DT)
+      { date: '2024-06-07', hours: 8, description: "Paperwork" }, // Friday
+      { date: '2024-06-08', hours: 4, description: "Weekend maintenance" }, // Saturday
+    ],
+  'EMP003': [
+      { date: '2024-06-03', hours: 7.5, description: "Cable running" },
+      { date: '2024-06-04', hours: 7.5, description: "Termination" },
+      { date: '2024-06-05', hours: 7.5, description: "Testing" },
+      { date: '2024-06-06', hours: 7.5, description: "Client handover" },
+      { date: '2024-06-07', hours: 8, description: "Stock take" },
+    ],
 };
 
 const formSchema = z.object({
   employeeId: z.string().nonempty('Please select an employee.'),
-  employeeDetails: z.string().min(10, 'Employee details are required.'),
-  timesheetData: z.string().min(10, 'Timesheet data is required.'),
   payrollPeriod: z.string().min(5, 'Payroll period is required.'),
   companyPolicies: z.string().min(10, 'Company policies are required.'),
   australianFairWorkStandards: z.string().min(10, 'Fair Work standards are required.'),
 });
 
 const mockFairWorkStandards = `The National Minimum Wage is currently $23.23 per hour or $882.80 per 38 hour week.
-Super guarantee is currently 11% of an employee's ordinary time earnings.
+Super guarantee is currently 11% of an employee's ordinary time earnings. Overtime hours are generally not considered Ordinary Time Earnings.
 Tax is calculated based on the ATO's tax tables.`;
+
+// In a real app, this would be fetched from the settings database
+const mockLaborRateRules: LaborRate = {
+    employeeType: 'Technician',
+    standardRate: 95.35,
+    costRate: 49.57,
+    overtimeRate: 143.03,
+    overtimeAfterHours: 8,
+    doubleTimeRate: 190.7,
+    doubleTimeAfterHours: 10,
+    saturdayFirstRate: 143.03,
+    saturdayFirstHours: 3,
+    saturdayAfterRate: 190.7,
+    sundayRate: 190.7,
+    publicHolidayRate: 238.38,
+    afterHoursCalloutRate: 190.7
+};
+
 
 export default function PayrollPage() {
   const [loading, setLoading] = useState(false);
@@ -75,10 +76,8 @@ export default function PayrollPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       employeeId: '',
-      employeeDetails: '',
-      timesheetData: '',
       payrollPeriod: `Start: ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString()} - End: ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString()}`,
-      companyPolicies: 'Leave is accrued at 0.0769 hours per hour worked. Overtime is paid at 1.5x the normal rate for hours over 38 per week.',
+      companyPolicies: 'Leave is accrued at 0.0769 hours per hour worked. Overtime is paid according to the configured labor rate rules.',
       australianFairWorkStandards: mockFairWorkStandards,
     },
   });
@@ -87,7 +86,7 @@ export default function PayrollPage() {
     async function fetchEmployees() {
         setLoading(true);
         try {
-            const employeesData = await getEmployees();
+            const employeesData = await getEmployeesWithWageData();
             setEmployees(employeesData);
         } catch (error) {
             console.error("Failed to fetch employees:", error);
@@ -102,38 +101,45 @@ export default function PayrollPage() {
   const selectedEmployeeId = form.watch('employeeId');
   
   const employeeOptions = useMemo((): OptionType[] => {
-    return employees.map(e => ({ value: e.id, label: e.name }));
+    return employees.map(e => ({ value: e.id, label: `${e.name} (${e.payType})` }));
   }, [employees]);
 
-  useEffect(() => {
-    if (selectedEmployeeId && mockEmployeeTimesheets[selectedEmployeeId as keyof typeof mockEmployeeTimesheets]) {
-        const employeeData = mockEmployeeTimesheets[selectedEmployeeId as keyof typeof mockEmployeeTimesheets];
-        form.setValue('employeeDetails', employeeData.details);
-        form.setValue('timesheetData', employeeData.timesheet);
-    } else {
-        const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
-        if (selectedEmployee) {
-            form.setValue('employeeDetails', `Employee: ${selectedEmployee.name}\nRole: ${selectedEmployee.role}\nStatus: ${selectedEmployee.status}`);
-            form.setValue('timesheetData', '[]'); // Default to empty timesheet
-        } else {
-            form.setValue('employeeDetails', '');
-            form.setValue('timesheetData', '');
-        }
-    }
-  }, [selectedEmployeeId, form, employees]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
     setResult(null);
+
+    const selectedEmployee = employees.find(e => e.id === values.employeeId);
+    if (!selectedEmployee) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Selected employee not found.' });
+        setLoading(false);
+        return;
+    }
+
     try {
-      const response = await automatePayroll(values);
+      const payrollInput: AutomatePayrollInput = {
+        employee: {
+          name: selectedEmployee.name,
+          payType: selectedEmployee.payType!,
+          wage: selectedEmployee.wage,
+          annualSalary: selectedEmployee.annualSalary,
+          tfn: selectedEmployee.tfn
+        },
+        timesheet: mockEmployeeTimesheets[selectedEmployee.id as keyof typeof mockEmployeeTimesheets] || [],
+        laborRateRules: selectedEmployee.payType === 'Hourly' ? mockLaborRateRules : undefined,
+        payrollPeriod: values.payrollPeriod,
+        companyPolicies: values.companyPolicies,
+        australianFairWorkStandards: values.australianFairWorkStandards,
+      };
+
+      const response = await automatePayroll(payrollInput);
       setResult(response);
     } catch (error) {
       console.error('Error running payroll:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to run payroll calculation. Please try again.',
+        description: 'Failed to run payroll calculation. The AI may be busy or encountered an error.',
       });
     } finally {
       setLoading(false);
@@ -150,7 +156,7 @@ export default function PayrollPage() {
           <CardHeader>
             <CardTitle>Automated Payroll Calculator</CardTitle>
             <CardDescription>
-              Select an employee to automatically load their timesheet data and calculate payroll.
+              Select an employee to automatically load their timesheet data and calculate payroll based on defined business rules.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -172,10 +178,7 @@ export default function PayrollPage() {
                     </FormItem>
                   )}
                 />
-                 {/* Hidden fields for data passed to the flow */}
-                <input type="hidden" {...form.register("employeeDetails")} />
-                <input type="hidden" {...form.register("timesheetData")} />
-
+                
                 <FormField
                   control={form.control}
                   name="payrollPeriod"
@@ -283,7 +286,7 @@ export default function PayrollPage() {
                   
                   <div>
                     <h4 className="font-semibold mb-2">Payslip Details</h4>
-                    <pre className="text-xs p-4 rounded-md bg-muted whitespace-pre-wrap font-sans">{result.payslipDetails}</pre>
+                    <pre className="text-xs p-4 rounded-md bg-muted whitespace-pre-wrap font-sans">{result.payslipDetails.summary}</pre>
                   </div>
 
                 </CardContent>
@@ -294,5 +297,3 @@ export default function PayrollPage() {
     </div>
   );
 }
-
-    
