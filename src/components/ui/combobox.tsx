@@ -15,6 +15,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 
 export type ComboboxOption = {
   value: string;
@@ -27,6 +28,8 @@ interface ComboboxProps {
   onChange: (value: string) => void;
   placeholder?: string;
   emptyMessage?: string;
+  className?: string;
+  isEditable?: boolean;
 }
 
 export function Combobox({
@@ -35,12 +38,66 @@ export function Combobox({
   onChange,
   placeholder = "Select an option...",
   emptyMessage = "No options found.",
+  className,
+  isEditable = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState(value || '');
+
+  React.useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
 
   const selectedLabel = React.useMemo(() => {
-    return options.find((option) => option.value === value)?.label;
+    return options.find((option) => option.value.toLowerCase() === value?.toLowerCase())?.label || value;
   }, [options, value]);
+
+  if (isEditable) {
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <div className="relative w-full">
+                    <Input
+                        value={inputValue}
+                        onChange={(e) => {
+                            setInputValue(e.target.value);
+                            onChange(e.target.value);
+                        }}
+                        placeholder={placeholder}
+                        className={cn("pr-8", className)}
+                        onClick={() => setOpen(true)}
+                    />
+                    <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
+                </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                     <CommandList>
+                        <CommandGroup>
+                            {options.map((option) => (
+                                <CommandItem
+                                    key={option.value}
+                                    value={option.label}
+                                    onSelect={(currentLabel) => {
+                                        const selectedOption = options.find(opt => opt.label.toLowerCase() === currentLabel.toLowerCase());
+                                        if (selectedOption) {
+                                            onChange(selectedOption.value);
+                                            setInputValue(selectedOption.value);
+                                        }
+                                        setOpen(false);
+                                    }}
+                                >
+                                    {option.label}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+  }
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -49,7 +106,7 @@ export function Combobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between", className)}
         >
           {selectedLabel || placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

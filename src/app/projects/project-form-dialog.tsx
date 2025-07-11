@@ -20,6 +20,7 @@ import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -76,6 +77,8 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     if(!watchedCustomerId) return [];
     return customerDetails[watchedCustomerId]?.contacts.map(c => ({ label: c.name, value: c.id })) || [];
   }, [watchedCustomerId, customerDetails]);
+  
+  const roleOptions = React.useMemo(() => commonRoles.map(role => ({ label: role, value: role })), []);
 
   React.useEffect(() => {
     const matchingCustomer = customerOptions.find(c => c.label.toLowerCase() === watchedCustomerName.toLowerCase());
@@ -264,12 +267,13 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.role`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormControl>
-                                                    <Input list="common-roles" placeholder="Role (e.g., Site Contact)" {...field} />
-                                                </FormControl>
-                                                <datalist id="common-roles">
-                                                    {commonRoles.map(role => <option key={role} value={role} />)}
-                                                </datalist>
+                                                <Combobox
+                                                    isEditable
+                                                    options={roleOptions}
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Role (e.g., Site Contact)"
+                                                />
                                                 <FormMessage />
                                             </FormItem>
                                         )}
