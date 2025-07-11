@@ -58,8 +58,12 @@ export function Combobox({ options, value, onChange, placeholder, className }: C
                   <CommandItem
                     key={option.value}
                     value={option.label}
-                    onSelect={() => {
-                      onChange(option.value === value ? "" : option.value)
+                    onSelect={(currentValue) => {
+                      // Find the option that matches the selected label
+                      const selectedOption = options.find(opt => opt.label.toLowerCase() === currentValue.toLowerCase());
+                      if (selectedOption) {
+                        onChange(selectedOption.value === value ? "" : selectedOption.value)
+                      }
                       setOpen(false)
                     }}
                   >
