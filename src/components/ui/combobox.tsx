@@ -48,16 +48,16 @@ export function Combobox({ options, value, onChange, placeholder }: ComboboxProp
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput placeholder="Search..." />
-          <CommandEmpty>No option found.</CommandEmpty>
           <CommandList>
+            <CommandEmpty>No option found.</CommandEmpty>
             <CommandGroup>
                 {options.map((option) => (
                 <CommandItem
                     key={option.value}
-                    value={option.value}
-                    onSelect={(currentValue) => {
-                    onChange(currentValue === value ? "" : currentValue)
-                    setOpen(false)
+                    value={option.label} // Value for search/filter
+                    onSelect={() => {
+                        onChange(option.value === value ? "" : option.value)
+                        setOpen(false)
                     }}
                 >
                     <Check
