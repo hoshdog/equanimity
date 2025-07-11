@@ -70,7 +70,7 @@ type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
 interface EmployeeFormDialogProps {
   employee?: Employee;
-  onEmployeeSaved: (employee: Employee) => void;
+  onEmployeeSaved: () => void;
 }
 
 function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open: boolean, onOpenChange: (open: boolean) => void, roles: string[], onRolesChange: (roles: string[]) => void }) {
@@ -215,10 +215,10 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
         // onEmployeeSaved({ id: employee.id, ...values });
         toast({ title: 'Employee Updated' });
       } else {
-        const newEmployeeId = await addEmployee(values);
-        onEmployeeSaved({ id: newEmployeeId, ...values });
+        await addEmployee(values);
         toast({ title: 'Employee Created', description: `${values.name} has been added.` });
       }
+      onEmployeeSaved();
       setIsOpen(false);
       form.reset();
     } catch (error) {

@@ -1,7 +1,7 @@
 // src/app/employees/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,29 +19,31 @@ export default function EmployeesPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    useEffect(() => {
-        async function fetchEmployees() {
-            setLoading(true);
-            try {
-                const employeesData = await getEmployees();
-                setEmployees(employeesData);
-            } catch (error) {
-                console.error("Failed to fetch employees:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Error',
-                    description: 'Could not load employees.',
-                });
-            } finally {
-                setLoading(false);
-            }
+    const fetchEmployees = useCallback(async () => {
+        setLoading(true);
+        try {
+            const employeesData = await getEmployees();
+            setEmployees(employeesData);
+        } catch (error) {
+            console.error("Failed to fetch employees:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Could not load employees.',
+            });
+        } finally {
+            setLoading(false);
         }
-        fetchEmployees();
     }, [toast]);
+
+    useEffect(() => {
+        fetchEmployees();
+    }, [fetchEmployees]);
     
-    const handleEmployeeCreated = (newEmployee: Employee) => {
-        setEmployees(prev => [newEmployee, ...prev]);
-    }
+    const handleEmployeeSaved = useCallback(() => {
+        // After saving, re-fetch the entire list to get the latest data
+        fetchEmployees();
+    }, [fetchEmployees]);
 
     const handleRowClick = (id: string) => {
         router.push(`/employees/${id}`);
@@ -51,7 +53,7 @@ export default function EmployeesPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
-        <EmployeeFormDialog onEmployeeSaved={handleEmployeeCreated} />
+        <EmployeeFormDialog onEmployeeSaved={handleEmployeeSaved} />
       </div>
       <Card>
         <CardHeader>
