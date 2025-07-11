@@ -135,13 +135,13 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-         <div className="flex items-center gap-2">
+         <div className="flex flex-col items-center text-center gap-2">
             <Avatar className="h-9 w-9">
               <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
             <div className={cn(
-              "flex flex-col overflow-hidden",
+              "flex flex-col",
               "group-data-[state=collapsed]:hidden"
             )}>
                 <span className="text-sm font-semibold">Jane Doe</span>
