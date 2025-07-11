@@ -65,8 +65,11 @@ const laborRateSchema = z.object({
   overtimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(8),
   doubleTimeRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   doubleTimeAfterHours: z.coerce.number().min(0, 'Hours must be positive.').default(10),
+  // Saturday Rates (Tiered)
+  saturdayFirstRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
+  saturdayFirstHours: z.coerce.number().min(0, 'Hours must be positive.').default(2),
+  saturdayAfterRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   // Special Rates
-  saturdayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   sundayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   publicHolidayRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
   afterHoursCalloutRate: z.coerce.number().min(0, 'Rate must be a positive number.'),
@@ -99,7 +102,9 @@ function LaborRateDialog({
         overtimeAfterHours: 8,
         doubleTimeRate: 0,
         doubleTimeAfterHours: 10,
-        saturdayRate: 0,
+        saturdayFirstRate: 0,
+        saturdayFirstHours: 2,
+        saturdayAfterRate: 0,
         sundayRate: 0,
         publicHolidayRate: 0,
         afterHoursCalloutRate: 0,
@@ -167,7 +172,8 @@ function LaborRateDialog({
                 if (form.getValues('standardRate') === 0) form.setValue('standardRate', parseFloat(standardRate.toFixed(2)));
                 if (form.getValues('overtimeRate') === 0) form.setValue('overtimeRate', parseFloat((standardRate * 1.5).toFixed(2)));
                 if (form.getValues('doubleTimeRate') === 0) form.setValue('doubleTimeRate', parseFloat((standardRate * 2).toFixed(2)));
-                if (form.getValues('saturdayRate') === 0) form.setValue('saturdayRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                if (form.getValues('saturdayFirstRate') === 0) form.setValue('saturdayFirstRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                if (form.getValues('saturdayAfterRate') === 0) form.setValue('saturdayAfterRate', parseFloat((standardRate * 2).toFixed(2)));
                 if (form.getValues('sundayRate') === 0) form.setValue('sundayRate', parseFloat((standardRate * 2).toFixed(2)));
                 if (form.getValues('publicHolidayRate') === 0) form.setValue('publicHolidayRate', parseFloat((standardRate * 2.5).toFixed(2)));
                 if (form.getValues('afterHoursCalloutRate') === 0) form.setValue('afterHoursCalloutRate', parseFloat((standardRate * 2).toFixed(2)));
@@ -229,7 +235,7 @@ function LaborRateDialog({
                         
                         <Separator className="my-4"/>
                         <h4 className="text-md font-medium">Daily Overtime Rules</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <FormField control={form.control} name="standardRate" render={({ field }) => (
                                     <FormItem><FormLabel>Standard Rate</FormLabel><FormControl>
                                         <div className="relative">
@@ -278,8 +284,17 @@ function LaborRateDialog({
                         
                         <Separator className="my-4"/>
                         <h4 className="text-md font-medium">Special &amp; Weekend Rates</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="saturdayRate" render={({ field }) => ( <FormItem><FormLabel>Saturday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+
+                        <div className="space-y-2 p-3 border rounded-md bg-secondary/30">
+                            <FormLabel>Saturday Tiered Rates</FormLabel>
+                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <FormField control={form.control} name="saturdayFirstRate" render={({ field }) => ( <FormItem><FormLabel className="text-xs">Initial Rate (e.g. 1.5x)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={form.control} name="saturdayFirstHours" render={({ field }) => ( <FormItem><FormLabel className="text-xs">For the first (hours)</FormLabel><FormControl><div className="relative"><Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.5" className="pl-7" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={form.control} name="saturdayAfterRate" render={({ field }) => ( <FormItem><FormLabel className="text-xs">Subsequent Rate (e.g. 2x)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                            </div>
+                        </div>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                             <FormField control={form.control} name="sundayRate" render={({ field }) => ( <FormItem><FormLabel>Sunday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                             <FormField control={form.control} name="publicHolidayRate" render={({ field }) => ( <FormItem><FormLabel>Public Holiday Rate</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                             <FormField control={form.control} name="afterHoursCalloutRate" render={({ field }) => ( <FormItem><FormLabel>After-Hours Callout</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormDescription>Min 2 hours typically applied.</FormDescription><FormMessage /></FormItem> )}/>
@@ -357,7 +372,9 @@ export function LabourRates() {
                         overtimeAfterHours: 8,
                         doubleTimeRate: parseFloat((standardRate * 2).toFixed(2)),
                         doubleTimeAfterHours: 10,
-                        saturdayRate: parseFloat((standardRate * 1.5).toFixed(2)),
+                        saturdayFirstRate: parseFloat((standardRate * 1.5).toFixed(2)),
+                        saturdayFirstHours: 2,
+                        saturdayAfterRate: parseFloat((standardRate * 2).toFixed(2)),
                         sundayRate: parseFloat((standardRate * 2).toFixed(2)),
                         publicHolidayRate: parseFloat((standardRate * 2.5).toFixed(2)),
                         afterHoursCalloutRate: parseFloat((standardRate * 2).toFixed(2)),
@@ -455,7 +472,12 @@ export function LabourRates() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">${rate.standardRate.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right">${rate.saturdayRate.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className='flex flex-col items-end'>
+                                            <span>${rate.saturdayFirstRate.toFixed(2)} (first {rate.saturdayFirstHours}hrs)</span>
+                                            <span className='text-muted-foreground'>${rate.saturdayAfterRate.toFixed(2)} after</span>
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">${rate.sundayRate.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
