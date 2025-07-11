@@ -122,8 +122,6 @@ const SidebarProvider = React.forwardRef<
               className
             )}
             ref={ref}
-            onMouseEnter={() => !isMobile && setOpen(true)}
-            onMouseLeave={() => !isMobile && setOpen(false)}
             {...props}
           >
             {children}
@@ -154,7 +152,7 @@ const Sidebar = React.forwardRef<
     },
     ref
   ) => {
-    const { isMobile, open, setOpen, state, openMobile, setOpenMobile } = useSidebar()
+    const { isMobile, setOpen, state, openMobile, setOpenMobile } = useSidebar()
     const [isMounted, setIsMounted] = React.useState(false);
 
     React.useEffect(() => {
@@ -193,6 +191,8 @@ const Sidebar = React.forwardRef<
         data-collapsible={collapsible}
         data-variant={variant}
         data-side={side}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
       >
         <div
           className={cn(
