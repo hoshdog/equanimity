@@ -12,15 +12,16 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual } from 'date-fns';
-import { Save, PlusCircle, Trash2 } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual, addMinutes, parse } from 'date-fns';
+import { Save, PlusCircle, Trash2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type TaskEntry = {
   id: string; // Unique ID for React key
   task: string;
-  hours: string;
+  startTime: string; // e.g., "09:00"
+  hours: string; // duration
 };
 
 type DailyTimesheet = {
@@ -44,13 +45,12 @@ export default function TimesheetsPage() {
     setTimesheet(
       weekDays.map((day) => ({
         date: day,
-        tasks: [{ id: `task-${day.getTime()}-0`, task: '', hours: '' }],
+        tasks: [{ id: `task-${day.getTime()}-0`, task: '', startTime: '08:00', hours: '8' }],
       }))
     );
   }, [currentDate]);
 
-  const handleTaskChange = (date: Date, taskId: string, field: 'task' | 'hours', value: string) => {
-    // For hours, allow only numbers and a single decimal point
+  const handleTaskChange = (date: Date, taskId: string, field: 'task' | 'startTime' | 'hours', value: string) => {
     if (field === 'hours' && !/^\d*\.?\d*$/.test(value)) {
         return;
     }
@@ -74,10 +74,23 @@ export default function TimesheetsPage() {
       setTimesheet((prevTimesheet) => 
         prevTimesheet.map((dailyEntry) => {
             if(isEqual(dailyEntry.date, date)) {
+                const lastTask = dailyEntry.tasks[dailyEntry.tasks.length - 1];
+                let nextStartTime = '08:00';
+                if (lastTask && lastTask.startTime && lastTask.hours) {
+                    try {
+                        const lastStart = parse(lastTask.startTime, 'HH:mm', dailyEntry.date);
+                        const lastDurationMinutes = parseFloat(lastTask.hours) * 60;
+                        if (!isNaN(lastDurationMinutes)) {
+                           const lastEnd = addMinutes(lastStart, lastDurationMinutes);
+                           nextStartTime = format(lastEnd, 'HH:mm');
+                        }
+                    } catch (e) { /* ignore parse errors */ }
+                }
+
                 const newTaskId = `task-${date.getTime()}-${dailyEntry.tasks.length}`;
                 return {
                     ...dailyEntry,
-                    tasks: [...dailyEntry.tasks, { id: newTaskId, task: '', hours: ''}]
+                    tasks: [...dailyEntry.tasks, { id: newTaskId, task: '', startTime: nextStartTime, hours: '0'}]
                 }
             }
             return dailyEntry;
@@ -89,7 +102,6 @@ export default function TimesheetsPage() {
     setTimesheet((prevTimesheet) => 
         prevTimesheet.map((dailyEntry) => {
             if(isEqual(dailyEntry.date, date)) {
-                // Prevent removing the last task entry
                 if (dailyEntry.tasks.length <= 1) return dailyEntry;
                 return {
                     ...dailyEntry,
@@ -101,6 +113,20 @@ export default function TimesheetsPage() {
       )
   }
 
+  const calculateEndTime = (date: Date, startTime: string, duration: string) => {
+      if (!startTime || !duration) return '--:--';
+      try {
+        const start = parse(startTime, 'HH:mm', date);
+        const durationMinutes = parseFloat(duration) * 60;
+        if (isNaN(durationMinutes)) return '--:--';
+
+        const end = addMinutes(start, durationMinutes);
+        return format(end, 'HH:mm');
+      } catch (e) {
+        return '--:--';
+      }
+  }
+
   const totalHours = useMemo(() => {
     return timesheet.reduce((total, dailyEntry) => {
         const dailyTotal = dailyEntry.tasks.reduce((acc, task) => acc + (parseFloat(task.hours) || 0), 0);
@@ -109,7 +135,6 @@ export default function TimesheetsPage() {
   }, [timesheet]);
 
   const handleSubmit = () => {
-    // In a real app, this would submit the data to a backend.
     console.log("Submitting timesheet:", {
       period: `${format(timesheet[0].date, 'dd MMM yyyy')} - ${format(timesheet[timesheet.length - 1].date, 'dd MMM yyyy')}`,
       totalHours,
@@ -153,23 +178,33 @@ export default function TimesheetsPage() {
                            <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
                              {tasks.map((task, index) => (
                                 <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
-                                    <div className="col-span-12 md:col-span-8">
+                                    <div className="col-span-12 md:col-span-6">
                                         <Input 
                                             placeholder="Job or task description"
                                             value={task.task}
                                             onChange={(e) => handleTaskChange(date, task.id, 'task', e.target.value)}
                                         />
                                     </div>
-                                    <div className="col-span-8 md:col-span-3">
+                                    <div className="col-span-4 md:col-span-2">
+                                        <Input
+                                            type="time"
+                                            value={task.startTime}
+                                            onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-span-4 md:col-span-2">
                                         <Input
                                             type="text"
-                                            placeholder="Hours"
+                                            placeholder="Duration"
                                             value={task.hours}
                                             onChange={(e) => handleTaskChange(date, task.id, 'hours', e.target.value)}
                                             className="text-right"
                                         />
                                     </div>
-                                    <div className="col-span-4 md:col-span-1 flex justify-end">
+                                    <div className="col-span-2 md:col-span-1 flex items-center justify-center text-muted-foreground font-mono text-sm">
+                                        {calculateEndTime(date, task.startTime, task.hours)}
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1 flex justify-end">
                                          <Button 
                                             variant="ghost" 
                                             size="icon" 
