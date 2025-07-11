@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -216,16 +217,24 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <FormLabel>Project Contacts</FormLabel>
-                             <AddContactDialog 
-                                customerId={watchedCustomerId}
-                                setCustomerDetails={setCustomerDetails} 
-                                onContactAdded={handleContactAdded}
-                            >
-                                <Button type="button" variant="outline" size="sm" disabled={!watchedCustomerId}>
-                                    <Plus className="h-4 w-4 mr-2"/>
-                                    Add New Person
-                                </Button>
-                            </AddContactDialog>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AddContactDialog 
+                                      customerId={watchedCustomerId}
+                                      setCustomerDetails={setCustomerDetails} 
+                                      onContactAdded={handleContactAdded}
+                                  >
+                                      <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                          <Plus className="h-4 w-4"/>
+                                      </Button>
+                                  </AddContactDialog>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Add New Contact</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                         </div>
                          {fields.map((field, index) => (
                             <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-secondary/30">
