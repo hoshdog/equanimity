@@ -1,3 +1,4 @@
+
 // scripts/seed.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
@@ -29,6 +30,8 @@ const mockEmployees = [
     { id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active' },
     { id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active' },
     { id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active' },
+    { id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active' },
+    { id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active' },
 ];
 
 const mockCustomers = [
@@ -43,6 +46,14 @@ const mockCustomers = [
     {
         id: '3', name: 'Greenleaf Cafe', address: '789 Garden Lane, Brisbane QLD 4000', type: 'Small Business',
         primaryContactName: 'Sam Green', email: 'sam.g@greenleaf.com', phone: '07 1111 2222',
+    },
+    {
+        id: '4', name: 'State Education Dept.', address: '1 Education Plaza, Canberra ACT 2601', type: 'Government',
+        primaryContactName: 'Karen Wheeler', email: 'k.wheeler@education.gov.au', phone: '02 6200 0000',
+    },
+    {
+        id: '5', name: 'Oceanic Airlines', address: '815 Skyway, Perth WA 6000', type: 'Corporate Client',
+        primaryContactName: 'Jack Shephard', email: 'j.shephard@oceanic.com', phone: '08 9000 1000',
     }
 ];
 
@@ -58,6 +69,14 @@ const mockContacts = {
     '3': [
         { id: 'C3A', name: 'Sam Green', emails: ['sam.g@greenleaf.com'], phones: ['07 1111 2222'], jobTitle: 'Owner' },
     ],
+    '4': [
+        { id: 'C4A', name: 'Karen Wheeler', emails: ['k.wheeler@education.gov.au'], phones: ['02 6200 0000'], jobTitle: 'Facilities Manager' },
+        { id: 'C4B', name: 'Martin Brenner', emails: ['m.brenner@education.gov.au'], phones: ['02 6200 0001'], jobTitle: 'Head of Procurement' },
+    ],
+    '5': [
+        { id: 'C5A', name: 'Jack Shephard', emails: ['j.shephard@oceanic.com'], phones: ['08 9000 1000'], jobTitle: 'Operations Director' },
+        { id: 'C5B', name: 'Kate Austen', emails: ['k.austen@oceanic.com'], phones: ['08 9000 1001'], jobTitle: 'Security Supervisor' },
+    ],
 };
 
 const mockSites = {
@@ -72,6 +91,13 @@ const mockSites = {
     '3': [
         { id: 'S3A', name: 'Cafe Location', address: '789 Garden Lane, Brisbane QLD 4000', primaryContactId: 'C3A' },
     ],
+    '4': [
+        { id: 'S4A', name: 'Hawkins High School', address: '1 School Rd, Hawkins ACT 2602', primaryContactId: 'C4A' },
+        { id: 'S4B', name: 'Starcourt Primary', address: '88 Mall Ave, Hawkins ACT 2602', primaryContactId: 'C4A' },
+    ],
+    '5': [
+        { id: 'S5A', name: 'Perth Airport Hangar', address: '815 Skyway, Perth WA 6000', primaryContactId: 'C5A' },
+    ],
 };
 
 const mockProjects = [
@@ -85,20 +111,31 @@ const mockProjects = [
     // Greenleaf Cafe Projects
     { id: 'PROJ006', name: 'Kitchen Appliance Test & Tag', description: 'Annual safety check for all kitchen equipment.', customerId: '3', siteId: 'S3A', status: 'Completed' },
     { id: 'PROJ007', name: 'POS System Upgrade', description: 'Install new Point of Sale hardware and software.', customerId: '3', siteId: 'S3A', status: 'Planning' },
+    // State Education Dept. Projects
+    { id: 'PROJ008', name: 'Hawkins High CCTV Upgrade', description: 'Upgrade all CCTV cameras to digital IP.', customerId: '4', siteId: 'S4A', status: 'In Progress' },
+    { id: 'PROJ009', name: 'Starcourt Primary PA System', description: 'Install new public address system.', customerId: '4', siteId: 'S4B', status: 'Planning' },
+    // Oceanic Airlines Projects
+    { id: 'PROJ010', name: 'Hangar 5 Lighting Retrofit', description: 'Replace all hangar lighting with LEDs.', customerId: '5', siteId: 'S5A', status: 'Completed' },
 ];
 
 const mockJobs = {
     'PROJ001': [
         { id: 'JOB001', description: 'Design new homepage mockup', status: 'Completed', technicianId: 'EMP001' },
         { id: 'JOB002', description: 'Develop frontend components', status: 'In Progress', technicianId: 'EMP006' },
+        { id: 'JOB003', description: 'Setup staging server', status: 'Not Started', technicianId: 'EMP011' },
     ],
     'PROJ004': [
-        { id: 'JOB003', description: 'Run conduit for Level 1', status: 'In Progress', technicianId: 'EMP002' },
-        { id: 'JOB004', description: 'Pull cabling for Level 1', status: 'Not Started', technicianId: 'EMP003' },
-        { id: 'JOB005', description: 'Install distribution board', status: 'Not Started', technicianId: 'EMP002' },
+        { id: 'JOB004', description: 'Run conduit for Level 1', status: 'In Progress', technicianId: 'EMP002' },
+        { id: 'JOB005', description: 'Pull cabling for Level 1', status: 'Not Started', technicianId: 'EMP003' },
+        { id: 'JOB006', description: 'Install distribution board', status: 'Not Started', technicianId: 'EMP002' },
     ],
     'PROJ006': [
-        { id: 'JOB006', description: 'Test and tag all kitchen appliances', status: 'Completed', technicianId: 'EMP005' },
+        { id: 'JOB007', description: 'Test and tag all kitchen appliances', status: 'Completed', technicianId: 'EMP005' },
+    ],
+    'PROJ008': [
+        { id: 'JOB008', description: 'Audit existing camera locations', status: 'Completed', technicianId: 'EMP006' },
+        { id: 'JOB009', description: 'Install Cat6 cabling for new cameras', status: 'In Progress', technicianId: 'EMP008' },
+        { id: 'JOB010', description: 'Mount and configure 10x IP cameras', status: 'Not Started', technicianId: 'EMP006' },
     ],
 };
 
