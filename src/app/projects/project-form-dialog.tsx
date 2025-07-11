@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
@@ -99,7 +99,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
         if (place?.formatted_address) {
             form.setValue('address', place.formatted_address);
         }
-    }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -135,7 +135,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                             <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="phone" render={({ field }) => (
-                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="type" render={({ field }) => (
                             <FormItem>
@@ -165,7 +165,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                 </Form>
             </DialogContent>
         </Dialog>
-    )
+    );
 }
 
 
