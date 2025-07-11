@@ -163,20 +163,28 @@ function LaborRateDialog({
 
     React.useEffect(() => {
         const subscription = form.watch((value, { name }) => {
-            if (name === 'name') {
-                const costRate = calculateCostRate(value.name || '');
+            if (name === 'name' && value.name) {
+                const costRate = calculateCostRate(value.name);
                 form.setValue('costRate', costRate);
                 
-                // Auto-populate other rates based on cost rate if they are 0
-                const standardRate = costRate / (1-0.4); // Target 40% margin
-                if (form.getValues('standardRate') === 0) form.setValue('standardRate', parseFloat(standardRate.toFixed(2)));
-                if (form.getValues('overtimeRate') === 0) form.setValue('overtimeRate', parseFloat((standardRate * 1.5).toFixed(2)));
-                if (form.getValues('doubleTimeRate') === 0) form.setValue('doubleTimeRate', parseFloat((standardRate * 2).toFixed(2)));
-                if (form.getValues('saturdayFirstRate') === 0) form.setValue('saturdayFirstRate', parseFloat((standardRate * 1.5).toFixed(2)));
-                if (form.getValues('saturdayAfterRate') === 0) form.setValue('saturdayAfterRate', parseFloat((standardRate * 2).toFixed(2)));
-                if (form.getValues('sundayRate') === 0) form.setValue('sundayRate', parseFloat((standardRate * 2).toFixed(2)));
-                if (form.getValues('publicHolidayRate') === 0) form.setValue('publicHolidayRate', parseFloat((standardRate * 2.5).toFixed(2)));
-                if (form.getValues('afterHoursCalloutRate') === 0) form.setValue('afterHoursCalloutRate', parseFloat((standardRate * 2).toFixed(2)));
+                // Auto-populate rates only if standard rate is not set, to avoid overriding manual entry
+                if (form.getValues('standardRate') === 0) {
+                    const standardRate = costRate > 0 ? costRate / (1 - 0.4) : 0; // Target 40% margin
+                    form.setValue('standardRate', parseFloat(standardRate.toFixed(2)));
+                }
+            }
+            if (name === 'standardRate') {
+                const standardRate = parseFloat(value.standardRate?.toString() || '0');
+                if (standardRate > 0) {
+                     // Always update other rates based on the standard rate
+                    form.setValue('overtimeRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                    form.setValue('doubleTimeRate', parseFloat((standardRate * 2).toFixed(2)));
+                    form.setValue('saturdayFirstRate', parseFloat((standardRate * 1.5).toFixed(2)));
+                    form.setValue('saturdayAfterRate', parseFloat((standardRate * 2).toFixed(2)));
+                    form.setValue('sundayRate', parseFloat((standardRate * 2).toFixed(2)));
+                    form.setValue('publicHolidayRate', parseFloat((standardRate * 2.5).toFixed(2)));
+                    form.setValue('afterHoursCalloutRate', parseFloat((standardRate * 2).toFixed(2)));
+                }
             }
         });
         return () => subscription.unsubscribe();
@@ -360,7 +368,7 @@ export function LabourRates() {
                 
                 const generatedRates: LaborRateFormValues[] = uniqueRoles.map(role => {
                     const costRate = calculateCostRate(role, employees);
-                    const standardRate = costRate / (1 - 0.40); // Target 40% margin
+                    const standardRate = costRate > 0 ? costRate / (1 - 0.40) : 0; // Target 40% margin
 
                     return {
                         id: `role-${role.replace(/\s+/g, '-').toLowerCase()}`,
