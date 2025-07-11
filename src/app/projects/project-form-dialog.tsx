@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus, Trash2 } from "lucide-react";
+import { PlusCircle, Plus, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -45,10 +45,19 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-const commonRoles = ["Primary", "Site Contact", "Accounts", "Tenant", "Project Manager", "Client Representative"];
-
 export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [isRoleManagerOpen, setIsRoleManagerOpen] = React.useState(false);
+  const [newRole, setNewRole] = React.useState('');
+  const [commonRoles, setCommonRoles] = React.useState([
+    "Primary", 
+    "Site Contact", 
+    "Accounts", 
+    "Tenant", 
+    "Project Manager", 
+    "Client Representative"
+  ]);
+
   const { toast } = useToast();
   
   const form = useForm<ProjectFormValues>({
@@ -78,7 +87,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     return customerDetails[watchedCustomerId]?.contacts.map(c => ({ label: c.name, value: c.id })) || [];
   }, [watchedCustomerId, customerDetails]);
   
-  const roleOptions = React.useMemo(() => commonRoles.map(role => ({ label: role, value: role })), []);
+  const roleOptions = React.useMemo(() => commonRoles.map(role => ({ label: role, value: role })), [commonRoles]);
 
   React.useEffect(() => {
     const matchingCustomer = customerOptions.find(c => c.label.toLowerCase() === watchedCustomerName.toLowerCase());
@@ -135,6 +144,20 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
         form.setValue('projectContacts.0.contactId', contactId, { shouldValidate: true });
     }
   }
+
+  const handleAddRole = () => {
+    if (newRole && !commonRoles.includes(newRole)) {
+      setCommonRoles([...commonRoles, newRole]);
+      setNewRole('');
+      toast({ title: "Role Added", description: `"${newRole}" has been added to the list.` });
+    }
+  };
+
+  const handleDeleteRole = (roleToDelete: string) => {
+    setCommonRoles(commonRoles.filter(role => role !== roleToDelete));
+    toast({ title: "Role Removed", description: `"${roleToDelete}" has been removed.` });
+  };
+
 
   return (
     <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) form.reset(); }}>
@@ -220,6 +243,41 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                         <div className="flex items-center justify-between">
                             <FormLabel>Project Contacts</FormLabel>
                             <div className="flex items-center gap-2">
+                                <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                                    <TooltipProvider><Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DialogTrigger asChild>
+                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 h-6 w-6"><Pencil className="h-4 w-4"/></Button>
+                                            </DialogTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>Manage Roles</p></TooltipContent>
+                                    </Tooltip></TooltipProvider>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Manage Contact Roles</DialogTitle>
+                                            <DialogDescription>Add or remove contact roles from the list of suggestions.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4">
+                                            <div className="flex gap-2">
+                                                <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="New role name..." />
+                                                <Button onClick={handleAddRole}>Add Role</Button>
+                                            </div>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                                {commonRoles.map(role => (
+                                                    <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                        <span className="text-sm">{role}</span>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                         <DialogFooter>
+                                            <Button variant="outline" onClick={() => setIsRoleManagerOpen(false)}>Done</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -331,3 +389,5 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
+
+    
