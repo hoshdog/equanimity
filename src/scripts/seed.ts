@@ -2,44 +2,35 @@
 // scripts/seed.ts
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Load environment variables from .env.local
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+// --- Direct Initialization Fix ---
+// This version directly loads the service account key from a known path
+// to bypass all environment variable loading issues.
 
-// --- FIX: Explicitly load the service account key ---
-// This is a more robust way to ensure credentials are loaded.
+const serviceAccountFileName = 'equanimity-m1b2n-firebase-adminsdk-fbsvc-c673af7b32.json';
+const serviceAccountPath = path.resolve(process.cwd(), serviceAccountFileName);
 
-const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-if (!serviceAccountPath) {
-    console.error('ERROR: The GOOGLE_APPLICATION_CREDENTIALS environment variable is not set in your .env.local file.');
-    console.error('Please set it to the path of your Firebase service account key JSON file.');
+if (!fs.existsSync(serviceAccountPath)) {
+    console.error(`\n\n--- SETUP ERROR ---`);
+    console.error(`The service account key file was not found at: ${serviceAccountPath}`);
+    console.error(`Please ensure the file named "${serviceAccountFileName}" is in the root directory of your project.`);
+    console.error(`--- END SETUP ERROR ---\n`);
     process.exit(1);
 }
 
-const absoluteServiceAccountPath = path.resolve(process.cwd(), serviceAccountPath);
-
-if (!fs.existsSync(absoluteServiceAccountPath)) {
-    console.error(`ERROR: The service account file was not found at: ${absoluteServiceAccountPath}`);
-    console.error('Please ensure the path in your .env.local file is correct.');
-    process.exit(1);
-}
-
-const serviceAccount = JSON.parse(fs.readFileSync(absoluteServiceAccountPath, 'utf8'));
-// --- End of Fix ---
-
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
     admin.initializeApp({
-        // Use the explicitly loaded service account
         credential: admin.credential.cert(serviceAccount),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        // The projectId is read directly from the service account file
+        projectId: serviceAccount.project_id,
     });
 }
+// --- End of Fix ---
 
 const db = getFirestore();
 
