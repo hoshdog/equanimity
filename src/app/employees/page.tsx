@@ -5,13 +5,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Loader2 } from "lucide-react";
-import { getEmployees, getEmployee } from '@/lib/employees';
+import { Loader2 } from "lucide-react";
+import { getEmployees } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { EmployeeFormDialog } from './employee-form-dialog';
 
 export default function EmployeesPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -38,6 +38,10 @@ export default function EmployeesPage() {
         }
         fetchEmployees();
     }, [toast]);
+    
+    const handleEmployeeCreated = (newEmployee: Employee) => {
+        setEmployees(prev => [newEmployee, ...prev]);
+    }
 
     const handleRowClick = (id: string) => {
         router.push(`/employees/${id}`);
@@ -47,10 +51,7 @@ export default function EmployeesPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Employee
-        </Button>
+        <EmployeeFormDialog onEmployeeSaved={handleEmployeeCreated} />
       </div>
       <Card>
         <CardHeader>

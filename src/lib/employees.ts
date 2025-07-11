@@ -5,6 +5,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  addDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import type { Employee } from './types';
 
@@ -24,6 +26,15 @@ export async function getEmployee(id: string): Promise<Employee | null> {
     }
     return null;
 }
+
+export async function addEmployee(employeeData: Omit<Employee, 'id'>): Promise<string> {
+    const newEmployeeRef = await addDoc(employeesCollection, {
+        ...employeeData,
+        createdAt: serverTimestamp(),
+    });
+    return newEmployeeRef.id;
+}
+
 
 // A specific function to get employees with wage data for calculations
 export async function getEmployeesWithWageData(): Promise<Employee[]> {
