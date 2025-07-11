@@ -10,6 +10,8 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  useSidebar,
+  SidebarTrigger
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -26,12 +28,10 @@ import {
   Waves,
   LogOut,
   BrainCircuit,
-  Building2,
-  Receipt,
   User,
   ClipboardList,
+  Menu,
 } from 'lucide-react';
-import { useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -49,7 +49,6 @@ const navItems = [
   { href: '/leave', label: 'Leave', icon: Plane },
   { href: '/quotes', label: 'Quotes', icon: FileText },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
-  { href: '/invoicing', label: 'Invoicing', icon: Receipt },
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
   { href: '/training', label: 'Training', icon: BrainCircuit },
@@ -66,14 +65,22 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="p-2 flex items-center gap-2 justify-center">
-        <Waves className="h-6 w-6 text-primary" />
-        <span className={cn("text-lg font-semibold text-primary", "group-hover:inline-flex hidden")}>
-          Equanimity
-        </span>
+    <Sidebar>
+      <SidebarHeader>
+        <div className={cn(
+            "flex items-center gap-2",
+            "group-data-[state=expanded]:ml-1"
+        )}>
+          <Waves className="h-6 w-6 text-primary" />
+          <span className={cn(
+              "text-lg font-semibold text-primary",
+              "hidden group-data-[state=expanded]:inline-flex"
+          )}>
+            Equanimity
+          </span>
+        </div>
       </SidebarHeader>
-      <SidebarContent className="p-2">
+      <SidebarContent>
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
@@ -93,17 +100,23 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-2">
+      <SidebarFooter>
          <div className="flex items-center gap-2">
             <Avatar className="h-9 w-9">
               <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
-            <div className={cn("flex flex-col", "group-hover:inline-flex hidden")}>
+            <div className={cn(
+              "flex flex-col",
+              "hidden group-data-[state=expanded]:inline-flex"
+            )}>
                 <span className="text-sm font-semibold">Jane Doe</span>
                 <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
             </div>
-             <Button variant="ghost" size="icon" className={cn("ml-auto", "group-hover:inline-flex hidden")}>
+             <Button variant="ghost" size="icon" className={cn(
+              "ml-auto",
+              "hidden group-data-[state=expanded]:inline-flex"
+             )}>
                 <LogOut className="h-5 w-5" />
              </Button>
          </div>
