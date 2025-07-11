@@ -6,10 +6,10 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
 const projects = [
-    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice', teamSize: 5, customerId: '1', customerName: 'Innovate Corp', siteName: 'Sydney HQ' },
-    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob', teamSize: 8, customerId: '2', customerName: 'Builders Pty Ltd', siteName: 'Main Yard' },
-    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie', teamSize: 3, customerId: '3', customerName: 'Greenleaf Cafe', siteName: 'Greenleaf Cafe' },
-    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice', teamSize: 4, customerId: '1', customerName: 'Innovate Corp', siteName: 'Melbourne Office' },
+    { id: 1, name: 'Website Redesign', description: 'Complete overhaul of the corporate website with a new CMS.', status: 'In Progress', manager: 'Alice Johnson', customerId: '1', customerName: 'Innovate Corp', siteName: 'Sydney HQ' },
+    { id: 2, name: 'Mobile App Development', description: 'Building a new cross-platform mobile application for customer engagement.', status: 'Planning', manager: 'Bob Smith', customerId: '2', customerName: 'Builders Pty Ltd', siteName: 'Main Yard' },
+    { id: 3, name: 'Q3 Marketing Campaign', description: 'Launch campaign for the new product line across all digital channels.', status: 'Completed', manager: 'Charlie Brown', customerId: '3', customerName: 'Greenleaf Cafe', siteName: 'Greenleaf Cafe' },
+    { id: 4, name: 'New Office Setup', description: 'Physical setup and IT infrastructure for the new branch office.', status: 'On Hold', manager: 'Alice Johnson', customerId: '1', customerName: 'Innovate Corp', siteName: 'Melbourne Office' },
 ];
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -75,10 +75,6 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                             <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-muted-foreground"/>
                                 <span><strong>Manager:</strong> {project.manager}</span>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-muted-foreground"/>
-                                <span><strong>Team Size:</strong> {project.teamSize}</span>
                             </div>
                         </div>
                         <div className="space-y-2">

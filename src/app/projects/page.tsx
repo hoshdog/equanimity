@@ -41,10 +41,9 @@ const projectSchema = z.object({
     name: z.string().min(3, "Project name must be at least 3 characters."),
     description: z.string().min(10, "Description must be at least 10 characters."),
     manager: z.string().min(2, "Manager name is required."),
-    teamSize: z.coerce.number().min(1, "Team size must be at least 1."),
 });
 
-type Project = Omit<typeof initialProjects[0], 'id' | 'status'> & { id?: number; status?: string };
+type Project = Omit<typeof initialProjects[0], 'id' | 'status' | 'teamSize'> & { id?: number; status?: string };
 
 
 export default function ProjectsPage() {
@@ -56,14 +55,15 @@ export default function ProjectsPage() {
 
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", manager: "", teamSize: 1 },
+    defaultValues: { name: "", description: "", manager: "" },
   });
 
   function onSubmit(values: z.infer<typeof projectSchema>) {
     const newProject = { 
         ...values, 
         id: Date.now(),
-        status: 'Planning'
+        status: 'Planning',
+        teamSize: 1 // Defaulting team size, as it's not in the form anymore
     };
     setProjects([...projects, newProject]);
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
@@ -75,7 +75,7 @@ export default function ProjectsPage() {
     'Project Name': true,
     'Manager': true,
     'Status': true,
-    'Team Size': true,
+    'Team Size': false, // Hidden by default now
   });
 
   const getStatusColor = (status: string) => {
@@ -163,22 +163,13 @@ export default function ProjectsPage() {
                                     <FormMessage />
                                 </FormItem>
                             )}/>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="manager" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Manager</FormLabel>
-                                        <FormControl><Input placeholder="e.g., Alice" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                                <FormField control={form.control} name="teamSize" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Team Size</FormLabel>
-                                        <FormControl><Input type="number" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                            </div>
+                            <FormField control={form.control} name="manager" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Manager</FormLabel>
+                                    <FormControl><Input placeholder="e.g., Alice Johnson" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
                             <DialogFooter>
                                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                                 <Button type="submit">Create Project</Button>
@@ -208,7 +199,7 @@ export default function ProjectsPage() {
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <p className="text-sm text-muted-foreground">{project.teamSize} team members</p>
+                    <p className="text-sm text-muted-foreground">Managed by {project.manager}</p>
                 </CardFooter>
                 </Card>
             </Link>
