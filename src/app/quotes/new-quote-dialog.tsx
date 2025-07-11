@@ -1,3 +1,4 @@
+
 // src/app/quotes/new-quote-dialog.tsx
 'use client';
 
@@ -379,14 +380,13 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Project (Optional)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <Select onValueChange={field.onChange} value={field.value || ''} disabled={!watchedCustomerId}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a project" />
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="">None</SelectItem>
                                         {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
