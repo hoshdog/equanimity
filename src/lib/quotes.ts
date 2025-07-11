@@ -16,7 +16,9 @@ import type { Quote } from './types';
 // Get all quotes from all projects for the main list view
 export async function getQuotes(): Promise<Quote[]> {
     const quotesRef = collectionGroup(db, 'quotes');
-    const q = query(quotesRef, orderBy('createdAt', 'desc'));
+    // Removed orderBy('createdAt', 'desc') to avoid needing a composite index.
+    // Sorting will be done client-side.
+    const q = query(quotesRef);
     const snapshot = await getDocs(q);
     
     const quotes: Quote[] = [];
@@ -27,6 +29,14 @@ export async function getQuotes(): Promise<Quote[]> {
         const projectId = pathSegments[pathSegments.length - 3];
         quotes.push({ id: doc.id, projectId, ...doc.data() } as Quote);
     });
+
+    // Sort the results by date here instead of in the query
+    quotes.sort((a, b) => {
+        const dateA = a.createdAt?.seconds ?? 0;
+        const dateB = b.createdAt?.seconds ?? 0;
+        return dateB - dateA;
+    });
+
 
     return quotes;
 }
