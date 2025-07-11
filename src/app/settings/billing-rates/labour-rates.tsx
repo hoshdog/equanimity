@@ -90,6 +90,21 @@ function LaborRateDialog({
     });
 
     React.useEffect(() => {
+        if (isOpen) {
+            form.reset(initialData || {
+                id: `labour-${Date.now()}`,
+                name: '',
+                isDefault: false,
+                standardRate: 0,
+                overtimeRate: 0,
+                doubleTimeRate: 0,
+                costRate: 0,
+            });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
+
+    React.useEffect(() => {
         async function fetchEmps() {
             if (isOpen) {
                 try {
@@ -132,20 +147,6 @@ function LaborRateDialog({
         return () => subscription.unsubscribe();
     }, [form, calculateCostRate]);
     
-     React.useEffect(() => {
-        if (isOpen) {
-            form.reset(initialData || {
-                id: `labour-${Date.now()}`,
-                name: '',
-                isDefault: false,
-                standardRate: 0,
-                overtimeRate: 0,
-                doubleTimeRate: 0,
-                costRate: 0,
-            });
-        }
-    }, [isOpen, initialData, form]);
-
     const onSubmit = (data: LaborRateFormValues) => {
         onSave(data);
         setIsOpen(false);
