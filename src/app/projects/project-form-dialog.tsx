@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus, Search } from "lucide-react";
+import { PlusCircle, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,10 @@ import type { Project, CustomerDetails } from '@/lib/types';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -40,9 +44,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const { toast } = useToast();
-  const [customerSearch, setCustomerSearch] = React.useState('');
-
-
+  
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: { name: "", description: "", customerId: "", siteId: "", contactId: "", assignedStaff: [] },
@@ -105,18 +107,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     form.setValue('customerId', customerId);
   }
 
-  const handleCheckCustomer = () => {
-    if (!customerSearch) return;
-    const foundCustomer = Object.values(customerDetails).find(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()));
-    if(foundCustomer) {
-        handleSetCustomer(foundCustomer.id);
-        toast({ title: 'Customer Found', description: `Selected existing customer: ${foundCustomer.name}` });
-    } else {
-        toast({ variant: 'destructive', title: 'Customer Not Found', description: 'No existing customer matches your search. You can add a new one.' });
-    }
-  }
-
-
   const handleSetSite = (siteId: string) => {
     form.setValue('siteId', siteId);
   }
@@ -156,32 +146,22 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     )}/>
 
                     <FormField control={form.control} name="customerId" render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col">
                             <FormLabel>Customer</FormLabel>
-                             {!field.value && (
-                                <div className="flex gap-2">
-                                     <Input
-                                        placeholder="Search for existing customer..."
-                                        value={customerSearch}
-                                        onChange={(e) => setCustomerSearch(e.target.value)}
-                                     />
-                                      <Button type="button" variant="secondary" size="icon" onClick={handleCheckCustomer}><Search/></Button>
-                                </div>
-                            )}
-
-                            <div className="flex gap-2">
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a customer" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                 <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={handleSetCustomer}>
-                                   <Button type="button" variant="outline" size="icon"><Plus /></Button>
-                                </AddCustomerDialog>
-                            </div>
+                             <Combobox
+                                options={customerOptions}
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select customer..."
+                                notFoundContent={
+                                    <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={handleSetCustomer}>
+                                        <Button variant="link" className="w-full">
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Create a new customer
+                                        </Button>
+                                    </AddCustomerDialog>
+                                }
+                             />
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -223,7 +203,6 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 </Select>
                                 <AddContactDialog 
                                     customerId={watchedCustomerId} 
-                                    customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails} 
                                     onContactAdded={handleSetContact}
                                 >
