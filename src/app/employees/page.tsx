@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Loader2 } from "lucide-react";
-import { getEmployees } from '@/lib/employees';
+import { getEmployees, getEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,8 +40,7 @@ export default function EmployeesPage() {
     }, [toast]);
 
     const handleRowClick = (id: string) => {
-        console.log(`Navigate to employee ${id}`);
-        // router.push(`/employees/${id}`);
+        router.push(`/employees/${id}`);
     };
   
   return (
@@ -78,7 +77,7 @@ export default function EmployeesPage() {
                                     <div className="flex items-center gap-3">
                                         <Avatar>
                                             <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
-                                            <AvatarFallback>{employee.name.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                                         </Avatar>
                                         <div>
                                             <div className="font-medium">{employee.name}</div>
@@ -100,5 +99,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    

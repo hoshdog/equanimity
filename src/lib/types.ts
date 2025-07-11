@@ -89,6 +89,17 @@ export interface Employee {
     wage?: number; // Optional wage
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
     isOverhead?: boolean;
+    tfn?: string;
+    award?: string;
+    leaveBalances?: {
+        annual: number;
+        sick: number;
+        banked: number;
+    };
+    superannuation?: {
+        fundName: string;
+        memberNumber: string;
+    };
 }
 
 export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {
