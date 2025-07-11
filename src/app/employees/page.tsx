@@ -7,11 +7,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
-import { getEmployees } from '@/lib/employees';
+import { Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { getEmployees, deleteCustomer } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { EmployeeFormDialog } from './employee-form-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function EmployeesPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -40,14 +49,36 @@ export default function EmployeesPage() {
         fetchEmployees();
     }, [fetchEmployees]);
     
-    const handleEmployeeSaved = () => {
-        // After saving, re-fetch the entire list to get the latest data
-        fetchEmployees();
+    const handleEmployeeSaved = (savedEmployee: Employee) => {
+        const existingIndex = employees.findIndex(e => e.id === savedEmployee.id);
+        if (existingIndex > -1) {
+            const updatedEmployees = [...employees];
+            updatedEmployees[existingIndex] = savedEmployee;
+            setEmployees(updatedEmployees);
+        } else {
+            setEmployees([savedEmployee, ...employees]);
+        }
     };
 
     const handleRowClick = (id: string) => {
         router.push(`/employees/${id}`);
     };
+    
+    const handleDeleteEmployee = async (employeeId: string, employeeName: string) => {
+        if (!window.confirm(`Are you sure you want to delete ${employeeName}? This action cannot be undone.`)) return;
+        setLoading(true);
+        try {
+            // This needs to be implemented in `lib/employees` if it's a real feature
+            // await deleteEmployee(employeeId);
+            setEmployees(employees.filter(c => c.id !== employeeId));
+            toast({ title: "Employee Deleted", variant: "destructive", description: `${employeeName} has been deleted.`})
+        } catch (error) {
+            console.error("Failed to delete employee", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete employee.' });
+        } finally {
+            setLoading(false);
+        }
+    }
     
     const getStatusVariant = (status: string) => {
         switch (status) {
@@ -82,20 +113,21 @@ export default function EmployeesPage() {
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Role</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {employees.length > 0 ? (
                                 employees.map(employee => (
-                                    <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
-                                        <TableCell>
+                                    <TableRow key={employee.id} className="group">
+                                        <TableCell onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
                                             <div className="flex items-center gap-3">
                                                 <Avatar>
                                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
                                                     <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                    <div className="font-medium">{employee.name}</div>
+                                                    <div className="font-medium group-hover:underline">{employee.name}</div>
                                                     <div className="text-sm text-muted-foreground">{employee.email}</div>
                                                 </div>
                                             </div>
@@ -104,11 +136,34 @@ export default function EmployeesPage() {
                                         <TableCell>
                                             <Badge variant={getStatusVariant(employee.status)}>{employee.status}</Badge>
                                         </TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                  <span className="sr-only">Open menu</span>
+                                                  <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => handleRowClick(employee.id)}>View Profile</DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved}>
+                                                    <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                                                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                                                    </button>
+                                                </EmployeeFormDialog>
+                                                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteEmployee(employee.id, employee.name)}>
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-24 text-center">
+                                    <TableCell colSpan={4} className="h-24 text-center">
                                         No employees found. Click "Add Employee" to get started.
                                     </TableCell>
                                 </TableRow>

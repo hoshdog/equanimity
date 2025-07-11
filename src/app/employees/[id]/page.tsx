@@ -6,13 +6,15 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, User, Briefcase, Banknote, Shield, Heart, Umbrella, Sun, Clock, Home } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, Banknote, Shield, Heart, Umbrella, Sun, Clock, Home, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { EmployeeFormDialog } from '../employee-form-dialog';
+
 
 export default function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -44,6 +46,10 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
             fetchEmployee();
         }
     }, [id, toast, router]);
+    
+    const handleEmployeeSaved = (savedEmployee: Employee) => {
+        setEmployee(savedEmployee);
+    }
 
     if (loading) {
         return (
@@ -76,23 +82,31 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-            <div className="flex items-start md:items-center space-x-4 mb-4">
-                <Button asChild variant="outline" size="icon" className="shrink-0">
-                    <Link href="/employees">
-                        <ArrowLeft className="h-4 w-4"/>
-                        <span className="sr-only">Back to Employees</span>
-                    </Link>
-                </Button>
-                <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                        <AvatarImage src={`https://placehold.co/100x100.png`} data-ai-hint="person" />
-                        <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <h2 className="text-3xl font-bold tracking-tight">{employee.name}</h2>
-                        <p className="text-muted-foreground">{employee.role}</p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-start md:items-center space-x-4 mb-4">
+                    <Button asChild variant="outline" size="icon" className="shrink-0">
+                        <Link href="/employees">
+                            <ArrowLeft className="h-4 w-4"/>
+                            <span className="sr-only">Back to Employees</span>
+                        </Link>
+                    </Button>
+                    <div className="flex items-center gap-4">
+                        <Avatar className="h-16 w-16">
+                            <AvatarImage src={`https://placehold.co/100x100.png`} data-ai-hint="person" />
+                            <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <h2 className="text-3xl font-bold tracking-tight">{employee.name}</h2>
+                            <p className="text-muted-foreground">{employee.role}</p>
+                        </div>
                     </div>
                 </div>
+                 <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved}>
+                    <Button variant="outline">
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit Details
+                    </Button>
+                </EmployeeFormDialog>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

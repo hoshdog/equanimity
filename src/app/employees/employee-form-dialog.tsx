@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Loader2, Pencil, Trash2, DollarSign, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { addEmployee } from '@/lib/employees';
+import { addEmployee, updateEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,7 +70,8 @@ type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
 interface EmployeeFormDialogProps {
   employee?: Employee;
-  onEmployeeSaved: () => void;
+  onEmployeeSaved: (employee: Employee) => void;
+  children?: React.ReactNode;
 }
 
 function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open: boolean, onOpenChange: (open: boolean) => void, roles: string[], onRolesChange: (roles: string[]) => void }) {
@@ -122,7 +123,7 @@ function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open:
 }
 
 
-export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDialogProps) {
+export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: EmployeeFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isRolesDialogOpen, setIsRolesDialogOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -132,15 +133,13 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   const { toast } = useToast();
   const isEditing = !!employee;
 
-  const form = useForm<EmployeeFormValues>({
-    resolver: zodResolver(employeeFormSchema),
-    defaultValues: isEditing ? employee : {
+  const defaultValues = {
       name: '',
       email: '',
-      status: 'Active',
+      status: 'Active' as const,
       role: '',
-      employmentType: 'Full-time',
-      payType: 'Hourly',
+      employmentType: 'Full-time' as const,
+      payType: 'Hourly' as const,
       wage: 0,
       annualSalary: 0,
       calculatedCostRate: 0,
@@ -150,8 +149,19 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
       tfn: '',
       superannuation: { fundName: '', memberNumber: '' },
       leaveBalances: { annual: 0, sick: 0, banked: 0 },
-    },
+  };
+
+  const form = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeFormSchema),
+    defaultValues: isEditing ? employee : defaultValues,
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      form.reset(isEditing ? employee : defaultValues);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isEditing, employee, form]);
 
   const watchedPayType = form.watch('payType');
   const watchedWage = form.watch('wage');
@@ -209,16 +219,15 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   async function onSubmit(values: EmployeeFormValues) {
     setLoading(true);
     try {
-      if (isEditing) {
-        // Update logic here
-        // await updateEmployee(employee.id, values);
-        // onEmployeeSaved({ id: employee.id, ...values });
-        toast({ title: 'Employee Updated' });
+      if (isEditing && employee) {
+        await updateEmployee(employee.id, values);
+        onEmployeeSaved({ id: employee.id, ...values });
+        toast({ title: 'Employee Updated', description: `${values.name}'s details have been updated.` });
       } else {
-        await addEmployee(values);
+        const newEmployeeId = await addEmployee(values);
+        onEmployeeSaved({ id: newEmployeeId, ...values });
         toast({ title: 'Employee Created', description: `${values.name} has been added.` });
       }
-      onEmployeeSaved();
       setIsOpen(false);
       form.reset();
     } catch (error) {
@@ -232,10 +241,12 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Employee
-        </Button>
+        {children ? children : (
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Employee
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => { if (isRolesDialogOpen) e.preventDefault(); }}>
         <DialogHeader>
