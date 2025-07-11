@@ -66,7 +66,7 @@ export function AppSidebar() {
     if (state === 'expanded' && sidebarRef.current) {
         let maxWidth = 0;
         
-        // Measure navigation items
+        // Measure only navigation items
         const navSpans = sidebarRef.current.querySelectorAll('[data-sidebar="menu-button"] > span');
         navSpans.forEach(span => {
             const htmlSpan = span as HTMLElement;
@@ -78,21 +78,8 @@ export function AppSidebar() {
             htmlSpan.style.display = currentDisplay;
         });
 
-        // Measure footer items
-        const footerSpans = sidebarRef.current.querySelectorAll('[data-sidebar="footer-text"]');
-         footerSpans.forEach(span => {
-            const htmlSpan = span as HTMLElement;
-            const currentDisplay = htmlSpan.style.display;
-            htmlSpan.style.display = 'inline-block';
-            if (htmlSpan.scrollWidth > maxWidth) {
-                maxWidth = htmlSpan.scrollWidth;
-            }
-            htmlSpan.style.display = currentDisplay;
-        });
-
-
         if (maxWidth > 0) {
-            // Approx width for icon, avatar, padding, gaps, and logout button
+            // Approx width for icon, padding, gaps, and logout button
             const extraSpace = 90; 
             const newWidth = maxWidth + extraSpace;
             
@@ -157,8 +144,8 @@ export function AppSidebar() {
               "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span data-sidebar="footer-text" className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
-                <span data-sidebar="footer-text" className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
+                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
+                <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
               "ml-auto h-8 w-8",
