@@ -73,7 +73,19 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCu
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Customer Name</FormLabel><FormControl><Input placeholder="e.g., Innovate Corp" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Customer Name</FormLabel><FormControl>
+                  <AddressAutocompleteInput 
+                    placeholder="e.g., Innovate Corp" 
+                    searchType='establishment'
+                    onPlaceSelect={(place) => {
+                      if (place) {
+                        form.setValue('name', place.name || '', { shouldValidate: true });
+                        form.setValue('address', place.formatted_address || '', { shouldValidate: true });
+                      }
+                    }}
+                    {...field}
+                  />
+                </FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="address" render={({ field }) => (
                 <FormItem><FormLabel>Address</FormLabel><FormControl>
@@ -82,6 +94,7 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded }: AddCu
                     onPlaceSelect={(place) => {
                       form.setValue('address', place.formatted_address || '', { shouldValidate: true });
                     }}
+                    {...field}
                   />
                 </FormControl><FormMessage /></FormItem>
             )}/>

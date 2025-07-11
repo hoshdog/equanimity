@@ -5,11 +5,12 @@ import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 
-interface AddressAutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface AddressAutocompleteInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onSelect'> {
   onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void;
+  searchType?: 'address' | 'establishment';
 }
 
-function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInputProps) {
+function AutocompleteInput({ onPlaceSelect, searchType = 'address', ...props }: AddressAutocompleteInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = React.useState(props.value || '');
   const places = useMapsLibrary('places');
@@ -21,11 +22,12 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
 
     const ac = new places.Autocomplete(inputRef.current, {
         componentRestrictions: { country: "au" },
-        types: ["address"],
+        types: [searchType],
         fields: ['formatted_address', 'geometry', 'name'],
     });
     setAutocomplete(ac);
-  }, [places]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, searchType]);
 
   React.useEffect(() => {
     if (!autocomplete) return;
@@ -34,7 +36,7 @@ function AutocompleteInput({ onPlaceSelect, ...props }: AddressAutocompleteInput
       const place = autocomplete.getPlace();
       onPlaceSelect(place);
       if (place) {
-        setInputValue(place.formatted_address || '');
+        setInputValue(place.name || '');
       }
     });
 
