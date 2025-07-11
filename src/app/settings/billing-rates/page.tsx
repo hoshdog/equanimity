@@ -179,8 +179,11 @@ function PricingTierDialog({ tier, onSave, children }: PricingTierDialogProps) {
                                             <FormLabel>Default Markup</FormLabel>
                                             <FormControl><div className="relative">
                                                 <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                <Input type="number" className="pr-8" placeholder="25" {...field} />
+                                                <Input type="number" className="pr-8" placeholder="25" {...field} disabled={enableScaledPricing} />
                                             </div></FormControl>
+                                            <FormDescription>
+                                                Used when scaled pricing is disabled.
+                                            </FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -300,6 +303,20 @@ export default function BillingRatesPage() {
              toast({ title: 'Tier Deleted', variant: 'destructive', description: `The pricing tier has been deleted.`});
         }
     }
+    
+    const getMarkupRange = (tier: TierFormValues): string => {
+        if (!tier.enableScaledPricing || !tier.scaledPricing || tier.scaledPricing.length === 0) {
+            return `${tier.defaultMarkup}%`;
+        }
+        const markups = tier.scaledPricing.map(p => p.markup);
+        const min = Math.min(...markups);
+        const max = Math.max(...markups);
+
+        if (min === max) {
+            return `${min}%`;
+        }
+        return `${min}% - ${max}%`;
+    }
 
 
     return (
@@ -323,7 +340,7 @@ export default function BillingRatesPage() {
                         <TableRow>
                             <TableHead>Tier Name</TableHead>
                             <TableHead>Price Based On</TableHead>
-                            <TableHead>Default Markup</TableHead>
+                            <TableHead>Markup Range</TableHead>
                             <TableHead>Default</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -333,7 +350,7 @@ export default function BillingRatesPage() {
                             <TableRow key={tier.id}>
                                 <TableCell className="font-medium">{tier.name}</TableCell>
                                 <TableCell className="capitalize">{tier.priceBasedOn}</TableCell>
-                                <TableCell>{tier.defaultMarkup}%</TableCell>
+                                <TableCell>{getMarkupRange(tier)}</TableCell>
                                 <TableCell>{tier.isDefault ? 'Yes' : 'No'}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
