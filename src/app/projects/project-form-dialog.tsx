@@ -15,9 +15,18 @@ import { useToast } from '@/hooks/use-toast';
 import type { Project, Customer, Site, Contact, Employee, AssignedStaff, OptionType } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getCustomers, getCustomerSites, getCustomerContacts } from '@/lib/customers';
+import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { addProject } from '@/lib/projects';
+
+const customerSchema = z.object({
+    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
+    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
+    email: z.string().email({ message: "Please enter a valid email address." }),
+    phone: z.string().min(8, { message: "Phone number seems too short." }),
+    type: z.string().min(2, { message: "Please select a customer type." }),
+});
 
 interface ProjectFormDialogProps {
     onProjectCreated: (project: Project) => void;
@@ -37,11 +46,107 @@ const projectSchema = z.object({
     assignedStaff: z.array(
         z.object({
             value: z.string().min(1, "Please select a staff member."),
+            label: z.string(),
         })
     ).min(1, "At least one staff member must be assigned."),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
+
+function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof customerSchema>>({
+        resolver: zodResolver(customerSchema),
+        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "Corporate Client" },
+    });
+    
+    async function onSubmit(values: z.infer<typeof customerSchema>) {
+        setLoading(true);
+        try {
+            const newCustomerData = {
+              name: values.name,
+              address: values.address,
+              type: values.type,
+              primaryContactName: values.primaryContactName,
+              email: values.email,
+              phone: values.phone,
+            }
+            const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone], jobTitle: 'Primary Contact' };
+            const initialSite = { name: 'Main Site', address: values.address };
+            
+            const { customerId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
+            const newCustomer = { id: customerId, ...newCustomerData };
+            
+            onCustomerAdded(newCustomer);
+            toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
+            setIsOpen(false);
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add customer", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add customer.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Customer</DialogTitle>
+                    <DialogDescription>Create a new customer record. An initial contact and site will be created automatically.</DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Customer Name</FormLabel><FormControl><Input placeholder="e.g., Innovate Corp" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                         <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="primaryContactName" render={({ field }) => (
+                            <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="phone" render={({ field }) => (
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="type" render={({ field }) => (
+                            <FormItem>
+                                 <FormLabel>Customer Type</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a customer type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Corporate Client">Corporate Client</SelectItem>
+                                        <SelectItem value="Construction Partner">Construction Partner</SelectItem>
+                                        <SelectItem value="Small Business">Small Business</SelectItem>
+                                        <SelectItem value="Government">Government</SelectItem>
+                                        <SelectItem value="Private">Private</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <DialogFooter>
+                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={loading}>Add Customer</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -60,13 +165,12 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [employees, setEmployees] = React.useState<OptionType[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [customerInputValue, setCustomerInputValue] = React.useState('');
-
+  
   const { toast } = useToast();
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [{ value: '' }] },
+    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [{ value: '', label: '' }] },
   });
   
   const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
@@ -151,17 +255,12 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   async function onSubmit(values: ProjectFormValues) {
     setLoading(true);
     try {
-        const assignedStaffWithFullDetails: AssignedStaff[] = values.assignedStaff.map(s => {
-            return employees.find(e => e.value === s.value) || { label: 'Unknown', value: s.value };
-        });
-
-        const newProjectId = await addProject({ ...values, assignedStaff: assignedStaffWithFullDetails });
+        const newProjectId = await addProject(values);
         
         const newProject: Project = { 
             id: newProjectId, 
             ...values,
             status: 'Planning',
-            assignedStaff: assignedStaffWithFullDetails,
             createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
         };
 
@@ -169,7 +268,6 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
         toast({ title: "Project Created", description: `"${values.name}" has been added.` });
         setIsFormOpen(false);
         form.reset();
-        setCustomerInputValue('');
     } catch (error) {
         console.error("Failed to create project", error);
         toast({ variant: "destructive", title: "Error", description: "Could not create the project." });
@@ -190,27 +288,21 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     setCommonRoles(commonRoles.filter(role => role !== roleToDelete));
     toast({ title: "Role Removed", description: `"${roleToDelete}" has been removed.` });
   };
-
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setCustomerInputValue(value);
-    const matchedCustomer = customers.find(c => c.name.toLowerCase() === value.toLowerCase());
-    if (matchedCustomer) {
-        form.setValue('customerId', matchedCustomer.id);
-    } else {
-        form.setValue('customerId', '');
-    }
-  };
+  
+  const handleCustomerAdded = (newCustomer: Customer) => {
+      setCustomers(prev => [...prev, newCustomer]);
+      form.setValue('customerId', newCustomer.id, { shouldValidate: true });
+  }
 
   return (
-    <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); setCustomerInputValue(''); } }}>
+    <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); } }}>
         <DialogTrigger asChild>
             <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 New Project
             </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
+        <DialogContent className="sm:max-w-xl max-h-[90svh] overflow-y-auto" onInteractOutside={(e) => { if(isRoleManagerOpen) e.preventDefault(); }}>
           <TooltipProvider>
             <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -233,24 +325,25 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                             <FormMessage />
                         </FormItem>
                     )}/>
-                    <FormField control={form.control} name="customerId" render={({ field }) => (
+                    
+                     <FormField control={form.control} name="customerId" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Customer</FormLabel>
-                            <FormControl>
-                                <div>
-                                    <Input 
-                                        placeholder="Type to search for a customer..." 
-                                        list="customer-options"
-                                        value={customerInputValue}
-                                        onChange={handleCustomerChange} 
-                                    />
-                                    <datalist id="customer-options">
-                                        {customerOptions.map(opt => (
-                                            <option key={opt.value} value={opt.label} />
-                                        ))}
-                                    </datalist>
-                                </div>
-                            </FormControl>
+                           <FormLabel>Customer</FormLabel>
+                           <div className="flex gap-2">
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a customer" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
+                                    <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </AddCustomerDialog>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -380,10 +473,16 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                           <div key={field.id} className="flex items-center gap-2">
                             <FormField
                               control={form.control}
-                              name={`assignedStaff.${index}.value`}
-                              render={({ field }) => (
+                              name={`assignedStaff.${index}`}
+                              render={({ field: selectField }) => (
                                 <FormItem className="flex-1">
-                                  <Select onValueChange={field.onChange} value={field.value}>
+                                  <Select 
+                                    onValueChange={(value) => {
+                                        const selectedEmployee = employeeOptions.find(e => e.value === value);
+                                        selectField.onChange(selectedEmployee ? { value: selectedEmployee.value, label: selectedEmployee.label } : { value: '', label: ''});
+                                    }} 
+                                    value={selectField.value.value}
+                                   >
                                     <FormControl>
                                       <SelectTrigger>
                                         <SelectValue placeholder="Select a staff member" />
@@ -406,7 +505,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                           type="button"
                           variant="secondary"
                           size="sm"
-                          onClick={() => appendStaff({ value: '' })}
+                          onClick={() => appendStaff({ value: '', label: '' })}
                         >
                           <PlusCircle className="mr-2 h-4 w-4"/> Add Staff Member
                         </Button>
@@ -430,5 +529,3 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     </Dialog>
   );
 }
-
-    
