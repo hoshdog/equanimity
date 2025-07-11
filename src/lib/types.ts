@@ -86,7 +86,9 @@ export interface Employee {
     email: string;
     role: string;
     status: 'Active' | 'On Leave' | 'Inactive';
-    wage?: number; // Optional wage
+    wage?: number; // Optional wage for hourly
+    annualSalary?: number; // Optional salary for salaried
+    payType?: 'Hourly' | 'Salary';
     employmentType?: 'Full-time' | 'Part-time' | 'Casual';
     isOverhead?: boolean;
     tfn?: string;

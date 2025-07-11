@@ -20,11 +20,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const employeeFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -32,7 +33,9 @@ const employeeFormSchema = z.object({
   status: z.enum(['Active', 'On Leave', 'Inactive']),
   role: z.string().min(2, "Role is required."),
   employmentType: z.enum(['Full-time', 'Part-time', 'Casual']),
+  payType: z.enum(['Hourly', 'Salary']).default('Hourly'),
   wage: z.coerce.number().min(0, "Wage must be a positive number.").optional(),
+  annualSalary: z.coerce.number().min(0, "Salary must be a positive number.").optional(),
   award: z.string().optional(),
   isOverhead: z.boolean().default(false),
   tfn: z.string().optional(),
@@ -45,6 +48,18 @@ const employeeFormSchema = z.object({
     sick: z.coerce.number().min(0).default(0),
     banked: z.coerce.number().min(0).default(0),
   }).optional(),
+}).refine(data => {
+    if (data.payType === 'Hourly') return data.wage !== undefined && data.wage > 0;
+    return true;
+}, {
+    message: 'Hourly wage is required.',
+    path: ['wage'],
+}).refine(data => {
+    if (data.payType === 'Salary') return data.annualSalary !== undefined && data.annualSalary > 0;
+    return true;
+}, {
+    message: 'Annual salary is required.',
+    path: ['annualSalary'],
 });
 
 type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
@@ -121,7 +136,9 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
       status: 'Active',
       role: '',
       employmentType: 'Full-time',
+      payType: 'Hourly',
       wage: 0,
+      annualSalary: 0,
       award: '',
       isOverhead: false,
       tfn: '',
@@ -129,6 +146,8 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
       leaveBalances: { annual: 0, sick: 0, banked: 0 },
     },
   });
+
+  const watchedPayType = form.watch('payType');
 
   async function onSubmit(values: EmployeeFormValues) {
     setLoading(true);
@@ -230,9 +249,48 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                           <FormMessage />
                         </FormItem>
                     )} />
-                     <FormField control={form.control} name="wage" render={({ field }) => (
-                        <FormItem><FormLabel>Hourly Wage</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
+                    <FormField
+                      control={form.control}
+                      name="payType"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>Pay Basis</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex items-center space-x-4"
+                            >
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="Hourly" /></FormControl>
+                                <FormLabel className="font-normal">Hourly</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="Salary" /></FormControl>
+                                <FormLabel className="font-normal">Salary</FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {watchedPayType === 'Hourly' && (
+                        <FormField control={form.control} name="wage" render={({ field }) => (
+                            <FormItem><FormLabel>Hourly Wage</FormLabel><FormControl><div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input type="number" step="0.01" className="pl-8" {...field} />
+                            </div></FormControl><FormMessage /></FormItem>
+                        )} />
+                    )}
+                    {watchedPayType === 'Salary' && (
+                         <FormField control={form.control} name="annualSalary" render={({ field }) => (
+                            <FormItem><FormLabel>Annual Salary</FormLabel><FormControl><div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input type="number" step="100" className="pl-8" placeholder="e.g., 85000" {...field} />
+                            </div></FormControl><FormMessage /></FormItem>
+                        )} />
+                    )}
                     <FormField control={form.control} name="award" render={({ field }) => (
                         <FormItem><FormLabel>Award (Optional)</FormLabel><FormControl><Input placeholder="e.g., Clerks Award 2020" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />

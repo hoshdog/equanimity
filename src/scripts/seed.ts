@@ -21,73 +21,85 @@ const db = getFirestore(app);
 const mockEmployees = [
     { 
         id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', 
-        wage: 55, employmentType: 'Full-time', isOverhead: true, tfn: '111-222-333', award: 'Clerks - Private Sector Award 2020',
+        payType: 'Salary', annualSalary: 110000, wage: undefined,
+        employmentType: 'Full-time', isOverhead: true, tfn: '111-222-333', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 120, sick: 76, banked: 10 },
         superannuation: { fundName: 'AustralianSuper', memberNumber: 'S1234567T' }
     },
     { 
         id: 'EMP002', name: 'Bob Smith', email: 'bob.s@example.com', role: 'Lead Technician', status: 'Active', 
-        wage: 50, employmentType: 'Full-time', isOverhead: false, tfn: '222-333-444', award: 'Electrical, Electronic and Communications Contracting Award 2020',
+        payType: 'Hourly', wage: 50,
+        employmentType: 'Full-time', isOverhead: false, tfn: '222-333-444', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 80.5, sick: 40, banked: 15.5 },
         superannuation: { fundName: 'Hostplus', memberNumber: 'H7654321S' }
     },
     { 
         id: 'EMP003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Technician', status: 'Active', 
-        wage: 42, employmentType: 'Full-time', isOverhead: false, tfn: '333-444-555', award: 'Electrical, Electronic and Communications Contracting Award 2020',
+        payType: 'Hourly', wage: 42,
+        employmentType: 'Full-time', isOverhead: false, tfn: '333-444-555', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 95, sick: 60, banked: 0 },
         superannuation: { fundName: 'REST Super', memberNumber: 'R9876543B' }
     },
     { 
         id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', 
-        wage: 40, employmentType: 'Full-time', isOverhead: true, tfn: '444-555-666', award: 'Clerks - Private Sector Award 2020',
+        payType: 'Salary', annualSalary: 85000, wage: undefined,
+        employmentType: 'Full-time', isOverhead: true, tfn: '444-555-666', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 10, sick: 5, banked: 0 },
         superannuation: { fundName: 'AustralianSuper', memberNumber: 'S1122334P' }
     },
     { 
         id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', 
-        wage: 40, employmentType: 'Casual', isOverhead: false, tfn: '555-666-777', award: 'Electrical, Electronic and Communications Contracting Award 2020',
+        payType: 'Casual', wage: 40,
+        employmentType: 'Casual', isOverhead: false, tfn: '555-666-777', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 0, sick: 0, banked: 0 },
         superannuation: { fundName: 'Sunsuper', memberNumber: 'U5566778H' }
     },
     { 
         id: 'EMP006', name: 'Fiona Glenanne', email: 'fiona.g@example.com', role: 'Lead Technician', status: 'Active', 
-        wage: 52, employmentType: 'Full-time', isOverhead: false, tfn: '666-777-888', award: 'Electrical, Electronic and Communications Contracting Award 2020',
+        payType: 'Hourly', wage: 52,
+        employmentType: 'Full-time', isOverhead: false, tfn: '666-777-888', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 152, sick: 76, banked: 40 },
         superannuation: { fundName: 'HESTA', memberNumber: 'E8899001G' }
     },
     { 
         id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', 
-        wage: 48, employmentType: 'Full-time', isOverhead: true, tfn: '777-888-999', award: 'Clerks - Private Sector Award 2020',
+        payType: 'Salary', annualSalary: 95000, wage: undefined,
+        employmentType: 'Full-time', isOverhead: true, tfn: '777-888-999', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 40, sick: 40, banked: 0 },
         superannuation: { fundName: 'Cbus', memberNumber: 'B1231231C' }
     },
     { 
         id: 'EMP008', name: 'Hannah Montana', email: 'hannah.m@example.com', role: 'Apprentice', status: 'Active', 
-        wage: 25, employmentType: 'Full-time', isOverhead: false, tfn: '888-999-000', award: 'Electrical, Electronic and Communications Contracting Award 2020',
+        payType: 'Hourly', wage: 25,
+        employmentType: 'Full-time', isOverhead: false, tfn: '888-999-000', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 76, sick: 38, banked: 5 },
         superannuation: { fundName: 'AustralianSuper', memberNumber: 'S0099887M' }
     },
     { 
         id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', 
-        wage: 60, employmentType: 'Full-time', isOverhead: true, tfn: '999-000-111', award: 'Professional Employees Award 2020',
+        payType: 'Salary', annualSalary: 125000, wage: undefined,
+        employmentType: 'Full-time', isOverhead: true, tfn: '999-000-111', award: 'Professional Employees Award 2020',
         leaveBalances: { annual: 152, sick: 76, banked: 100 },
         superannuation: { fundName: 'UniSuper', memberNumber: 'U4567890M' }
     },
     { 
         id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', 
-        wage: 90, employmentType: 'Full-time', isOverhead: true, tfn: '000-111-222', award: 'N/A',
+        payType: 'Salary', annualSalary: 250000, wage: undefined,
+        employmentType: 'Full-time', isOverhead: true, tfn: '000-111-222', award: 'N/A',
         leaveBalances: { annual: 200, sick: 100, banked: 0 },
         superannuation: { fundName: 'Aware Super', memberNumber: 'A1112223D' }
     },
     { 
         id: 'EMP011', name: 'Kevin McCallister', email: 'kevin.m@example.com', role: 'IT Support', status: 'Active', 
-        wage: 38, employmentType: 'Full-time', isOverhead: false, tfn: '111-333-444', award: 'Professional Employees Award 2020',
+        payType: 'Hourly', wage: 38,
+        employmentType: 'Full-time', isOverhead: false, tfn: '111-333-444', award: 'Professional Employees Award 2020',
         leaveBalances: { annual: 76, sick: 38, banked: 0 },
         superannuation: { fundName: 'Hostplus', memberNumber: 'H4445556M' }
     },
     { 
         id: 'EMP012', name: 'Laura Palmer', email: 'laura.p@example.com', role: 'Office Administrator', status: 'Active', 
-        wage: 35, employmentType: 'Part-time', isOverhead: true, tfn: '222-444-555', award: 'Clerks - Private Sector Award 2020',
+        payType: 'Hourly', wage: 35,
+        employmentType: 'Part-time', isOverhead: true, tfn: '222-444-555', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 38, sick: 19, banked: 2.5 },
         superannuation: { fundName: 'REST Super', memberNumber: 'R7778889P' }
     },
