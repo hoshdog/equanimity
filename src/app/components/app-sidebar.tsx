@@ -144,15 +144,9 @@ export function AppSidebar() {
               "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
-                <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
+                <span className="text-sm font-semibold">Jane Doe</span>
+                <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
             </div>
-             <Button variant="ghost" size="icon" className={cn(
-              "ml-auto h-8 w-8",
-              "group-data-[state=collapsed]:hidden"
-             )}>
-                <LogOut className="h-4 w-4" />
-             </Button>
          </div>
       </SidebarFooter>
     </Sidebar>
