@@ -131,7 +131,8 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                             <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="phone" render={({ field }) => (
-                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormMessage>
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage />
+                        </FormItem>
                         )}/>
                         <FormField control={form.control} name="type" render={({ field }) => (
                             <FormItem>
@@ -164,10 +165,16 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
     );
 }
 
-const scheduleOfRateSchema = z.object({
+const lineItemRateSchema = z.object({
   description: z.string(),
   cost: z.number(),
   unit: z.string(),
+});
+
+const laborRateSchema = z.object({
+  employeeType: z.string(),
+  standardRate: z.number(),
+  overtimeRate: z.number(),
 });
 
 const formSchema = z.object({
@@ -179,7 +186,8 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
-  scheduleOfRates: z.array(scheduleOfRateSchema).optional(),
+  materialAndServiceRates: z.array(lineItemRateSchema).optional(),
+  laborRates: z.array(laborRateSchema).optional(),
   persona: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -207,7 +215,8 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
       overheadRate: quotingProfiles[0].defaults.overheadRate,
       callOutFee: quotingProfiles[0].defaults.callOutFee,
-      scheduleOfRates: quotingProfiles[0].scheduleOfRates,
+      laborRates: quotingProfiles[0].laborRates,
+      materialAndServiceRates: quotingProfiles[0].materialAndServiceRates,
       persona: quotingProfiles[0].persona,
       instructions: quotingProfiles[0].instructions,
     },
@@ -250,7 +259,8 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
             desiredMargin: profile.defaults.desiredMargin,
             overheadRate: profile.defaults.overheadRate,
             callOutFee: profile.defaults.callOutFee,
-            scheduleOfRates: profile.scheduleOfRates,
+            laborRates: profile.laborRates,
+            materialAndServiceRates: profile.materialAndServiceRates,
             persona: profile.persona,
             instructions: profile.instructions,
         });
@@ -323,7 +333,8 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
         desiredMargin: profile.defaults.desiredMargin,
         overheadRate: profile.defaults.overheadRate,
         callOutFee: profile.defaults.callOutFee,
-        scheduleOfRates: profile.scheduleOfRates,
+        laborRates: profile.laborRates,
+        materialAndServiceRates: profile.materialAndServiceRates,
         persona: profile.persona,
         instructions: profile.instructions,
       });
@@ -392,7 +403,6 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value=" ">None</SelectItem>
                                         {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
@@ -479,7 +489,8 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                             )}
                           />
                         </div>
-                        <input type="hidden" {...form.register("scheduleOfRates")} />
+                        <input type="hidden" {...form.register("materialAndServiceRates")} />
+                        <input type="hidden" {...form.register("laborRates")} />
                         <input type="hidden" {...form.register("persona")} />
                         <input type="hidden" {...form.register("instructions")} />
                          <input type="hidden" {...form.register("callOutFee")} />

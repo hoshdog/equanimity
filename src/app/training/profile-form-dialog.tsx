@@ -21,10 +21,16 @@ import { useToast } from '@/hooks/use-toast';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileForm } from './profile-form';
 
-const scheduleOfRateSchema = z.object({
+const lineItemRateSchema = z.object({
   description: z.string().min(2, "Description is required."),
   cost: z.coerce.number().min(0, "Cost must be a positive number."),
-  unit: z.string().min(2, "Unit is required (e.g., 'per hour', 'each')."),
+  unit: z.string().min(1, "Unit is required (e.g., 'hour', 'each')."),
+});
+
+const laborRateSchema = z.object({
+  employeeType: z.string().min(2, "Employee type is required."),
+  standardRate: z.coerce.number().min(0, "Rate must be a positive number."),
+  overtimeRate: z.coerce.number().min(0, "Rate must be a positive number."),
 });
 
 const profileSchema = z.object({
@@ -38,7 +44,8 @@ const profileSchema = z.object({
   }),
   persona: z.string().min(10, "Persona description is required."),
   instructions: z.string().optional(),
-  scheduleOfRates: z.array(scheduleOfRateSchema).min(1, "At least one rate is required."),
+  laborRates: z.array(laborRateSchema).min(1, "At least one labor rate is required."),
+  materialAndServiceRates: z.array(lineItemRateSchema).min(1, "At least one material/service rate is required."),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -60,7 +67,8 @@ const getDefaultValues = (): ProfileFormValues => ({
   },
   persona: "You are a helpful quoting assistant for a services business.",
   instructions: "",
-  scheduleOfRates: [{ description: "Standard Labor", cost: 90, unit: "per hour" }],
+  laborRates: [{ employeeType: "Technician", standardRate: 90, overtimeRate: 135 }],
+  materialAndServiceRates: [{ description: "Service Van Stock", cost: 25, unit: "each" }],
 });
 
 export function ProfileFormDialog({ children, profile, onProfileSaved }: ProfileFormDialogProps) {
@@ -92,7 +100,7 @@ export function ProfileFormDialog({ children, profile, onProfileSaved }: Profile
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Quoting Profile' : 'Create New Quoting Profile'}</DialogTitle>
           <DialogDescription>

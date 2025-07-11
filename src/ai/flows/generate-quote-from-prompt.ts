@@ -27,11 +27,16 @@ const GenerateQuoteFromPromptInputSchema = z.object({
       'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
     ),
   callOutFee: z.coerce.number().min(0).optional().describe('A fixed call-out fee to be applied if the job is determined to be a small service call.'),
-  scheduleOfRates: z.array(z.object({
+  laborRates: z.array(z.object({
+    employeeType: z.string(),
+    standardRate: z.number(),
+    overtimeRate: z.number(),
+  })).optional().describe('A structured list of standard labor rates for different employee types.'),
+  materialAndServiceRates: z.array(z.object({
     description: z.string(),
     cost: z.number(),
     unit: z.string(),
-  })).optional().describe('A structured list of standard material costs and labor rates.'),
+  })).optional().describe('A structured list of standard material and service costs.'),
   persona: z.string().optional().describe('The AI persona to adopt when generating the quote.'),
   instructions: z.string().optional().describe('Special instructions for the AI to follow.'),
 });
@@ -104,15 +109,24 @@ Business Rules:
 - Call-out Fee: \${{{callOutFee}}}. Apply this if the job appears to be a small service call. If you apply it, ensure it's a line item.
 {{/if}}
 
-{{#if scheduleOfRates}}
-- Use the following business-specific standards for costs and rates:
+{{#if laborRates}}
+- Use the following labor rates for costing. You must select the most appropriate labor type based on the job description (e.g., a simple task might use a 'Technician', while a complex one might need a 'Lead Technician').
   """
-  {{#each scheduleOfRates}}
+  {{#each laborRates}}
+  - {{this.employeeType}}: \${{this.standardRate}} per hour (Standard), \${{this.overtimeRate}} per hour (Overtime)
+  {{/each}}
+  """
+{{/if}}
+
+{{#if materialAndServiceRates}}
+- Use the following business-specific standards for material and service costs:
+  """
+  {{#each materialAndServiceRates}}
   - {{this.description}}: \${{this.cost}} {{this.unit}}
   {{/each}}
   """
 {{else}}
-- Use reasonable, typical industry costs for parts and labor if not specified. For labor, assume a standard hourly rate (e.g., $90/hour) unless the job implies a different skill level.
+- Use reasonable, typical industry costs for parts and labor if not specified.
 {{/if}}
 
 {{#if instructions}}
@@ -121,7 +135,7 @@ Special Instructions to follow:
 {{/if}}
 
 Calculation Steps:
-1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Calculate the total cost for each line item. Use the provided standards for costing where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item.
+1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Use the provided rates and costs where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item.
 2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
 3.  **Calculate Overheads**: Apply the overhead rate to the subtotal.
 4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.

@@ -37,10 +37,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
 
-const scheduleOfRateSchema = z.object({
+const lineItemRateSchema = z.object({
   description: z.string(),
   cost: z.number(),
   unit: z.string(),
+});
+
+const laborRateSchema = z.object({
+  employeeType: z.string(),
+  standardRate: z.number(),
+  overtimeRate: z.number(),
 });
 
 const formSchema = z.object({
@@ -50,7 +56,8 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
   callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
-  scheduleOfRates: z.array(scheduleOfRateSchema).optional(),
+  laborRates: z.array(laborRateSchema).optional(),
+  materialAndServiceRates: z.array(lineItemRateSchema).optional(),
   persona: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -75,7 +82,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       desiredMargin: quotingProfiles[0].defaults.desiredMargin,
       overheadRate: quotingProfiles[0].defaults.overheadRate,
       callOutFee: quotingProfiles[0].defaults.callOutFee,
-      scheduleOfRates: quotingProfiles[0].scheduleOfRates,
+      laborRates: quotingProfiles[0].laborRates,
+      materialAndServiceRates: quotingProfiles[0].materialAndServiceRates,
       persona: quotingProfiles[0].persona,
       instructions: quotingProfiles[0].instructions,
     },
@@ -90,7 +98,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
             desiredMargin: profile.defaults.desiredMargin,
             overheadRate: profile.defaults.overheadRate,
             callOutFee: profile.defaults.callOutFee,
-            scheduleOfRates: profile.scheduleOfRates,
+            laborRates: profile.laborRates,
+            materialAndServiceRates: profile.materialAndServiceRates,
             persona: profile.persona,
             instructions: profile.instructions,
         });
@@ -154,7 +163,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
         desiredMargin: profile.defaults.desiredMargin,
         overheadRate: profile.defaults.overheadRate,
         callOutFee: profile.defaults.callOutFee,
-        scheduleOfRates: profile.scheduleOfRates,
+        laborRates: profile.laborRates,
+        materialAndServiceRates: profile.materialAndServiceRates,
         persona: profile.persona,
         instructions: profile.instructions,
       });
@@ -262,7 +272,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                             )}
                           />
                         </div>
-                        <input type="hidden" {...form.register("scheduleOfRates")} />
+                        <input type="hidden" {...form.register("laborRates")} />
+                        <input type="hidden" {...form.register("materialAndServiceRates")} />
                         <input type="hidden" {...form.register("persona")} />
                         <input type="hidden" {...form.register("instructions")} />
                          <input type="hidden" {...form.register("callOutFee")} />
