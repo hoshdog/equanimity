@@ -43,6 +43,8 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
+const commonRoles = ["Primary", "Site Contact", "Accounts", "Tenant", "Project Manager", "Client Representative"];
+
 export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const { toast } = useToast();
@@ -253,8 +255,11 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormControl>
-                                                    <Input placeholder="Role (e.g., Site Contact)" {...field} />
+                                                    <Input list="common-roles" placeholder="Role (e.g., Site Contact)" {...field} />
                                                 </FormControl>
+                                                <datalist id="common-roles">
+                                                    {commonRoles.map(role => <option key={role} value={role} />)}
+                                                </datalist>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -312,4 +317,3 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     </Dialog>
   );
 }
-
