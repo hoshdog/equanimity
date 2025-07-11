@@ -72,26 +72,34 @@ export default function EmployeesPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {employees.map(employee => (
-                            <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar>
-                                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
-                                            <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <div className="font-medium">{employee.name}</div>
-                                            <div className="text-sm text-muted-foreground">{employee.email}</div>
+                        {employees.length > 0 ? (
+                            employees.map(employee => (
+                                <TableRow key={employee.id} onClick={() => handleRowClick(employee.id)} className="cursor-pointer">
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar>
+                                                <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person" />
+                                                <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="font-medium">{employee.name}</div>
+                                                <div className="text-sm text-muted-foreground">{employee.email}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{employee.role}</TableCell>
-                                <TableCell>
-                                    <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
+                                    </TableCell>
+                                    <TableCell>{employee.role}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>{employee.status}</Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={3} className="h-24 text-center">
+                                    No employees found.
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             )}
