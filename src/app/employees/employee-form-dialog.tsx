@@ -1,4 +1,3 @@
-
 // src/app/employees/employee-form-dialog.tsx
 'use client';
 
@@ -106,7 +105,7 @@ function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open:
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                         {roles.map(role => (
                             <div key={role} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                <span className="text-sm">{type}</span>
+                                <span className="text-sm">{role}</span>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteRole(role)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -401,7 +400,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved }: EmployeeFormDi
                                         <Input type="number" placeholder="e.g., 2 hours for meetings" {...field} />
                                     </FormControl>
                                      <FormDescription>
-                                        Enter any regular non-billable time (e.g., meetings, training) not covered by leave.
+                                        Enter any regular non-billable time (e.g., meetings, training) not covered by statutory leave.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
