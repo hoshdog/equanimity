@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/tooltip"
 
 const SIDEBAR_WIDTH_ICON = "3.5rem"
+const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 
 type SidebarContext = {
@@ -109,6 +110,7 @@ const SidebarProvider = React.forwardRef<
             style={
               {
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+                "--sidebar-width": SIDEBAR_WIDTH,
                 ...style,
               } as React.CSSProperties
             }
@@ -133,21 +135,19 @@ const Sidebar = React.forwardRef<
   React.ComponentProps<"div"> & {
     side?: "left" | "right"
     variant?: "sidebar" | "floating" | "inset"
-    collapsible?: "icon" | "none"
   }
 >(
   (
     {
       side = "left",
       variant = "sidebar",
-      collapsible = "icon",
       className,
       children,
       ...props
     },
     ref
   ) => {
-    const { isMobile, setOpen, state, openMobile, setOpenMobile } = useSidebar()
+    const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     const [isMounted, setIsMounted] = React.useState(false);
     const titleId = React.useId();
 
@@ -165,16 +165,15 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[var(--sidebar-width)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[var(--sidebar-width-mobile)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
             side={side}
             aria-labelledby={titleId}
           >
-            {/* The SheetTitle is required for accessibility and is visually hidden here */}
             <SheetTitle id={titleId} className="sr-only">Main Menu</SheetTitle>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
@@ -194,11 +193,8 @@ const Sidebar = React.forwardRef<
             className
           )}
           data-state={state}
-          data-collapsible={collapsible}
           data-variant={variant}
           data-side={side}
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
           {...props}
         >
           <div

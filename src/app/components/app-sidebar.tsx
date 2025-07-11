@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   useSidebar,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -29,15 +30,14 @@ import {
   BrainCircuit,
   User,
   ClipboardList,
-  Menu,
-  Receipt,
   ChevronLeft,
+  Receipt,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -58,43 +58,9 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-  const { toggleSidebar, state, isMobile, setOpenMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (state === 'expanded' && sidebarRef.current) {
-        let maxWidth = 0;
-        
-        // Measure only navigation items
-        const navSpans = sidebarRef.current.querySelectorAll('[data-sidebar="menu-button"] > span');
-        navSpans.forEach(span => {
-            const htmlSpan = span as HTMLElement;
-            const currentDisplay = htmlSpan.style.display;
-            htmlSpan.style.display = 'inline-block';
-            if (htmlSpan.scrollWidth > maxWidth) {
-                maxWidth = htmlSpan.scrollWidth;
-            }
-            htmlSpan.style.display = currentDisplay;
-        });
-
-        if (maxWidth > 0) {
-            // Approx width for icon, padding, gaps, and logout button
-            const extraSpace = 90; 
-            const newWidth = maxWidth + extraSpace;
-            
-            const styleId = 'dynamic-sidebar-width';
-            let styleTag = document.getElementById(styleId);
-            if (!styleTag) {
-                styleTag = document.createElement('style');
-                styleTag.id = styleId;
-                document.head.appendChild(styleTag);
-            }
-            styleTag.innerHTML = `:root { --sidebar-width: ${newWidth}px; }`;
-        }
-    }
-  }, [state]);
-
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -112,6 +78,9 @@ export function AppSidebar() {
                 Equanimity
               </span>
             </div>
+            <SidebarTrigger className="group-data-[state=expanded]:rotate-180">
+              <ChevronLeft className="h-5 w-5" />
+            </SidebarTrigger>
         </div>
       </SidebarHeader>
       <SidebarContent>
