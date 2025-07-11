@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface AddSiteDialogProps {
   customerId: string;
+  customerDetails: CustomerDetails;
   setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
   onSiteAdded: (siteId: string) => void;
 }
@@ -26,7 +27,7 @@ const siteSchema = z.object({
   primaryContactId: z.string().min(1, "You must select a primary contact."),
 });
 
-export function AddSiteDialog({ customerId, setCustomerDetails, onSiteAdded }: AddSiteDialogProps) {
+export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails, onSiteAdded }: AddSiteDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
 
@@ -35,7 +36,7 @@ export function AddSiteDialog({ customerId, setCustomerDetails, onSiteAdded }: A
     defaultValues: { name: "", address: "", primaryContactId: "" },
   });
 
-  const customerContacts = customerId ? setCustomerDetails.arguments[0][customerId]?.contacts || [] : [];
+  const contactsForCustomer = customerId ? customerDetails[customerId]?.contacts : [];
 
   function onSubmit(values: z.infer<typeof siteSchema>) {
     if (!customerId) {
@@ -65,9 +66,6 @@ export function AddSiteDialog({ customerId, setCustomerDetails, onSiteAdded }: A
     form.reset();
   }
   
-  // Need to get the contacts from the customerId
-  const contactsForCustomer = customerId ? setCustomerDetails.arguments[0][customerId]?.contacts : [];
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>

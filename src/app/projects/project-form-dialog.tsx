@@ -161,7 +161,8 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                     </SelectContent>
                                 </Select>
                                 <AddSiteDialog 
-                                    customerId={watchedCustomerId} 
+                                    customerId={watchedCustomerId}
+                                    customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails}
                                     onSiteAdded={handleSetSite}
                                 />
