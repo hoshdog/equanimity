@@ -27,7 +27,7 @@ type ComboboxOption = {
 
 interface ComboboxProps {
     options: ComboboxOption[];
-    value: string;
+    value?: string;
     onChange: (value: string) => void;
     placeholder?: string;
     notFoundContent?: React.ReactNode;
@@ -36,9 +36,17 @@ interface ComboboxProps {
 
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [internalValue, setInternalValue] = React.useState(value || "");
+
+  // Sync internal state with external prop changes
+  React.useEffect(() => {
+    setInternalValue(value || "");
+  }, [value]);
 
   const handleSelect = (currentValue: string) => {
-    onChange(currentValue === value ? "" : currentValue)
+    const newValue = currentValue === internalValue ? "" : currentValue;
+    setInternalValue(newValue);
+    onChange(newValue);
     setOpen(false)
   };
 
@@ -51,8 +59,8 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
         >
-          {value
-            ? options.find((option) => option.value === value)?.label
+          {internalValue
+            ? options.find((option) => option.value === internalValue)?.label
             : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -72,7 +80,7 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                             <Check
                                 className={cn(
                                     "mr-2 h-4 w-4",
-                                    value === option.value ? "opacity-100" : "opacity-0"
+                                    internalValue === option.value ? "opacity-100" : "opacity-0"
                                 )}
                             />
                             {option.label}
