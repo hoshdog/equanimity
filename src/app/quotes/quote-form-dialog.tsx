@@ -34,7 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Quote } from '@/lib/types';
 import { addQuote } from '@/lib/quotes';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { quotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
+import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 
 
 const formSchema = z.object({
@@ -44,6 +44,8 @@ const formSchema = z.object({
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
   quotingStandards: z.string().optional(),
+  persona: z.string().optional(),
+  instructions: z.string().optional(),
 });
 
 interface QuoteFormDialogProps {
@@ -55,6 +57,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateQuoteFromPromptOutput | null>(null);
+  // In a real app, these would be fetched from a database
+  const [quotingProfiles, setQuotingProfiles] = useState<QuotingProfile[]>(initialQuotingProfiles);
   const [selectedProfile, setSelectedProfile] = useState<QuotingProfile>(quotingProfiles[0]);
   const { toast } = useToast();
 
@@ -65,14 +69,18 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
       desiredMargin: 25,
       overheadRate: 15,
       quotingStandards: selectedProfile.standards,
+      persona: selectedProfile.persona,
+      instructions: selectedProfile.instructions,
     },
   });
   
-  const handleProfileChange = (profileName: string) => {
-    const profile = quotingProfiles.find(p => p.name === profileName);
+  const handleProfileChange = (profileId: string) => {
+    const profile = quotingProfiles.find(p => p.id === profileId);
     if (profile) {
         setSelectedProfile(profile);
         form.setValue('quotingStandards', profile.standards);
+        form.setValue('persona', profile.persona);
+        form.setValue('instructions', profile.instructions);
     }
   }
 
@@ -121,6 +129,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
         desiredMargin: 25,
         overheadRate: 15,
         quotingStandards: quotingProfiles[0].standards,
+        persona: quotingProfiles[0].persona,
+        instructions: quotingProfiles[0].instructions,
       });
       setSelectedProfile(quotingProfiles[0]);
       setResult(null);
@@ -149,7 +159,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormItem>
                             <FormLabel>Quoting Profile</FormLabel>
-                            <Select onValueChange={handleProfileChange} defaultValue={selectedProfile.name}>
+                            <Select onValueChange={handleProfileChange} defaultValue={selectedProfile.id}>
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a quoting profile" />
@@ -157,7 +167,7 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                                 </FormControl>
                                 <SelectContent>
                                     {quotingProfiles.map(profile => (
-                                        <SelectItem key={profile.name} value={profile.name}>{profile.name}</SelectItem>
+                                        <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -220,6 +230,8 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                           />
                         </div>
                         <input type="hidden" {...form.register("quotingStandards")} />
+                        <input type="hidden" {...form.register("persona")} />
+                        <input type="hidden" {...form.register("instructions")} />
                         <Button type="submit" disabled={loading} className="w-full">
                           {loading ? (
                             <>

@@ -26,7 +26,9 @@ const GenerateQuoteFromPromptInputSchema = z.object({
     .describe(
       'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
     ),
-    quotingStandards: z.string().optional().describe('A string containing the business-specific quoting standards, such as labor rates and standard material costs.'),
+  quotingStandards: z.string().optional().describe('A string containing the business-specific quoting standards, such as labor rates and standard material costs.'),
+  persona: z.string().optional().describe('The AI persona to adopt when generating the quote.'),
+  instructions: z.string().optional().describe('Special instructions for the AI to follow.'),
 });
 export type GenerateQuoteFromPromptInput = z.infer<
   typeof GenerateQuoteFromPromptInputSchema
@@ -79,7 +81,12 @@ const prompt = ai.definePrompt({
   name: 'generateQuoteFromPromptPrompt',
   input: {schema: GenerateQuoteFromPromptInputSchema},
   output: {schema: GenerateQuoteFromPromptOutputSchema},
-  prompt: `You are an expert quoting assistant for a services business. Your task is to generate a detailed and professional quote based on a job description. You must calculate all costs, apply overheads, and add a markup to achieve a desired profit margin.
+  prompt: `{{#if persona}}
+{{persona}}
+{{else}}
+You are an expert quoting assistant for a services business.
+{{/if}}
+Your task is to generate a detailed and professional quote based on a job description. You must calculate all costs, apply overheads, and add a markup to achieve a desired profit margin.
 
 Job Description:
 "{{{prompt}}}"
@@ -95,6 +102,11 @@ Business Rules:
   """
 {{else}}
 - Use reasonable, typical industry costs for parts and labor if not specified. For labor, assume a standard hourly rate (e.g., $90/hour) unless the job implies a different skill level.
+{{/if}}
+
+{{#if instructions}}
+Special Instructions to follow:
+- {{{instructions}}}
 {{/if}}
 
 Calculation Steps:
