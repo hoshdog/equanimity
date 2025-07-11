@@ -1,3 +1,4 @@
+
 // scripts/seed.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
