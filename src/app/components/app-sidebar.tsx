@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -73,7 +74,7 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar>
       <SidebarHeader className="p-2 flex items-center gap-2">
         <Button variant="ghost" size="icon" className="shrink-0 text-primary hover:bg-primary/10">
             <Waves className="h-5 w-5" />

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -173,7 +174,7 @@ const Sidebar = React.forwardRef<
     {
       side = "left",
       variant = "sidebar",
-      collapsible = "offcanvas",
+      collapsible = "icon",
       className,
       children,
       ...props
@@ -192,7 +193,7 @@ const Sidebar = React.forwardRef<
         // to prevent hydration mismatch.
         return null;
     }
-
+    
     if (collapsible === "none") {
       return (
         <div
