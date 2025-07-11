@@ -13,12 +13,15 @@ import { useToast } from '@/hooks/use-toast';
 import type { CustomerDetails } from '@/lib/types';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AddContactDialog } from './add-contact-dialog';
+
 
 interface AddSiteDialogProps {
   customerId: string;
   customerDetails: CustomerDetails;
   setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
   onSiteAdded: (siteId: string) => void;
+  children: React.ReactNode;
 }
 
 const siteSchema = z.object({
@@ -27,7 +30,7 @@ const siteSchema = z.object({
   primaryContactId: z.string().min(1, "You must select a primary contact."),
 });
 
-export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails, onSiteAdded }: AddSiteDialogProps) {
+export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails, onSiteAdded, children }: AddSiteDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
 
@@ -36,7 +39,12 @@ export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails,
     defaultValues: { name: "", address: "", primaryContactId: "" },
   });
 
-  const contactsForCustomer = customerId ? customerDetails[customerId]?.contacts : [];
+  const contactsForCustomer = customerId ? customerDetails[customerId]?.contacts || [] : [];
+  
+  React.useEffect(() => {
+    // Reset form when dialog is opened or customerId changes
+    form.reset({ name: "", address: "", primaryContactId: "" });
+  }, [isOpen, customerId, form]);
 
   function onSubmit(values: z.infer<typeof siteSchema>) {
     if (!customerId) {
@@ -63,14 +71,15 @@ export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails,
     toast({ title: "Site Added", description: `"${values.name}" has been added.` });
     onSiteAdded(newSiteId);
     setIsOpen(false);
-    form.reset();
+  }
+
+  const handleSetContact = (contactId: string) => {
+    form.setValue('primaryContactId', contactId);
   }
   
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="icon" disabled={!customerId}><Plus /></Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add New Site</DialogTitle>
@@ -82,12 +91,21 @@ export function AddSiteDialog({ customerId, customerDetails, setCustomerDetails,
             <FormField control={form.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
             <FormField control={form.control} name="primaryContactId" render={({ field }) => (
                 <FormItem><FormLabel>Primary Contact</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        {contactsForCustomer?.map(contact => <SelectItem key={contact.id} value={contact.id}>{contact.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                  <div className="flex gap-2">
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {contactsForCustomer?.map(contact => <SelectItem key={contact.id} value={contact.id}>{contact.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <AddContactDialog 
+                        customerId={customerId} 
+                        setCustomerDetails={setCustomerDetails} 
+                        onContactAdded={handleSetContact}
+                      >
+                       <Button type="button" variant="outline" size="icon"><Plus /></Button>
+                    </AddContactDialog>
+                  </div>
                 <FormMessage /></FormItem> 
             )}/>
             <DialogFooter>

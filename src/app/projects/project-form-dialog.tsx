@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Project, CustomerDetails } from '@/lib/types';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
+import { Plus } from 'lucide-react';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -60,15 +61,13 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, customerDetails]);
   
   const contactOptions = React.useMemo(() => {
-    if(!watchedCustomerId || !watchedSiteId) return [];
+    if(!watchedCustomerId) return [];
     const customer = customerDetails[watchedCustomerId];
     if (!customer) return [];
-    const site = customer.sites.find(s => s.id === watchedSiteId);
-    if (!site) return [];
-    // Every contact in the customer list is a potential contact for any site.
-    // In a real application this might be filtered by site association.
+    // For simplicity, showing all contacts for a customer.
+    // Could be filtered by site if contacts were associated with sites.
     return customer.contacts.map(c => ({ label: c.name, value: c.id }));
-  }, [watchedCustomerId, watchedSiteId, customerDetails]);
+  }, [watchedCustomerId, customerDetails]);
 
   // Reset dependent fields when their parent changes
   React.useEffect(() => {
@@ -77,8 +76,15 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
   }, [watchedCustomerId, form]);
 
   React.useEffect(() => {
-    form.setValue('contactId', '');
-  }, [watchedSiteId, form]);
+    // When site changes, find its primary contact and set it as default
+    const customer = customerDetails[watchedCustomerId];
+    const site = customer?.sites.find(s => s.id === watchedSiteId);
+    if (site && site.primaryContactId) {
+      form.setValue('contactId', site.primaryContactId);
+    } else {
+       form.setValue('contactId', '');
+    }
+  }, [watchedSiteId, watchedCustomerId, customerDetails, form]);
 
 
   function onSubmit(values: ProjectFormValues) {
@@ -165,7 +171,9 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                     customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails}
                                     onSiteAdded={handleSetSite}
-                                />
+                                >
+                                   <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
+                                </AddSiteDialog>
                             </div>
                             <FormMessage />
                         </FormItem>
@@ -173,7 +181,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                     <FormField control={form.control} name="contactId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Primary Contact</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedSiteId}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
                                 <FormControl>
                                     <SelectTrigger><SelectValue placeholder="Select a contact" /></SelectTrigger>
                                 </FormControl>
