@@ -37,18 +37,6 @@ interface ComboboxProps {
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
-  // Find the label for the currently selected value.
-  const selectedLabel = React.useMemo(() => {
-    return options.find((option) => option.value === value)?.label;
-  }, [options, value]);
-
-  // This is the correct handler for when an item is selected.
-  // `currentValue` will be the `value` prop from the `CommandItem`, which we set to the option's unique ID.
-  const handleSelect = (currentValue: string) => {
-    onChange(currentValue); // Update the form state with the unique value.
-    setOpen(false);       // Close the popover.
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -58,7 +46,9 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
           aria-expanded={open}
           className={cn("w-full justify-between font-normal", className)}
         >
-          {value ? selectedLabel : placeholder || "Select option..."}
+          {value
+            ? options.find((option) => option.value === value)?.label
+            : placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -71,8 +61,11 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                     {options.map((option) => (
                         <CommandItem
                             key={option.value}
-                            value={option.value} // The value used for selection *must* be the unique ID.
-                            onSelect={handleSelect} // The onSelect event provides the `value`.
+                            value={option.value}
+                            onSelect={(currentValue) => {
+                                onChange(currentValue);
+                                setOpen(false);
+                            }}
                         >
                             <Check
                                 className={cn(

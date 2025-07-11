@@ -6,23 +6,20 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { PlusCircle, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MultiSelect, OptionType } from '@/components/ui/multi-select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { mockEmployees } from '@/lib/mock-data';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Project, CustomerDetails } from '@/lib/types';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AddSiteDialog } from './add-site-dialog';
 import { AddContactDialog } from './add-contact-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
 import { Combobox } from '@/components/ui/combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ProjectFormDialogProps {
     customerDetails: CustomerDetails;
@@ -68,51 +65,34 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
     if(!watchedCustomerId) return [];
     const customer = customerDetails[watchedCustomerId];
     if (!customer) return [];
-    // For simplicity, showing all contacts for a customer.
-    // Could be filtered by site if contacts were associated with sites.
     return customer.contacts.map(c => ({ label: c.name, value: c.id }));
   }, [watchedCustomerId, customerDetails]);
 
-  // Reset dependent fields when their parent changes
   React.useEffect(() => {
-    form.setValue('siteId', '');
-    form.setValue('contactId', '');
+    form.resetField('siteId', { defaultValue: '' });
+    form.resetField('contactId', { defaultValue: '' });
   }, [watchedCustomerId, form]);
 
   React.useEffect(() => {
-    // When site changes, find its primary contact and set it as default
     const customer = customerDetails[watchedCustomerId];
     const site = customer?.sites.find(s => s.id === watchedSiteId);
-    if (site && site.primaryContactId) {
+    if (site?.primaryContactId && contactOptions.some(c => c.value === site.primaryContactId)) {
       form.setValue('contactId', site.primaryContactId);
     } else {
-       form.setValue('contactId', '');
+       form.resetField('contactId', { defaultValue: '' });
     }
-  }, [watchedSiteId, watchedCustomerId, customerDetails, form]);
+  }, [watchedSiteId, watchedCustomerId, customerDetails, contactOptions, form]);
 
 
   function onSubmit(values: ProjectFormValues) {
     const assignedStaffWithFullDetails = values.assignedStaff?.map(s => {
-        const fullEmployee = mockEmployees.find(e => e.value === s.value);
-        return fullEmployee || { label: s.label, value: s.value };
+        return mockEmployees.find(e => e.value === s.value) || { label: s.label, value: s.value };
     }) || [];
 
     onProjectCreated({ ...values, assignedStaff: assignedStaffWithFullDetails });
     toast({ title: "Project Created", description: `"${values.name}" has been added.` });
     setIsFormOpen(false);
     form.reset();
-  }
-
-  const handleSetCustomer = (customerId: string) => {
-    form.setValue('customerId', customerId);
-  }
-
-  const handleSetSite = (siteId: string) => {
-    form.setValue('siteId', siteId);
-  }
-
-  const handleSetContact = (contactId: string) => {
-    form.setValue('contactId', contactId);
   }
 
   return (
@@ -154,7 +134,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 onChange={field.onChange}
                                 placeholder="Select customer..."
                                 notFoundContent={
-                                    <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={handleSetCustomer}>
+                                    <AddCustomerDialog setCustomerDetails={setCustomerDetails} onCustomerAdded={field.onChange}>
                                         <Button variant="link" className="w-full">
                                             <Plus className="mr-2 h-4 w-4" />
                                             Create a new customer
@@ -165,6 +145,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                             <FormMessage />
                         </FormItem>
                     )}/>
+
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Site</FormLabel>
@@ -181,7 +162,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                     customerId={watchedCustomerId}
                                     customerDetails={customerDetails}
                                     setCustomerDetails={setCustomerDetails}
-                                    onSiteAdded={handleSetSite}
+                                    onSiteAdded={field.onChange}
                                 >
                                    <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
                                 </AddSiteDialog>
@@ -204,7 +185,7 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                 <AddContactDialog 
                                     customerId={watchedCustomerId} 
                                     setCustomerDetails={setCustomerDetails} 
-                                    onContactAdded={handleSetContact}
+                                    onContactAdded={field.onChange}
                                 >
                                    <Button type="button" variant="outline" size="icon" disabled={!watchedCustomerId}><Plus /></Button>
                                 </AddContactDialog>
