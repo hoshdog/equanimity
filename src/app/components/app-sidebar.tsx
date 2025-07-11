@@ -72,8 +72,8 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center justify-between">
            <div className={cn("flex items-center gap-2", state === 'collapsed' && 'invisible')}>
-              <Waves className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold text-primary">
+              <Waves className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-primary">
                 Equanimity
               </span>
             </div>
@@ -104,7 +104,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
          <div className="flex items-center gap-2">
-            <Avatar className="h-9 w-9">
+            <Avatar className="h-8 w-8">
               <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
@@ -112,14 +112,14 @@ export function AppSidebar() {
               "flex flex-col overflow-hidden",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-sm font-semibold whitespace-nowrap">Jane Doe</span>
+                <span className="text-xs font-semibold whitespace-nowrap">Jane Doe</span>
                 <span className="text-xs text-muted-foreground truncate">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
-              "ml-auto",
+              "ml-auto h-8 w-8",
               "group-data-[state=collapsed]:hidden"
              )}>
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
              </Button>
          </div>
       </SidebarFooter>
