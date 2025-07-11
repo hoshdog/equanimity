@@ -322,14 +322,16 @@ export function ProjectFormDialog({ customerDetails, setCustomerDetails, onProje
                                         name={`projectContacts.${index}.role`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormControl>
-                                                    <>
-                                                        <Input list="common-roles" placeholder="Role (e.g., Site Contact)" {...field} />
-                                                        <datalist id="common-roles">
-                                                            {commonRoles.map(role => <option key={role} value={role} />)}
-                                                        </datalist>
-                                                    </>
-                                                </FormControl>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select a role" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {commonRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
