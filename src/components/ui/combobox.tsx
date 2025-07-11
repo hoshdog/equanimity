@@ -37,10 +37,25 @@ interface ComboboxProps {
 export function Combobox({ options, value, onChange, placeholder, notFoundContent, className }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
-  const handleSelect = React.useCallback((currentValue: string) => {
-    onChange(currentValue === value ? "" : currentValue);
-    setOpen(false);
-  }, [onChange, value]);
+  const handleSelect = (currentValue: string) => {
+    // The `currentValue` from onSelect is the `value` prop from CommandItem, which is the label.
+    // Find the option with the matching label (case-insensitively) to get the actual value.
+    const selectedOption = options.find(
+      (option) => option.label.toLowerCase() === currentValue.toLowerCase()
+    );
+
+    if (selectedOption) {
+        // If the user selects the currently selected item, it should effectively do nothing,
+        // otherwise, update the value.
+        if (value !== selectedOption.value) {
+            onChange(selectedOption.value)
+        }
+    } else {
+        // Handle case where selection might not find a match, though this is unlikely with this setup.
+        onChange("")
+    }
+    setOpen(false)
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,7 +73,10 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+        <Command onSelect={handleSelect} filter={(value, search) => {
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1
+            return 0
+        }}>
             <CommandInput placeholder="Search..." />
             <CommandList>
                 <CommandEmpty>{notFoundContent || "No option found."}</CommandEmpty>
@@ -66,8 +84,7 @@ export function Combobox({ options, value, onChange, placeholder, notFoundConten
                     {options.map((option) => (
                         <CommandItem
                             key={option.value}
-                            value={option.value}
-                            onSelect={handleSelect}
+                            value={option.label}
                         >
                             <Check
                                 className={cn(
