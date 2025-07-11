@@ -47,7 +47,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { mockCustomerDetails } from '@/lib/mock-data';
-import { Combobox } from '@/components/ui/combobox';
 
 const customerSchema = z.object({
     id: z.string().optional(),
@@ -145,10 +144,6 @@ export default function CustomersPage() {
         setCustomers(customers.filter(c => c.id !== customerId));
         toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
     }
-    
-    const customerTypeOptions = useMemo(() => {
-        return customerTypes.map(type => ({ label: type, value: type }));
-    }, [customerTypes]);
     
     const columns: ColumnDef<Customer>[] = [
       {
@@ -250,7 +245,7 @@ export default function CustomersPage() {
                             Add New Customer
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => { if(isManageTypesDialogOpen) e.preventDefault(); }}>
                         <DialogHeader>
                             <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
                             <DialogDescription>
@@ -282,12 +277,16 @@ export default function CustomersPage() {
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        <Combobox
-                                            options={customerTypeOptions}
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            placeholder="Select a customer type"
-                                        />
+                                         <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a customer type" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {customerTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>

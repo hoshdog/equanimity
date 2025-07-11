@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { CustomerDetails } from '@/lib/types';
 import { Plus, Pencil, Trash2, PlusCircle, MinusCircle } from 'lucide-react';
 import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
-import { Combobox } from '@/components/ui/combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AddCustomerDialogProps {
   setCustomerDetails: React.Dispatch<React.SetStateAction<CustomerDetails>>;
@@ -89,10 +89,6 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, childre
     setIsOpen(false);
     form.reset();
   }
-  
-  const customerTypeOptions = React.useMemo(() => {
-    return customerTypes.map(type => ({ label: type, value: type }));
-  }, [customerTypes]);
 
   const handleAddType = () => {
     if (newType && !customerTypes.includes(newType)) {
@@ -111,7 +107,7 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, childre
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset(); }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if(isTypeManagerOpen) e.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle>Add New Customer</DialogTitle>
           <DialogDescription>Create a new customer record.</DialogDescription>
@@ -147,7 +143,7 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, childre
                 </FormControl><FormMessage /></FormItem>
             )}/>
              <FormField control={form.control} name="type" render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                     <div className="flex items-center justify-between">
                         <FormLabel>Customer Type</FormLabel>
                         <Dialog open={isTypeManagerOpen} onOpenChange={setIsTypeManagerOpen}>
@@ -181,12 +177,16 @@ export function AddCustomerDialog({ setCustomerDetails, onCustomerAdded, childre
                             </DialogContent>
                         </Dialog>
                     </div>
-                    <Combobox
-                        options={customerTypeOptions}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select a customer type"
-                    />
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a customer type" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {customerTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
                 </FormItem>
             )}/>
