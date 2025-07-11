@@ -1,12 +1,15 @@
+
 "use client";
 
 import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarFooter,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -20,42 +23,41 @@ import {
   ShoppingCart,
   Warehouse,
   ShieldCheck,
+  Waves,
+  LogOut,
   BrainCircuit,
   Building2,
   Receipt,
+  User,
   ClipboardList,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
-
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 const navItems = [
-  // Core
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/customers', label: 'Customers', icon: Building2 },
   { href: '/projects', label: 'Projects', icon: Briefcase },
   { href: '/jobs', label: 'Jobs', icon: ClipboardList },
+  { href: '/customers', label: 'Customers', icon: User },
   { href: '/scheduling', label: 'Scheduling', icon: Calendar },
   { href: '/timesheets', label: 'Timesheets', icon: Clock },
-  // Financial
+  { href: '/payroll', label: 'Payroll', icon: Banknote },
+  { href: '/employees', label: 'Employees', icon: Users },
+  { href: '/leave', label: 'Leave', icon: Plane },
   { href: '/quotes', label: 'Quotes', icon: FileText },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
   { href: '/invoicing', label: 'Invoicing', icon: Receipt },
-  { href: '/payroll', label: 'Payroll', icon: Banknote },
-  // Company & HR
-  { href: '/employees', label: 'Employees', icon: Users },
-  { href: '/leave', label: 'Leave', icon: Plane },
-  { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
-  { href: '/training', label: 'AI Training', icon: BrainCircuit },
-  // Assets
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
+  { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
+  { href: '/training', label: 'Training', icon: BrainCircuit },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { setOpenMobile } = useSidebar();
-  const isMobile = useIsMobile();
+  const { setOpenMobile, isMobile, state } = useSidebar();
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -63,10 +65,15 @@ export function AppSidebar() {
     }
   };
 
-
   return (
-    <Sidebar>
-      <SidebarContent>
+    <Sidebar collapsible="icon" className="border-r">
+      <SidebarHeader className="p-2 flex items-center gap-2 justify-center">
+        <Waves className="h-6 w-6 text-primary" />
+        <span className={cn("text-lg font-semibold text-primary", "group-hover:inline-flex hidden")}>
+          Equanimity
+        </span>
+      </SidebarHeader>
+      <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
@@ -86,6 +93,21 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
+      <SidebarFooter className="p-2">
+         <div className="flex items-center gap-2">
+            <Avatar className="h-9 w-9">
+              <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
+              <AvatarFallback>JD</AvatarFallback>
+            </Avatar>
+            <div className={cn("flex flex-col", "group-hover:inline-flex hidden")}>
+                <span className="text-sm font-semibold">Jane Doe</span>
+                <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
+            </div>
+             <Button variant="ghost" size="icon" className={cn("ml-auto", "group-hover:inline-flex hidden")}>
+                <LogOut className="h-5 w-5" />
+             </Button>
+         </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }
