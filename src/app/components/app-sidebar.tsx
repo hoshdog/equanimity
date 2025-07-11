@@ -11,7 +11,6 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   useSidebar,
-  SidebarTrigger
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -31,6 +30,7 @@ import {
   User,
   ClipboardList,
   Menu,
+  Receipt,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,7 @@ const navItems = [
   { href: '/leave', label: 'Leave', icon: Plane },
   { href: '/quotes', label: 'Quotes', icon: FileText },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+  { href: '/invoicing', label: 'Invoicing', icon: Receipt },
   { href: '/inventory', label: 'Inventory', icon: Warehouse },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
   { href: '/training', label: 'Training', icon: BrainCircuit },
@@ -74,7 +75,7 @@ export function AppSidebar() {
           <Waves className="h-6 w-6 text-primary" />
           <span className={cn(
               "text-lg font-semibold text-primary",
-              "hidden group-data-[state=expanded]:inline-flex"
+              "group-data-[state=collapsed]:hidden"
           )}>
             Equanimity
           </span>
@@ -93,7 +94,7 @@ export function AppSidebar() {
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
+                  <span className='group-data-[state=collapsed]:hidden'>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -108,14 +109,14 @@ export function AppSidebar() {
             </Avatar>
             <div className={cn(
               "flex flex-col",
-              "hidden group-data-[state=expanded]:inline-flex"
+              "group-data-[state=collapsed]:hidden"
             )}>
                 <span className="text-sm font-semibold">Jane Doe</span>
                 <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
             </div>
              <Button variant="ghost" size="icon" className={cn(
               "ml-auto",
-              "hidden group-data-[state=expanded]:inline-flex"
+              "group-data-[state=collapsed]:hidden"
              )}>
                 <LogOut className="h-5 w-5" />
              </Button>
