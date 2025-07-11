@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Customer, Site, Contact, Employee, AssignedStaff, OptionType } from '@/lib/types';
+import type { Project, Customer, Site, Contact, Employee, OptionType, AssignedStaff } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { addProject } from '@/lib/projects';
+import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
 
 const customerSchema = z.object({
     name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
@@ -91,6 +92,15 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
         }
     }
 
+    const handlePlaceSelect = (place: google.maps.places.PlaceResult | null) => {
+        if (place?.name) {
+            form.setValue('name', place.name);
+        }
+        if (place?.formatted_address) {
+            form.setValue('address', place.formatted_address);
+        }
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
@@ -102,10 +112,21 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel>Customer Name</FormLabel><FormControl><Input placeholder="e.g., Innovate Corp" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Customer Name</FormLabel>
+                                <FormControl>
+                                    <AddressAutocompleteInput 
+                                        searchType="establishment"
+                                        onPlaceSelect={handlePlaceSelect}
+                                        placeholder="Search for a business..."
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
                         )}/>
                          <FormField control={form.control} name="address" render={({ field }) => (
-                            <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Address</FormLabel>
+                            <FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="primaryContactName" render={({ field }) => (
                             <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
@@ -170,7 +191,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [{ value: '', label: '' }] },
+    defaultValues: { name: "", description: "", customerId: "", siteId: "", projectContacts: [{ contactId: '', role: '' }], assignedStaff: [] },
   });
   
   const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
