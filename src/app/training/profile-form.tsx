@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { DollarSign, Percent } from 'lucide-react';
 
 export function ProfileForm() {
   const { control } = useFormContext();
@@ -49,6 +50,58 @@ export function ProfileForm() {
           </FormItem>
         )}
       />
+
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FormField
+                control={control}
+                name="defaults.desiredMargin"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Target Margin</FormLabel>
+                    <FormControl>
+                        <div className="relative">
+                            <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" placeholder="25" className="pl-8" {...field} />
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={control}
+                name="defaults.overheadRate"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Overhead Rate</FormLabel>
+                        <FormControl>
+                        <div className="relative">
+                            <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" placeholder="15" className="pl-8" {...field} />
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+             <FormField
+                control={control}
+                name="defaults.callOutFee"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Call-out Fee</FormLabel>
+                        <FormControl>
+                        <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" placeholder="0" className="pl-8" {...field} />
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+       </div>
+
       <FormField
         control={control}
         name="persona"
@@ -94,7 +147,7 @@ export function ProfileForm() {
         name="standards"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Costing & Labor Standards</FormLabel>
+            <FormLabel>Schedule of Rates & Costs</FormLabel>
             <FormControl>
               <Textarea
                 placeholder="Standard Labor Rate: $95/hour..."
@@ -103,7 +156,7 @@ export function ProfileForm() {
               />
             </FormControl>
              <FormDescription>
-                This is the core data the AI uses for calculations.
+                This is the core data the AI uses for material and labor calculations.
             </FormDescription>
             <FormMessage />
           </FormItem>

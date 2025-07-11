@@ -26,6 +26,7 @@ const GenerateQuoteFromPromptInputSchema = z.object({
     .describe(
       'The overhead rate as a percentage of the parts and labor cost (e.g., 15 for 15%).'
     ),
+  callOutFee: z.coerce.number().min(0).optional().describe('A fixed call-out fee to be applied if the job is determined to be a small service call.'),
   quotingStandards: z.string().optional().describe('A string containing the business-specific quoting standards, such as labor rates and standard material costs.'),
   persona: z.string().optional().describe('The AI persona to adopt when generating the quote.'),
   instructions: z.string().optional().describe('Special instructions for the AI to follow.'),
@@ -95,6 +96,10 @@ Business Rules:
 - Desired Profit Margin: {{{desiredMargin}}}%
 - Overhead Rate: {{{overheadRate}}}% of total parts and labor cost.
 - GST (Goods and Services Tax): 10% on the final price before tax.
+{{#if callOutFee}}
+- Call-out Fee: \${{{callOutFee}}}. Apply this if the job appears to be a small service call. If you apply it, ensure it's a line item.
+{{/if}}
+
 {{#if quotingStandards}}
 - Use the following business-specific standards for costs and rates:
   """
@@ -110,7 +115,7 @@ Special Instructions to follow:
 {{/if}}
 
 Calculation Steps:
-1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Calculate the total cost for each line item. Use the provided standards for costing where applicable.
+1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Calculate the total cost for each line item. Use the provided standards for costing where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item.
 2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
 3.  **Calculate Overheads**: Apply the overhead rate to the subtotal.
 4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.

@@ -25,6 +25,11 @@ const profileSchema = z.object({
   id: z.string(),
   name: z.string().min(3, "Profile name must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
+  defaults: z.object({
+      desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
+      overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
+      callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
+  }),
   persona: z.string().min(10, "Persona description is required."),
   instructions: z.string().optional(),
   standards: z.string().min(10, "Costing and labor standards are required."),
@@ -38,6 +43,20 @@ interface ProfileFormDialogProps {
   onProfileSaved: (profile: QuotingProfile) => void;
 }
 
+const getDefaultValues = (): ProfileFormValues => ({
+  id: `profile-${Date.now()}`,
+  name: "",
+  description: "",
+  defaults: {
+    desiredMargin: 25,
+    overheadRate: 15,
+    callOutFee: 0,
+  },
+  persona: "You are a helpful quoting assistant for a services business.",
+  instructions: "",
+  standards: "Standard Labor Rate: $90/hour"
+});
+
 export function ProfileFormDialog({ children, profile, onProfileSaved }: ProfileFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
@@ -46,26 +65,12 @@ export function ProfileFormDialog({ children, profile, onProfileSaved }: Profile
   
   const formMethods = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: profile || {
-      id: `profile-${Date.now()}`,
-      name: "",
-      description: "",
-      persona: "You are a helpful quoting assistant.",
-      instructions: "",
-      standards: ""
-    }
+    defaultValues: profile || getDefaultValues(),
   });
 
   React.useEffect(() => {
     if (isOpen) {
-        formMethods.reset(profile || {
-            id: `profile-${Date.now()}`,
-            name: "",
-            description: "",
-            persona: "You are a helpful quoting assistant.",
-            instructions: "",
-            standards: ""
-        });
+        formMethods.reset(profile || getDefaultValues());
     }
   }, [isOpen, profile, formMethods]);
   
@@ -81,7 +86,7 @@ export function ProfileFormDialog({ children, profile, onProfileSaved }: Profile
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Quoting Profile' : 'Create New Quoting Profile'}</DialogTitle>
           <DialogDescription>

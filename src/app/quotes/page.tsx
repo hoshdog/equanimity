@@ -43,6 +43,7 @@ const formSchema = z.object({
     .min(15, 'Please provide a more detailed job description (at least 15 characters).'),
   desiredMargin: z.coerce.number().min(0, "Margin can't be negative.").max(100, "Margin can't exceed 100."),
   overheadRate: z.coerce.number().min(0, "Overheads can't be negative."),
+  callOutFee: z.coerce.number().min(0, "Call-out fee can't be negative.").optional(),
   quotingStandards: z.string().optional(),
   persona: z.string().optional(),
   instructions: z.string().optional(),
@@ -60,8 +61,9 @@ export default function QuotesPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       prompt: '',
-      desiredMargin: 25,
-      overheadRate: 15,
+      desiredMargin: quotingProfiles[0].defaults.desiredMargin,
+      overheadRate: quotingProfiles[0].defaults.overheadRate,
+      callOutFee: quotingProfiles[0].defaults.callOutFee,
       quotingStandards: quotingProfiles[0].standards,
       persona: quotingProfiles[0].persona,
       instructions: quotingProfiles[0].instructions,
@@ -72,9 +74,15 @@ export default function QuotesPage() {
     const profile = quotingProfiles.find(p => p.id === profileId);
     if (profile) {
         setSelectedProfileId(profile.id);
-        form.setValue('quotingStandards', profile.standards);
-        form.setValue('persona', profile.persona);
-        form.setValue('instructions', profile.instructions);
+        form.reset({
+            prompt: form.getValues('prompt'), // Keep existing prompt
+            desiredMargin: profile.defaults.desiredMargin,
+            overheadRate: profile.defaults.overheadRate,
+            callOutFee: profile.defaults.callOutFee,
+            quotingStandards: profile.standards,
+            persona: profile.persona,
+            instructions: profile.instructions,
+        });
     }
   }
 
@@ -206,6 +214,7 @@ export default function QuotesPage() {
                 <input type="hidden" {...form.register("quotingStandards")} />
                 <input type="hidden" {...form.register("persona")} />
                 <input type="hidden" {...form.register("instructions")} />
+                <input type="hidden" {...form.register("callOutFee")} />
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? (
                     <>
