@@ -19,7 +19,8 @@ import type { PurchaseOrder } from './types';
 // Get all POs from all projects for the main list view
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
     const posRef = collectionGroup(db, 'purchaseOrders');
-    const q = query(posRef, orderBy('createdAt', 'desc'));
+    // Removed orderBy('createdAt', 'desc') to prevent index error
+    const q = query(posRef);
     const snapshot = await getDocs(q);
     
     const pos: PurchaseOrder[] = [];
