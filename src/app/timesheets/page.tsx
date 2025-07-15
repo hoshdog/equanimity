@@ -258,61 +258,63 @@ export default function TimesheetsPage() {
                                 <AccordionContent>
                                     <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
                                         {tasks.map((task, index) => (
-                                            <div key={task.id} className="grid grid-cols-12 gap-2 items-start">
-                                                <div className="col-span-12 md:col-span-5 space-y-1">
-                                                     {index === 0 && <Label className="text-xs ml-1">Job/Task</Label>}
-                                                    <Combobox
-                                                        options={jobOptions}
-                                                        value={task.jobId}
-                                                        onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}
-                                                        placeholder="Search jobs or select non-billable..."
-                                                    />
-                                                </div>
-                                                <div className="col-span-3 md:col-span-2 space-y-1">
-                                                     {index === 0 && <Label className="text-xs ml-1">Start</Label>}
-                                                    <Input
-                                                        type="time"
-                                                        value={task.startTime}
-                                                        onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="col-span-3 md:col-span-2 space-y-1">
-                                                     {index === 0 && <Label className="text-xs ml-1">Finish</Label>}
-                                                    <Input
-                                                        type="time"
-                                                        value={task.finishTime}
-                                                        onChange={(e) => handleTaskChange(date, task.id, 'finishTime', e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="col-span-3 md:col-span-1 space-y-1">
-                                                     {index === 0 && <Label className="text-xs ml-1">Hrs</Label>}
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Hrs"
-                                                        value={task.duration}
-                                                        onChange={(e) => handleTaskChange(date, task.id, 'duration', e.target.value)}
-                                                        className="text-right"
-                                                    />
-                                                </div>
-                                                <div className="col-span-9 md:col-span-2 flex items-end">
-                                                     <div className="flex-grow space-y-1">
-                                                         {index === 0 && <Label className="text-xs ml-1">Notes</Label>}
+                                            <div key={task.id} className="space-y-2 border-b border-border/20 pb-2 last:border-b-0 last:pb-0">
+                                                <div className="grid grid-cols-12 gap-2 items-end">
+                                                    <div className="col-span-12 md:col-span-6 space-y-1">
+                                                        {index === 0 && <Label className="text-xs ml-1">Job/Task</Label>}
+                                                        <Combobox
+                                                            options={jobOptions}
+                                                            value={task.jobId}
+                                                            onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}
+                                                            placeholder="Search jobs or select non-billable..."
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-4 md:col-span-2 space-y-1">
+                                                        {index === 0 && <Label className="text-xs ml-1">Start</Label>}
+                                                        <Input
+                                                            type="time"
+                                                            value={task.startTime}
+                                                            onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-4 md:col-span-2 space-y-1">
+                                                        {index === 0 && <Label className="text-xs ml-1">Finish</Label>}
+                                                        <Input
+                                                            type="time"
+                                                            value={task.finishTime}
+                                                            onChange={(e) => handleTaskChange(date, task.id, 'finishTime', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-4 md:col-span-1 space-y-1">
+                                                        {index === 0 && <Label className="text-xs ml-1">Hrs</Label>}
                                                         <Input
                                                             type="text"
-                                                            placeholder="Notes"
-                                                            value={task.note}
-                                                            onChange={(e) => handleTaskChange(date, task.id, 'note', e.target.value)}
+                                                            placeholder="Hrs"
+                                                            value={task.duration}
+                                                            onChange={(e) => handleTaskChange(date, task.id, 'duration', e.target.value)}
+                                                            className="text-right"
                                                         />
-                                                     </div>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        onClick={() => removeTask(date, task.id)}
-                                                        disabled={tasks.length <= 1}
-                                                        aria-label="Remove task"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    </div>
+                                                    <div className="col-span-12 md:col-span-1 flex justify-end">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            onClick={() => removeTask(date, task.id)}
+                                                            disabled={tasks.length <= 1}
+                                                            aria-label="Remove task"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1 px-1">
+                                                     {index === 0 && tasks.length === 1 && <Label className="text-xs ml-1">Notes</Label>}
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Add notes for this task..."
+                                                        value={task.note}
+                                                        onChange={(e) => handleTaskChange(date, task.id, 'note', e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
                                         ))}
