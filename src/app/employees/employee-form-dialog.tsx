@@ -193,8 +193,15 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: Empl
   // Cost rate calculation logic
   const calculatedCostRate = React.useMemo(() => {
     const payRate = parseFloat(String(watchedPayType === 'Hourly' ? (watchedWage || 0) : ((watchedAnnualSalary || 0) / (52 * 38))));
-    if (isNaN(payRate) || payRate === 0 || watchedEmploymentType === 'Casual') {
+    if (isNaN(payRate) || payRate === 0) {
         return payRate;
+    }
+
+    // Add 12% for superannuation to the base pay rate
+    const payRateWithSuper = payRate * 1.12;
+
+    if (watchedEmploymentType === 'Casual') {
+        return parseFloat(payRateWithSuper.toFixed(2));
     }
 
     const weeklyHours = watchedEmploymentType === 'Full-time' ? 38 : 19; // simplified for part-time
@@ -212,9 +219,10 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: Empl
     const totalNonProductiveHours = leaveHours + additionalAnnualHours;
     
     const productiveHours = annualHours - totalNonProductiveHours;
-    if (productiveHours <= 0) return payRate;
+    if (productiveHours <= 0) return parseFloat(payRateWithSuper.toFixed(2));
 
-    const totalAnnualCost = annualHours * payRate;
+    // Total annual cost now includes superannuation
+    const totalAnnualCost = annualHours * payRateWithSuper;
     const costRate = totalAnnualCost / productiveHours;
     
     return parseFloat(costRate.toFixed(2));
