@@ -1,3 +1,4 @@
+
 // src/app/timesheets/page.tsx
 'use client';
 
@@ -13,13 +14,16 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isEqual, addMinutes, parse, differenceInMinutes, isValid } from 'date-fns';
-import { Save, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, PlusCircle, Trash2, Banknote, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { getJobs } from '@/lib/jobs';
 import type { Job, OptionType } from '@/lib/types';
 import { Combobox } from '@/components/ui/combobox';
 import { Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 const nonBillableTasks: OptionType[] = [
     { value: 'nonbill-travel', label: 'Travel Time' },
@@ -34,12 +38,17 @@ type TaskEntry = {
   startTime: string; // e.g., "09:00"
   finishTime: string; // e.g., "17:00"
   duration: string; // duration in hours, e.g., "8.0"
+  note: string; // User-added notes for the task
 };
 
 type DailyTimesheet = {
   date: Date;
   tasks: TaskEntry[];
+  bankOvertime: boolean;
 };
+
+// For this demo, we'll assume a standard 8-hour day before OT.
+const OT_THRESHOLD = 8;
 
 function getWeekDays(date: Date): Date[] {
     const start = startOfWeek(date, { weekStartsOn: 1 }); // Monday
@@ -90,13 +99,15 @@ export default function TimesheetsPage() {
           jobId: '',
           startTime: '08:00',
           finishTime: '16:00',
-          duration: '8.0'
+          duration: '8.0',
+          note: ''
         }],
+        bankOvertime: false,
       }))
     );
   }, [currentDate]);
 
-  const handleTaskChange = (date: Date, taskId: string, field: 'jobId' | 'startTime' | 'finishTime' | 'duration', value: string) => {
+  const handleTaskChange = (date: Date, taskId: string, field: 'jobId' | 'startTime' | 'finishTime' | 'duration' | 'note', value: string) => {
     setTimesheet((prevTimesheet) =>
       prevTimesheet.map((dailyEntry) => {
         if (isEqual(dailyEntry.date, date)) {
@@ -130,6 +141,10 @@ export default function TimesheetsPage() {
     );
   };
   
+  const handleBankOvertimeChange = (date: Date, checked: boolean) => {
+      setTimesheet(prev => prev.map(d => isEqual(d.date, date) ? { ...d, bankOvertime: checked } : d));
+  }
+
   const addTask = (date: Date) => {
       setTimesheet((prevTimesheet) => 
         prevTimesheet.map((dailyEntry) => {
@@ -143,7 +158,7 @@ export default function TimesheetsPage() {
                 const newTaskId = `task-${date.getTime()}-${dailyEntry.tasks.length}`;
                 return {
                     ...dailyEntry,
-                    tasks: [...dailyEntry.tasks, { id: newTaskId, jobId: '', startTime: nextStartTime, finishTime: nextStartTime, duration: '0.0' }]
+                    tasks: [...dailyEntry.tasks, { id: newTaskId, jobId: '', startTime: nextStartTime, finishTime: nextStartTime, duration: '0.0', note: '' }]
                 }
             }
             return dailyEntry;
@@ -166,23 +181,40 @@ export default function TimesheetsPage() {
       )
   }
 
-  const totalHours = useMemo(() => {
-    return timesheet.reduce((total, dailyEntry) => {
-        const dailyTotal = dailyEntry.tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
-        return total + dailyTotal;
-    }, 0);
+  const weeklyTotals = useMemo(() => {
+    let regular = 0;
+    let overtime = 0;
+    let banked = 0;
+
+    timesheet.forEach(day => {
+        const dailyTotal = day.tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
+        if (dailyTotal > OT_THRESHOLD) {
+            const ot = dailyTotal - OT_THRESHOLD;
+            regular += OT_THRESHOLD;
+            if (day.bankOvertime) {
+                banked += ot;
+            } else {
+                overtime += ot;
+            }
+        } else {
+            regular += dailyTotal;
+        }
+    });
+
+    return { regular, overtime, banked, total: regular + overtime + banked };
   }, [timesheet]);
+
 
   const handleSubmit = () => {
     console.log("Submitting timesheet:", {
       period: `${format(timesheet[0].date, 'dd MMM yyyy')} - ${format(timesheet[timesheet.length - 1].date, 'dd MMM yyyy')}`,
-      totalHours,
+      totals: weeklyTotals,
       entries: timesheet,
     });
 
     toast({
       title: 'Timesheet Submitted',
-      description: `You have successfully submitted ${totalHours.toFixed(2)} hours.`,
+      description: `You have successfully submitted ${weeklyTotals.total.toFixed(2)} hours.`,
     });
   };
 
@@ -208,71 +240,100 @@ export default function TimesheetsPage() {
                 </div>
             ) : (
                 <Accordion type="single" collapsible defaultValue={defaultOpenValue} className="w-full">
-                    {timesheet.map(({ date, tasks }) => {
-                        const dayTotal = tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
+                    {timesheet.map(({ date, tasks, bankOvertime }) => {
+                        const dailyTotal = tasks.reduce((acc, task) => acc + (parseFloat(task.duration) || 0), 0);
+                        const dailyOT = Math.max(0, dailyTotal - OT_THRESHOLD);
+
                         return (
                             <AccordionItem value={format(date, 'yyyy-MM-dd')} key={date.toISOString()}>
                                 <AccordionTrigger>
                                     <div className="flex justify-between w-full pr-4">
                                         <span>{format(date, 'EEEE, MMM dd')}</span>
-                                        <span className="text-muted-foreground">{dayTotal > 0 ? `${dayTotal.toFixed(2)} hrs` : 'No hours'}</span>
+                                        <div className="flex items-center gap-4 text-sm">
+                                            {dailyOT > 0 && <span className="font-semibold text-yellow-500">{dailyOT.toFixed(2)} hrs OT</span>}
+                                            <span className="text-muted-foreground">{dailyTotal > 0 ? `${dailyTotal.toFixed(2)} hrs` : 'No hours'}</span>
+                                        </div>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent>
-                                <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
-                                    {tasks.map((task) => (
-                                        <div key={task.id} className="grid grid-cols-12 gap-2 items-center">
-                                            <div className="col-span-12 md:col-span-5">
-                                                <Combobox
-                                                    options={jobOptions}
-                                                    value={task.jobId}
-                                                    onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}
-                                                    placeholder="Search jobs or select non-billable..."
-                                                />
+                                    <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
+                                        {tasks.map((task, index) => (
+                                            <div key={task.id} className="grid grid-cols-12 gap-2 items-start">
+                                                <div className="col-span-12 md:col-span-5 space-y-1">
+                                                     {index === 0 && <Label className="text-xs ml-1">Job/Task</Label>}
+                                                    <Combobox
+                                                        options={jobOptions}
+                                                        value={task.jobId}
+                                                        onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}
+                                                        placeholder="Search jobs or select non-billable..."
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 md:col-span-2 space-y-1">
+                                                     {index === 0 && <Label className="text-xs ml-1">Start</Label>}
+                                                    <Input
+                                                        type="time"
+                                                        value={task.startTime}
+                                                        onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 md:col-span-2 space-y-1">
+                                                     {index === 0 && <Label className="text-xs ml-1">Finish</Label>}
+                                                    <Input
+                                                        type="time"
+                                                        value={task.finishTime}
+                                                        onChange={(e) => handleTaskChange(date, task.id, 'finishTime', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 md:col-span-1 space-y-1">
+                                                     {index === 0 && <Label className="text-xs ml-1">Hrs</Label>}
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Hrs"
+                                                        value={task.duration}
+                                                        onChange={(e) => handleTaskChange(date, task.id, 'duration', e.target.value)}
+                                                        className="text-right"
+                                                    />
+                                                </div>
+                                                <div className="col-span-9 md:col-span-2 flex items-end">
+                                                     <div className="flex-grow space-y-1">
+                                                         {index === 0 && <Label className="text-xs ml-1">Notes</Label>}
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Notes"
+                                                            value={task.note}
+                                                            onChange={(e) => handleTaskChange(date, task.id, 'note', e.target.value)}
+                                                        />
+                                                     </div>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        onClick={() => removeTask(date, task.id)}
+                                                        disabled={tasks.length <= 1}
+                                                        aria-label="Remove task"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <Input
-                                                    type="time"
-                                                    value={task.startTime}
-                                                    onChange={(e) => handleTaskChange(date, task.id, 'startTime', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <Input
-                                                    type="time"
-                                                    value={task.finishTime}
-                                                    onChange={(e) => handleTaskChange(date, task.id, 'finishTime', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Duration"
-                                                    value={task.duration}
-                                                    onChange={(e) => handleTaskChange(date, task.id, 'duration', e.target.value)}
-                                                    className="text-right"
-                                                />
-                                            </div>
-                                            <div className="col-span-3 md:col-span-1 flex justify-end">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    onClick={() => removeTask(date, task.id)}
-                                                    disabled={tasks.length <= 1}
-                                                    aria-label="Remove task"
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </div>
+                                        ))}
+                                        <Separator className="my-3"/>
+                                        <div className="flex items-center justify-between pt-2">
+                                            <Button variant="outline" size="sm" onClick={() => addTask(date)}>
+                                                <PlusCircle className="mr-2 h-4 w-4" />
+                                                Add Task
+                                            </Button>
+                                            {dailyOT > 0 && (
+                                                <div className="flex items-center space-x-2">
+                                                    <Switch
+                                                        id={`bank-ot-${date.toISOString()}`}
+                                                        checked={bankOvertime}
+                                                        onCheckedChange={(checked) => handleBankOvertimeChange(date, checked)}
+                                                    />
+                                                    <Label htmlFor={`bank-ot-${date.toISOString()}`}>Bank Overtime</Label>
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                    <div className="pt-2">
-                                        <Button variant="outline" size="sm" onClick={() => addTask(date)}>
-                                            <PlusCircle className="mr-2 h-4 w-4" />
-                                            Add Task
-                                        </Button>
                                     </div>
-                                </div>
                                 </AccordionContent>
                             </AccordionItem>
                         )
@@ -281,9 +342,32 @@ export default function TimesheetsPage() {
             )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-lg">
-                <span className="text-muted-foreground">Total Weekly Hours:</span>
-                <span className="font-bold ml-2">{totalHours.toFixed(2)}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-center text-sm">
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground"/>
+                    <div>
+                        <span className="font-bold">{weeklyTotals.regular.toFixed(2)}</span>
+                        <span className="text-muted-foreground"> hrs</span>
+                    </div>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <span className="font-bold text-yellow-500">OT</span>
+                    <div>
+                        <span className="font-bold">{weeklyTotals.overtime.toFixed(2)}</span>
+                        <span className="text-muted-foreground"> hrs</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-muted-foreground"/>
+                     <div>
+                        <span className="font-bold">{weeklyTotals.banked.toFixed(2)}</span>
+                        <span className="text-muted-foreground"> hrs</span>
+                    </div>
+                </div>
+                 <div className="font-bold text-lg">
+                    <span className="text-muted-foreground">Total: </span>
+                    <span>{weeklyTotals.total.toFixed(2)}</span>
+                 </div>
             </div>
             <Button onClick={handleSubmit}>
                 <Save className="mr-2 h-4 w-4" />
