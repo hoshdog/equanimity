@@ -11,6 +11,8 @@ import {
   collectionGroup,
   where,
   Timestamp,
+  getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import type { Quote } from './types';
 
@@ -22,6 +24,16 @@ export async function getQuotes(): Promise<Quote[]> {
     const snapshot = await getDocs(q);
     
     return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Quote));
+}
+
+// Get a single quote
+export async function getQuote(id: string): Promise<Quote | null> {
+    const docRef = doc(db, 'quotes', id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Quote;
+    }
+    return null;
 }
 
 
@@ -50,4 +62,24 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
 
   const newQuoteRef = await addDoc(quotesCollectionRef, dataToSave);
   return newQuoteRef.id;
+}
+
+
+// Update an existing quote
+export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>) {
+  const quoteRef = doc(db, 'quotes', id);
+  const dataToUpdate = { ...quoteData };
+
+  // Convert Date objects back to Timestamps if they exist
+  if (dataToUpdate.quoteDate && dataToUpdate.quoteDate instanceof Date) {
+      dataToUpdate.quoteDate = Timestamp.fromDate(dataToUpdate.quoteDate);
+  }
+   if (dataToUpdate.expiryDate && dataToUpdate.expiryDate instanceof Date) {
+      dataToUpdate.expiryDate = Timestamp.fromDate(dataToUpdate.expiryDate);
+  }
+
+  await updateDoc(quoteRef, {
+    ...dataToUpdate,
+    updatedAt: serverTimestamp(),
+  });
 }

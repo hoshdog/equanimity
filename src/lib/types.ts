@@ -159,9 +159,10 @@ export interface Quote {
     id: string;
     quoteNumber: string;
     projectId: string;
+    projectName: string; // Denormalized for easier display
     customerId: string;
-    quoteDate: Timestamp;
-    expiryDate: Timestamp;
+    quoteDate: Timestamp | Date;
+    expiryDate: Timestamp | Date;
     status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Invoiced';
     lineItems: QuoteLineItem[];
     subtotal: number;
@@ -177,8 +178,8 @@ export interface Quote {
     internalNotes?: string;
     clientNotes?: string;
     version: number;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt?: Timestamp | Date;
+    updatedAt?: Timestamp;
 }
 
 

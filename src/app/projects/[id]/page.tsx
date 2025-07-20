@@ -3,18 +3,19 @@
 
 import { useState, useEffect, useMemo, use } from 'react';
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare, GanttChartSquare } from "lucide-react";
+import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare, GanttChartSquare, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
 import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
-import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
+import { addQuote } from '@/lib/quotes';
 import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -67,6 +68,7 @@ const getQuoteStatusColor = (status: string) => {
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
+  const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -105,7 +107,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     
     const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId));
     const unsubQuotes = onSnapshot(quotesQuery, (snapshot) => {
-        setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
+        setQuotes(snapshot.docs.map(doc => ({
+            id: doc.id, 
+            ...doc.data(),
+            quoteDate: (doc.data().quoteDate as any).toDate(),
+            createdAt: (doc.data().createdAt as any)?.toDate(),
+        } as Quote)));
     });
 
     const poQuery = query(collection(db, 'purchaseOrders'), where('projectId', '==', projectId));
@@ -129,17 +136,28 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     return new Map(employees.map(e => [e.id, e.name]));
   }, [employees]);
 
-  const handleJobCreated = (newJob: Job) => {
-    // Handled by listener
-  };
-  
-  const handleQuoteCreated = (newQuote: Quote) => {
-    // Handled by listener
-  };
+  const handleCreateQuote = async () => {
+    if (!project) return;
+    try {
+        const newQuoteData = {
+            projectId: project.id,
+            customerId: project.customerId,
+            quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
+            quoteDate: new Date(),
+            expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+            status: 'Draft' as const,
+            lineItems: [{ id: 'item-0', description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
+            subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0, version: 1,
+        };
+        const newQuoteId = await addQuote(newQuoteData);
+        toast({ title: "Quote Created", description: "Redirecting to the new quote..." });
+        router.push(`/quotes/${newQuoteId}`);
+    } catch (error) {
+        console.error("Failed to create quote", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to create quote.' });
+    }
+  }
 
-  const handlePOCreated = (newPO: PurchaseOrder) => {
-    // Handled by listener
-  };
 
   if (loading) {
       return (
@@ -228,7 +246,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <CardTitle>Jobs</CardTitle>
                         <CardDescription>All jobs associated with this project.</CardDescription>
                     </div>
-                    <JobFormDialog onJobCreated={handleJobCreated} initialProjectId={projectId} />
+                    <JobFormDialog onJobCreated={() => {}} initialProjectId={projectId} />
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -275,7 +293,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <CardTitle>Quotes</CardTitle>
                         <CardDescription>All quotes and variations for this project.</CardDescription>
                     </div>
-                    <QuoteFormDialog onQuoteCreated={handleQuoteCreated} projectId={projectId} />
+                    <Button onClick={handleCreateQuote}><PlusCircle className="mr-2 h-4 w-4" />New Quote</Button>
                 </CardHeader>
                 <CardContent>
                     {quotes.length > 0 ? (
@@ -290,9 +308,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             </TableHeader>
                             <TableBody>
                                 {quotes.map(quote => (
-                                    <TableRow key={quote.id}>
+                                    <TableRow key={quote.id} onClick={() => router.push(`/quotes/${quote.id}`)} className="cursor-pointer">
                                         <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                                        <TableCell>{format(quote.quoteDate.toDate(), 'PPP')}</TableCell>
+                                        <TableCell>{format(quote.quoteDate, 'PPP')}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={cn(getQuoteStatusColor(quote.status))}>
                                                 {quote.status}
@@ -319,7 +337,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <CardTitle>Purchase Orders</CardTitle>
                         <CardDescription>All purchase orders associated with this project.</CardDescription>
                     </div>
-                    <PurchaseOrderFormDialog onPOCreated={handlePOCreated} initialProjectId={projectId} />
+                    <PurchaseOrderFormDialog onPOCreated={()=>{}} initialProjectId={projectId} />
                 </CardHeader>
                 <CardContent>
                     <Table>
