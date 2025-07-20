@@ -82,28 +82,40 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 pauseTimer();
-            } else {
+            } else if (context) { // Only resume if there's a context
                 resetInactivityTimer();
             }
         };
 
-        window.addEventListener('mousemove', resetInactivityTimer);
-        window.addEventListener('keydown', resetInactivityTimer);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-        // Initial start if context is set
-        if (context) {
+        const handleActivity = () => {
+            if (context) { // Only track activity if there's a context
+                resetInactivityTimer();
+            }
+        };
+
+        // If context is cleared, stop everything.
+        if (!context) {
+            pauseTimer();
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+            setTimeSpent(0); // Reset time when context is cleared
+        } else {
+            // If context is set, start tracking activity.
             resetInactivityTimer();
         }
 
+
+        window.addEventListener('mousemove', handleActivity);
+        window.addEventListener('keydown', handleActivity);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
         return () => {
-            window.removeEventListener('mousemove', resetInactivityTimer);
-            window.removeEventListener('keydown', resetInactivityTimer);
+            window.removeEventListener('mousemove', handleActivity);
+            window.removeEventListener('keydown', handleActivity);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (intervalRef.current) clearInterval(intervalRef.current);
             if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         };
-    }, [resetInactivityTimer, pauseTimer, context]);
+    }, [context, resetInactivityTimer, pauseTimer]);
 
     const logTime = async () => {
         const user = auth.currentUser;
