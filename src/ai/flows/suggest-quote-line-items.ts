@@ -1,69 +1,85 @@
-// src/ai/flows/suggest-quote-line-items.ts
+
 'use server';
 /**
  * @fileOverview An AI agent that suggests a full list of line items (parts and labor) for a quote.
  * It uses the project description, user prompt, uploaded documents (RFQs, plans), and previous quotes as context.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 
-// Schemas are defined locally within the 'use server' file. They are NOT exported.
+// Input schema defines the expected shape of data passed to the AI prompt
 const SuggestQuoteLineItemsInputSchema = z.object({
-  userPrompt: z
-    .string()
-    .describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
-  uploadedDocuments: z.array(
+  userPrompt: z.string().describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
+  uploadedDocuments: z
+    .array(
       z.object({
-        dataUri: z.string().describe("A document (plan, RFQ, etc.) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+        dataUri: z
+          .string()
+          .describe(
+            "A document (plan, RFQ, etc.) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+          ),
         fileName: z.string(),
       })
-    ).optional().describe('An array of uploaded documents for context.'),
-  previousQuotesContext: z.array(z.string()).optional().describe('An array of strings, each containing JSON data for a previous, similar quote.'),
+    )
+    .optional()
+    .describe('An array of uploaded documents for context.'),
+  previousQuotesContext: z
+    .array(z.string())
+    .optional()
+    .describe('An array of strings, each containing JSON data for a previous, similar quote.'),
   partsCatalogue: z
     .array(
       z.object({
         partNumber: z.string(),
         description: z.string(),
-        suppliers: z.array(
-          z.object({
-            supplier: z.string(),
-            tradePrice: z.number(),
-          })
-        ),
+        suppliers: z
+          .array(
+            z.object({
+              supplier: z.string(),
+              tradePrice: z.number(),
+            })
+          )
       })
-    ).describe('The entire parts catalogue available for quoting.'),
-  quotingProfile: z.any().describe("The selected quotingProfile containing rules, rates, and persona."),
+    )
+    .describe('The entire parts catalogue available for quoting.'),
+  quotingProfile: z
+    .object({
+      persona: z.string().optional(),
+      defaults: z.object({ desiredMargin: z.number() }),
+      instructions: z.string().optional(),
+      laborRates: z.any(),
+      materialAndServiceRates: z.any(),
+    })
+    .describe('The selected quotingProfile containing rules, rates, and persona.'),
 });
 
-const SuggestQuoteLineItemsOutputSchema = z.string().describe("A formatted text block containing the suggested line items, reasoning, and a disclaimer. Use markdown for clarity.");
+// Output is a markdown-formatted string with line items
+const SuggestQuoteLineItemsOutputSchema = z
+  .string()
+  .describe(
+    'A formatted markdown text block containing the suggested line items, reasoning, and a disclaimer.'
+  );
 
+export type SuggestQuoteLineItemsInput = z.infer<
+  typeof SuggestQuoteLineItemsInputSchema
+>;
+export type SuggestQuoteLineItemsOutput = z.infer<
+  typeof SuggestQuoteLineItemsOutputSchema
+>;
 
-// Export the TYPES, not the schema objects themselves.
-export type SuggestQuoteLineItemsInput = z.infer<typeof SuggestQuoteLineItemsInputSchema>;
-export type SuggestQuoteLineItemsOutput = z.infer<typeof SuggestQuoteLineItemsOutputSchema>;
-
-
-// This is the only function exported from this server module.
-export async function suggestQuoteLineItems(
-  input: SuggestQuoteLineItemsInput
-): Promise<SuggestQuoteLineItemsOutput> {
-  return suggestQuoteLineItemsFlow(input);
-}
-
-
-// The prompt is defined locally and is NOT exported.
-// It now correctly includes the input and output schemas.
+// Define the prompt with explicit schema fields (hash will now be generated correctly)
 const prompt = ai.definePrompt({
   name: 'suggestQuoteLineItemsPrompt',
-  input: {schema: SuggestQuoteLineItemsInputSchema},
-  output: {schema: SuggestQuoteLineItemsOutputSchema},
+  inputSchema: SuggestQuoteLineItemsInputSchema,
+  outputSchema: SuggestQuoteLineItemsOutputSchema,
   prompt: `{{#if quotingProfile.persona}}
 {{quotingProfile.persona}}
 {{else}}
 You are an expert quote estimator for a services business.
 {{/if}}
+
 Your task is to analyze a job description, reference documents, past quotes, and available parts/labor to create a comprehensive list of line items for a new quote.
 
 **Job Information & User Prompt:**
@@ -89,30 +105,43 @@ Your task is to analyze a job description, reference documents, past quotes, and
 - Special Instructions: {{quotingProfile.instructions}}
 
 **Available Parts & Labor Rates (from Profile):**
-- Parts Catalogue: \`\`\`json {{{json stringify=partsCatalogue}}} \`\`\`
-- Labor Rates: \`\`\`json {{{json stringify=quotingProfile.laborRates}}} \`\`\`
-- Material/Service Rates: \`\`\`json {{{json stringify=quotingProfile.materialAndServiceRates}}} \`\`\`
+- Parts Catalogue: \`\`\`json
+{{{json stringify=partsCatalogue}}}
+\`\`\`
+- Labor Rates: \`\`\`json
+{{{json stringify=quotingProfile.laborRates}}}
+\`\`\`
+- Material/Service Rates: \`\`\`json
+{{{json stringify=quotingProfile.materialAndServiceRates}}}
+\`\`\`
 
 **Instructions:**
-1.  **Analyze all inputs**: Carefully read the user prompt and analyze the content of any uploaded documents (text from RFQs, details from plans, etc.). Use the past quotes as a reference for how similar jobs were quoted. Adhere to the persona and special instructions from the Quoting Profile.
-2.  **Identify Parts**: From the Parts Catalogue, identify all necessary parts. Determine a reasonable quantity for each. Use the trade price from the catalogue as the cost.
-3.  **Estimate Labor**: From the available Labor Rates, determine the type and quantity (in hours) of labor required. Use the provided cost and standard rates for costing.
-4.  **Calculate Sell Price**: For each line item, calculate the sell price by applying the 'Desired Margin' from the Quoting Profile to the cost. The formula is: Sell Price = Cost / (1 - (Margin / 100)).
-5.  **Format Output**: Create a single block of text. Use markdown for headings and lists. Start with a "### Reasoning" section explaining your choices. Then, create a "### Suggested Line Items" section with a clear list of parts and labor. Finally, include a "### Disclaimer" section with the text: "These suggestions are generated by AI and are intended as a starting point. They may not be fully accurate or complete. Please review all line items, quantities, and prices carefully before sending to the client."
+1.  **Analyze all inputs**: Carefully read the user prompt and analyze the content of any uploaded documents. Use past quotes as reference. Adhere to persona and special instructions.
+2.  **Identify Parts**: From the Parts Catalogue, identify all necessary parts and reasonable quantities using tradePrice.
+3.  **Estimate Labor**: Use provided Labor Rates to determine type and hours of labor required.
+4.  **Calculate Sell Price**: Sell Price = Cost / (1 - (Margin / 100)).
+5.  **Format Output**: Provide markdown with sections: "### Reasoning", "### Suggested Line Items", and "### Disclaimer".
 
-Format the entire output as a single string of text.
+Format as a single string.
 `,
 });
 
-// The flow is defined locally and is NOT exported.
-const suggestQuoteLineItemsFlow = ai.defineFlow(
+// Define the flow using the same schemas
+export const suggestQuoteLineItemsFlow = ai.defineFlow(
   {
     name: 'suggestQuoteLineItemsFlow',
     inputSchema: SuggestQuoteLineItemsInputSchema,
     outputSchema: SuggestQuoteLineItemsOutputSchema,
   },
-  async (input) => {
+  async (input: SuggestQuoteLineItemsInput) => {
     const { output } = await prompt(input);
     return output!;
   }
 );
+
+// Exposed server function
+export async function suggestQuoteLineItems(
+  input: SuggestQuoteLineItemsInput
+): Promise<SuggestQuoteLineItemsOutput> {
+  return suggestQuoteLineItemsFlow(input);
+}
