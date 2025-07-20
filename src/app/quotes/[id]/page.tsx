@@ -23,8 +23,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { updateQuote } from '@/lib/quotes';
@@ -32,13 +30,14 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save } from 'lucide-react';
+import { format } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { jobStaffRoles } from '@/lib/types';
+import { PartSelectorDialog } from './part-selector-dialog';
 
 
 const lineItemSchema = z.object({
@@ -116,8 +115,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         reset({
             ...quoteData,
             quoteDate: quoteData.quoteDate?.toDate() || new Date(),
-            dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
-            expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
+            dueDate: quoteData.dueDate?.toDate() || new Date(new Date().setDate(new Date().getDate() + 14)),
+            expiryDate: quoteData.expiryDate?.toDate() || new Date(new Date().setDate(new Date().getDate() + 30)),
         });
     }, [reset]);
 
@@ -238,12 +237,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                         <CardTitle>
+                        <CardTitle>
                             {customer?.name || 'No Customer Selected'}
                             {project && <span className="text-muted-foreground"> / {project.name}</span>}
                         </CardTitle>
                         <CardDescription>
-                           Review or edit the core details for this quote.
+                           Core details, dates, and links for this quote.
                         </CardDescription>
                     </div>
                      <div className="flex gap-2">
@@ -276,7 +275,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input value={form.getValues('quoteNumber')} readOnly /></FormControl></FormItem>
                                 <FormItem><FormLabel>Quote Date</FormLabel><FormControl><Input readOnly value={form.getValues('quoteDate') ? format(form.getValues('quoteDate'), 'PPP') : 'N/A'} /></FormControl></FormItem>
-                                <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                                <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><FormControl><Input readOnly value={field.value ? format(field.value, 'PPP') : 'N/A'} /></FormControl><FormMessage /></FormItem>)}/>
                                 <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
                             </div>
                         </div>
@@ -305,9 +304,23 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Parts & Materials</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Part', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>Add Part
-                        </Button>
+                        <PartSelectorDialog
+                            onPartSelected={(part) => {
+                                appendLineItem({
+                                    id: `item-${lineItemFields.length}`,
+                                    type: 'Part',
+                                    description: part.description,
+                                    quantity: part.quantity,
+                                    unitCost: part.unitCost,
+                                    unitPrice: part.unitPrice,
+                                    taxRate: 10,
+                                });
+                            }}
+                        >
+                             <Button type="button" variant="outline" size="sm">
+                                <PlusCircle className="mr-2 h-4 w-4"/>Add Part
+                            </Button>
+                        </PartSelectorDialog>
                     </CardHeader>
                     <CardContent className="space-y-2">
                          <div className="grid grid-cols-12 gap-2 px-2">
@@ -318,26 +331,27 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
                         </div>
                         {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
-                             if (lineItemFields[index].type !== 'Part') return null;
+                             const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                             if (lineItemFields[originalIndex].type !== 'Part') return null;
                              return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-12 sm:col-span-5">
-                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
                                             <FormField
                                                 control={form.control}
-                                                name={`lineItems.${index}.taxRate`}
+                                                name={`lineItems.${originalIndex}.taxRate`}
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
@@ -352,7 +366,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             />
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
                              )
                         }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
@@ -375,14 +389,15 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
                         </div>
                         {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
-                             if (lineItemFields[index].type !== 'Labour') return null;
+                              const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                             if (lineItemFields[originalIndex].type !== 'Labour') return null;
                              return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-12 sm:col-span-5">
                                             <FormField
                                                 control={form.control}
-                                                name={`lineItems.${index}.description`}
+                                                name={`lineItems.${originalIndex}.description`}
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <Select
@@ -390,8 +405,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                                 field.onChange(value);
                                                                 const selectedRate = laborRateOptions.find(opt => opt.value === value);
                                                                 if (selectedRate) {
-                                                                    setValue(`lineItems.${index}.unitCost`, selectedRate.calculatedCostRate);
-                                                                    setValue(`lineItems.${index}.unitPrice`, selectedRate.standardRate);
+                                                                    setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
+                                                                    setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
                                                                 }
                                                             }}
                                                             value={field.value}
@@ -415,18 +430,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             />
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
                                             <FormField
                                                 control={form.control}
-                                                name={`lineItems.${index}.taxRate`}
+                                                name={`lineItems.${originalIndex}.taxRate`}
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
@@ -441,7 +456,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             />
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
                              )
                         }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
