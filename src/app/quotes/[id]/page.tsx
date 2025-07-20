@@ -633,49 +633,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         </CardFooter>
                     )}
                 </Card>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-6 pt-6">
-                <Card>
-                    <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                        <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Attachments</CardTitle>
-                        <CardDescription>Upload relevant documents, plans, or photos.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                       <Button asChild variant="outline" className="w-full" disabled={isUploading}>
-                           <label htmlFor="file-upload">
-                               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                               {isUploading ? 'Uploading...' : 'Upload File'}
-                           </label>
-                       </Button>
-                       <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} disabled={isUploading} />
-                       {quote.attachments && quote.attachments.length > 0 ? (
-                        <div className="space-y-2">
-                            {quote.attachments.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
-                                    <div className="flex items-center gap-2 truncate">
-                                        <Paperclip className="h-4 w-4" />
-                                        <span className="truncate">{file.name}</span>
-                                    </div>
-                                    <a href={file.url} target="_blank" rel="noopener noreferrer">
-                                       <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
-                                    </a>
-                                </div>
-                            ))}
-                        </div>
-                       ) : (
-                        <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
-                       )}
-                    </CardContent>
-                </Card>
 
                 <Card>
                     <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
@@ -729,6 +686,47 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 </div>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                        <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Attachments</CardTitle>
+                        <CardDescription>Upload relevant documents, plans, or photos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                       <Button asChild variant="outline" className="w-full" disabled={isUploading}>
+                           <label htmlFor="file-upload">
+                               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                               {isUploading ? 'Uploading...' : 'Upload File'}
+                           </label>
+                       </Button>
+                       <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} disabled={isUploading} />
+                       {quote.attachments && quote.attachments.length > 0 ? (
+                        <div className="space-y-2">
+                            {quote.attachments.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
+                                    <div className="flex items-center gap-2 truncate">
+                                        <Paperclip className="h-4 w-4" />
+                                        <span className="truncate">{file.name}</span>
+                                    </div>
+                                    <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                       <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                       ) : (
+                        <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
+                       )}
                     </CardContent>
                 </Card>
             </div>
