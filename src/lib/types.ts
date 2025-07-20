@@ -158,10 +158,13 @@ export interface QuoteLineItem {
 export interface Quote {
     id: string;
     quoteNumber: string;
+    name: string;
+    description: string;
     projectId: string;
     projectName: string; // Denormalized for easier display
     customerId: string;
     quoteDate: Timestamp | Date;
+    dueDate: Timestamp | Date;
     expiryDate: Timestamp | Date;
     status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Invoiced';
     lineItems: QuoteLineItem[];
@@ -169,6 +172,8 @@ export interface Quote {
     totalDiscount: number;
     totalTax: number;
     totalAmount: number; // This is the final grand total
+    projectContacts: ProjectContact[];
+    assignedStaff: AssignedStaff[];
     prompt?: string; // The AI prompt that may have generated it
     // From AI Flow
     lineItemsFromAI?: GenerateQuoteFromPromptOutput['lineItems'];

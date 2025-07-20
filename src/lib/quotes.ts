@@ -55,6 +55,7 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
   const dataToSave = {
     ...quoteData,
     quoteDate: Timestamp.fromDate(quoteData.quoteDate as Date),
+    dueDate: Timestamp.fromDate(quoteData.dueDate as Date),
     expiryDate: Timestamp.fromDate(quoteData.expiryDate as Date),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -74,7 +75,10 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   if (dataToUpdate.quoteDate && dataToUpdate.quoteDate instanceof Date) {
       dataToUpdate.quoteDate = Timestamp.fromDate(dataToUpdate.quoteDate);
   }
-   if (dataToUpdate.expiryDate && dataToUpdate.expiryDate instanceof Date) {
+  if (dataToUpdate.dueDate && dataToUpdate.dueDate instanceof Date) {
+      dataToUpdate.dueDate = Timestamp.fromDate(dataToUpdate.dueDate);
+  }
+  if (dataToUpdate.expiryDate && dataToUpdate.expiryDate instanceof Date) {
       dataToUpdate.expiryDate = Timestamp.fromDate(dataToUpdate.expiryDate);
   }
 

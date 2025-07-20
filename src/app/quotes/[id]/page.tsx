@@ -1,12 +1,14 @@
-
 // src/app/quotes/[id]/page.tsx
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, use } from 'react';
-import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
+import { use, useEffect, useMemo, useState } from 'react';
+import { useFieldArray, useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import Link from 'next/link';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,17 +22,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import type { Quote, Project } from '@/lib/types';
-import { getQuote, updateQuote } from '@/lib/quotes';
-import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { updateQuote } from '@/lib/quotes';
+import { getCustomerContacts } from '@/lib/customers';
+import { getEmployees } from '@/lib/employees';
+import { getProject } from '@/lib/projects';
+import type { Quote, Project, Contact, Employee, OptionType } from '@/lib/types';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import Link from 'next/link';
-import { onSnapshot, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 
 const lineItemSchema = z.object({
     id: z.string(),
@@ -40,12 +43,27 @@ const lineItemSchema = z.object({
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
 
+const contactAssignmentSchema = z.object({
+    contactId: z.string().min(1, "Please select a contact."),
+    role: z.string().min(2, "Role is required."),
+});
+
+const staffAssignmentSchema = z.object({
+    employeeId: z.string().min(1, "Please select a staff member."),
+    role: z.string().min(2, "Role is required."),
+});
+
 const formSchema = z.object({
   quoteNumber: z.string().min(1, "Quote number is required."),
+  name: z.string().min(3, "Quote name is required."),
+  description: z.string().optional(),
   quoteDate: z.date({ required_error: "Quote date is required." }),
+  dueDate: z.date({ required_error: "Due date is required." }),
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
+  projectContacts: z.array(contactAssignmentSchema).optional(),
+  assignedStaff: z.array(staffAssignmentSchema).optional(),
   paymentTerms: z.string().optional(),
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -53,6 +71,9 @@ const formSchema = z.object({
 }).refine(data => data.expiryDate >= data.quoteDate, {
     message: "Expiry date must be on or after the quote date.",
     path: ["expiryDate"],
+}).refine(data => data.dueDate >= data.quoteDate, {
+    message: "Due date must be on or after the quote date.",
+    path: ["dueDate"],
 });
 
 
@@ -62,6 +83,9 @@ type QuoteFormValues = z.infer<typeof formSchema>;
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: quoteId } = use(params);
     const [quote, setQuote] = useState<Quote | null>(null);
+    const [project, setProject] = useState<Project | null>(null);
+    const [projectContacts, setProjectContacts] = useState<Contact[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
@@ -69,25 +93,39 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         resolver: zodResolver(formSchema),
     });
 
-    const { fields, append, remove, replace } = useFieldArray({
-        control: form.control,
-        name: "lineItems",
-    });
+    const { control } = form;
+
+    const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
+    const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({ control, name: "projectContacts" });
+    const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({ control, name: "assignedStaff" });
     
     useEffect(() => {
         if (!quoteId) return;
         setLoading(true);
-        const unsub = onSnapshot(doc(db, "quotes", quoteId), (doc) => {
+        const unsub = onSnapshot(doc(db, "quotes", quoteId), async (doc) => {
             if (doc.exists()) {
                 const quoteData = { id: doc.id, ...doc.data() } as Quote;
                 setQuote(quoteData);
+
+                if (quoteData.projectId) {
+                    const proj = await getProject(quoteData.projectId);
+                    setProject(proj);
+                    if (proj) {
+                        const contacts = await getCustomerContacts(proj.customerId);
+                        setProjectContacts(contacts);
+                    }
+                }
+                const emps = await getEmployees();
+                setEmployees(emps);
+
                 form.reset({
                     ...quoteData,
                     quoteDate: quoteData.quoteDate.toDate(),
+                    dueDate: quoteData.dueDate.toDate(),
                     expiryDate: quoteData.expiryDate.toDate(),
                 });
                 if (quoteData.lineItems) {
-                    replace(quoteData.lineItems);
+                    replaceLineItems(quoteData.lineItems);
                 }
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Quote not found.' });
@@ -132,6 +170,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             setLoading(false);
         }
     }
+
+    const employeeOptions = useMemo(() => employees.map(e => ({ value: e.id, label: e.name })), [employees]);
+    const projectContactOptions = useMemo(() => projectContacts.map(c => ({ value: c.id, label: c.name })), [projectContacts]);
     
     if (loading) {
         return (
@@ -172,15 +213,62 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 <CardHeader>
                     <CardTitle>Quote Details</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Quote Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <FormField control={form.control} name="quoteNumber" render={({ field }) => ( <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
                         <FormField control={form.control} name="quoteDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Quote Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         <FormField control={form.control} name="expiryDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Expiry Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
                     </div>
                 </CardContent>
             </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Customer Contacts</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                        {contactFields.map((field, index) => (
+                          <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                                <FormField control={control} name={`projectContacts.${index}.contactId`} render={({ field: contactField }) => (
+                                    <FormItem><SearchableCombobox options={projectContactOptions} value={contactField.value} onChange={contactField.onChange} placeholder="Select Contact..." /></FormItem>
+                                )}/>
+                                 <FormField control={control} name={`projectContacts.${index}.role`} render={({ field: roleField }) => (
+                                    <FormItem><Input placeholder="Role on quote" {...roleField} /></FormItem>
+                                )}/>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Contact</Button>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Assigned Staff</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                        {staffFields.map((field, index) => (
+                          <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                                <FormField control={control} name={`assignedStaff.${index}.employeeId`} render={({ field: staffField }) => (
+                                    <FormItem><SearchableCombobox options={employeeOptions} value={staffField.value} onChange={staffField.onChange} placeholder="Select Staff..." /></FormItem>
+                                )}/>
+                                 <FormField control={control} name={`assignedStaff.${index}.role`} render={({ field: roleField }) => (
+                                    <FormItem><Input placeholder="Role on quote" {...roleField} /></FormItem>
+                                )}/>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Staff</Button>
+                    </CardContent>
+                </Card>
+            </div>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Line Items</CardTitle>
@@ -194,7 +282,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-4 sm:col-span-2 text-center">Tax %</Label>
                         </div>
                         <div className="space-y-2">
-                            {fields.map((field, index) => (
+                            {lineItemFields.map((field, index) => (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-12 sm:col-span-6">
@@ -210,11 +298,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)} disabled={lineItemFields.length <= 1}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
                             ))}
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ id: `item-${fields.length}`, description: "", quantity: 1, unitPrice: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, description: "", quantity: 1, unitPrice: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
                     </div>
 
                     <div className="flex justify-end mt-4">

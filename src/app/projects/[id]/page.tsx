@@ -24,7 +24,7 @@ import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
 import { ChatWidget } from './chat-widget';
 import TimelinePage from './timeline/page';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -142,13 +142,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     try {
         const newQuoteData = {
             projectId: project.id,
+            projectName: project.name,
             customerId: project.customerId,
             quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
+            name: `${project.name} - Quote`,
+            description: `Quote for ${project.name}`,
             quoteDate: new Date(),
-            expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+            dueDate: addDays(new Date(), 14),
+            expiryDate: addDays(new Date(), 30),
             status: 'Draft' as const,
             lineItems: [{ id: 'item-0', description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
-            subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0, version: 1,
+            subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
+            projectContacts: [],
+            assignedStaff: [],
+            version: 1,
         };
         const newQuoteId = await addQuote(newQuoteData);
         toast({ title: "Quote Created", description: "Redirecting to the new quote..." });
@@ -282,7 +289,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </Card>
         </TabsContent>
         <TabsContent value="timeline">
-            <TimelinePage params={params} />
+            <TimelinePage projectId={projectId} />
         </TabsContent>
         <TabsContent value="chat">
             <ChatWidget projectId={projectId} />
