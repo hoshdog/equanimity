@@ -1,3 +1,4 @@
+
 // src/lib/quotes.ts
 import { db } from './firebase';
 import {
@@ -13,7 +14,8 @@ import {
   Timestamp,
   getDoc,
   updateDoc,
-  FieldValue,
+  increment,
+  arrayUnion,
 } from 'firebase/firestore';
 import type { Quote } from './types';
 import { auth } from './auth';
@@ -112,8 +114,8 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
 
   await updateDoc(quoteRef, {
     ...dataToUpdate,
-    version: FieldValue.increment(1),
-    revisions: FieldValue.arrayUnion(newRevision),
+    version: increment(1),
+    revisions: arrayUnion(newRevision),
     updatedAt: serverTimestamp(),
     updatedBy: user?.uid || 'system', // Use user ID or fallback to 'system'
   });
