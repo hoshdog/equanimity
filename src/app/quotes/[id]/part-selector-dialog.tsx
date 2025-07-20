@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 interface PartSelectorDialogProps {
@@ -204,29 +205,29 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Select Parts</DialogTitle>
           <DialogDescription>
             Choose items from the catalogue or add a one-off item. Specify quantities and add them to your quote.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
-            <Tabs defaultValue="catalogue">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-hidden">
+          <div className="md:col-span-2 flex flex-col">
+            <Tabs defaultValue="catalogue" className="flex flex-col flex-grow">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="catalogue">From Parts Catalogue</TabsTrigger>
                 <TabsTrigger value="one-off">Add One-Off Item</TabsTrigger>
               </TabsList>
-              <TabsContent value="catalogue">
-                <Card>
-                  <CardContent className="p-0">
+              <TabsContent value="catalogue" className="flex-grow mt-0">
+                <Card className="h-full flex flex-col">
+                  <CardContent className="p-4 flex-grow flex flex-col">
                     {loading ? (
-                      <div className="flex justify-center items-center h-96">
+                      <div className="flex justify-center items-center h-full">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       </div>
                     ) : (
-                      <div className="p-4 md:p-6">
+                      <div className="flex flex-col h-full">
                         <div className="flex gap-4 mb-4">
                           <Input
                             placeholder="Search by description or part number..."
@@ -244,9 +245,10 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div className="rounded-md border">
+                         <ScrollArea className="flex-grow">
+                           <div className="rounded-md border">
                             <Table>
-                               <TableHeader>
+                               <TableHeader className="sticky top-0 bg-secondary z-10">
                                   <TableRow>
                                     <TableHead className="w-12"></TableHead>
                                     <TableHead>Description</TableHead>
@@ -270,7 +272,8 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                                     )}
                                 </TableBody>
                             </Table>
-                         </div>
+                           </div>
+                         </ScrollArea>
                       </div>
                     )}
                   </CardContent>
@@ -304,7 +307,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
             </Tabs>
           </div>
           <div className="md:col-span-1">
-             <Card>
+             <Card className="h-full flex flex-col">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5 text-primary" />
@@ -314,7 +317,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                         These items will be added to the quote.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2 max-h-[450px] overflow-y-auto">
+                <CardContent className="space-y-2 flex-grow overflow-y-auto">
                     {selectedPartsArray.length > 0 ? (
                         selectedPartsArray.map(([key, {part, supplierInfo, quantity}]) => (
                            <div key={key} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
@@ -336,7 +339,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
              </Card>
           </div>
         </div>
-        <DialogFooter className="pt-6 border-t">
+        <DialogFooter className="pt-6 border-t mt-auto">
           <DialogClose asChild>
             <Button type="button" variant="secondary">Cancel</Button>
           </DialogClose>
@@ -380,13 +383,11 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
         <React.Fragment>
             <TableRow data-state={isOpen ? 'open' : 'closed'}>
                 <TableCell className="w-12">
-                     <Collapsible>
-                        <CollapsibleTrigger asChild>
-                           <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
-                                <ChevronRight className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-90" />
-                            </Button>
-                        </CollapsibleTrigger>
-                     </Collapsible>
+                     <CollapsibleTrigger asChild>
+                       <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
+                            <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
+                        </Button>
+                     </CollapsibleTrigger>
                 </TableCell>
                 <TableCell>
                     <p className="font-medium">{part.description}</p>
@@ -404,25 +405,23 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </div>
                 </TableCell>
             </TableRow>
-             {isOpen && (
-                <TableRow>
+             <CollapsibleContent asChild>
+                <tr className="bg-secondary/20">
                      <TableCell colSpan={4} className="p-0">
-                        <Collapsible>
-                             <CollapsibleContent className="p-2 bg-secondary/50 space-y-1">
-                                {sortedSuppliers.map((supplier, index) => (
-                                    <SupplierRow 
-                                        key={supplier.supplier} 
-                                        supplier={supplier} 
-                                        part={part} 
-                                        isCheapest={index === 0}
-                                        onSelect={onSelect}
-                                    />
-                                ))}
-                            </CollapsibleContent>
-                        </Collapsible>
+                        <div className="p-2 space-y-1">
+                            {sortedSuppliers.map((supplier, index) => (
+                                <SupplierRow 
+                                    key={supplier.supplier} 
+                                    supplier={supplier} 
+                                    part={part} 
+                                    isCheapest={index === 0}
+                                    onSelect={onSelect}
+                                />
+                            ))}
+                        </div>
                     </TableCell>
-                </TableRow>
-            )}
+                </tr>
+            </CollapsibleContent>
         </React.Fragment>
     )
 }
