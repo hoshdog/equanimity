@@ -9,11 +9,11 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Job, Employee, OptionType } from '@/lib/types';
+import type { Project, Job, Employee, OptionType, TimelineItem } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
-import { getJobs } from '@/lib/jobs';
+import { getTimelineItems } from '@/lib/timeline';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel, FormDescription } from '@/components/ui/form';
@@ -78,7 +78,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   const [loading, setLoading] = React.useState(false);
   const [projects, setProjects] = React.useState<OptionType[]>([]);
   const [employees, setEmployees] = React.useState<OptionType[]>([]);
-  const [projectJobs, setProjectJobs] = React.useState<OptionType[]>([]);
+  const [dependencyOptions, setDependencyOptions] = React.useState<OptionType[]>([]);
   const { toast } = useToast();
 
   const form = useForm<JobFormValues>({
@@ -122,20 +122,20 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   }, [isOpen, toast, initialProjectId]);
   
   React.useEffect(() => {
-    async function fetchProjectJobs() {
+    async function fetchProjectDependencies() {
         if (watchedProjectId) {
             setLoading(true);
             try {
-                const jobsData = await getJobs(watchedProjectId);
-                setProjectJobs(jobsData.map(j => ({ value: j.id, label: j.title })));
+                const timelineItems = await getTimelineItems(watchedProjectId);
+                setDependencyOptions(timelineItems.map(item => ({ value: item.id, label: item.name })));
             } catch (error) {
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load jobs for dependencies.' });
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load items for dependencies.' });
             } finally {
                 setLoading(false);
             }
         }
     }
-    fetchProjectJobs();
+    fetchProjectDependencies();
   }, [watchedProjectId, toast]);
 
   React.useEffect(() => {
@@ -229,7 +229,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                             <FormField control={form.control} name="startDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Start Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                             <FormField control={form.control} name="endDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>End Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         </div>
-                        <FormField control={form.control} name="dependencies" render={({ field }) => (<FormItem><FormLabel>Dependencies</FormLabel><MultiSelect options={projectJobs} selected={projectJobs.filter(opt => field.value?.includes(opt.value))} onChange={(selected) => field.onChange(selected.map(s => s.value))} placeholder="Select prerequisite jobs..." /><FormDescription>This job can only start after these jobs are completed.</FormDescription><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="dependencies" render={({ field }) => (<FormItem><FormLabel>Dependencies</FormLabel><MultiSelect options={dependencyOptions} selected={dependencyOptions.filter(opt => field.value?.includes(opt.value))} onChange={(selected) => field.onChange(selected.map(s => s.value))} placeholder="Select prerequisite jobs or tasks..." /><FormDescription>This job can only start after these items are completed.</FormDescription><FormMessage /></FormItem>)}/>
                         <FormField control={form.control} name="isMilestone" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Mark as Milestone</FormLabel><FormDescription>Key milestones are highlighted on the project timeline.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
                     </TabsContent>
                     <TabsContent value="assignment" className="pt-4 space-y-4">
