@@ -129,7 +129,7 @@ Business Rules:
 - Desired Profit Margin: {{{desiredMargin}}}%
 - Pre-calculated Overhead Cost: {{{overheadCost}}} to be added to the total cost base. This is a fixed value, not a percentage.
 - GST (Goods and Services Tax): 10% on the final price before tax.
-- **IMPORTANT**: Do not assume the supply of materials unless the prompt explicitly says "supply and install", "provide", or similar phrasing. If the prompt only says "install", "fix", or "replace", only quote for the labor.
+- **IMPORTANT**: Do not assume the supply of major components unless the prompt explicitly says "supply and install", "provide", or similar phrasing. If the prompt only says "install", "fix", or "replace", only quote for the labor and any necessary consumable materials (e.g., cables, connectors, screws) required to complete the installation.
 {{#if callOutFee}}
 - Call-out Fee: \${{{callOutFee}}}. Apply this if the job appears to be a small service call. If you apply it, ensure it's a line item.
 {{/if}}
