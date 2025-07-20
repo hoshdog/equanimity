@@ -106,7 +106,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
     });
 
-    const poQuery = query(collection(db, 'purchaseOrders'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const poQuery = query(collection(db, 'purchaseOrders'), where('projectId', '==', projectId));
     const unsubPOs = onSnapshot(poQuery, (snapshot) => {
         setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder)));
     });
