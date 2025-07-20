@@ -68,6 +68,13 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
 
     return (
         <div className="grid grid-cols-7 border-t border-l">
+            {/* Weekday Headers */}
+            {weekDays.map(day => (
+                <div key={`header-${day.toString()}`} className="border-b border-r p-2 text-center font-semibold text-muted-foreground">
+                    {format(day, 'EEE')}
+                </div>
+            ))}
+            {/* Day Cells */}
             {weekDays.map(day => (
                 <div key={day.toString()} className="border-b border-r p-2 min-h-48">
                     <div className="font-semibold text-right">{format(day, 'd')}</div>
