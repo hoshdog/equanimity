@@ -447,3 +447,4 @@ function SupplierRow({ part, supplier, isCheapest, onSelect }: { part: Catalogue
         </div>
     )
 }
+
