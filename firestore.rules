@@ -1,87 +1,13 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check for server-set audit fields
-    function isCreate() {
-      return request.resource.data.createdAt == request.time &&
-             request.resource.data.createdBy == request.auth.uid &&
-             request.resource.data.updatedAt == request.time &&
-             request.resource.data.updatedBy == request.auth.uid;
-    }
-
-    function isUpdate() {
-      return request.resource.data.updatedAt == request.time &&
-             request.resource.data.updatedBy == request.auth.uid &&
-             request.resource.data.createdAt == resource.data.createdAt &&
-             request.resource.data.createdBy == resource.data.createdBy;
-    }
-    
-    // Helper function to check immutability of a field
-    function isImmutable(fieldName) {
-      return request.resource.data[fieldName] == resource.data[fieldName];
-    }
-
-    // Allow read access for authenticated users
+    // Allow read/write access to all documents for any authenticated user.
+    // This is a good starting point for development. For production,
+    // you should implement more granular rules.
     match /{document=**} {
-      allow read: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId; // Users can only write to their own profile
-    }
-
-    match /companies/{companyId} {
-      // For now, allow writes for any authenticated user. Refine as needed.
-      allow write: if request.auth != null;
-    }
-    
-    match /counters/{counterId} {
-      // Nobody but backend functions can read or write counters
-      allow read, write: if false;
-    }
-
-    match /projects/{projectId} {
-      allow create: if isCreate();
-      allow update: if isUpdate() && isImmutable('projectCode');
-      allow delete: if request.auth != null; // Restrict as needed
-      
-      // Subcollections
-      match /{allChildren=**} {
-        allow write: if request.auth != null;
-      }
-    }
-    
-    match /jobs/{jobId} {
-        // Jobs are created via backend, so only allow updates
-        allow create: if false; 
-        allow update: if isUpdate() && isImmutable('jobCode');
-        allow delete: if request.auth != null;
-    }
-
-    match /quotes/{quoteId} {
-      // Quotes are created via a transaction/backend function now
-      allow create: if false; 
-      allow update: if isUpdate() && isImmutable('quoteNumber') && isImmutable('version');
-      allow delete: if request.auth != null;
-    }
-    
-     match /purchaseOrders/{poId} {
-      // POs are created via a transaction/backend function now
-      allow create: if false; 
-      allow update: if isUpdate() && isImmutable('poNumber');
-      allow delete: if request.auth != null;
-    }
-    
-    match /stockItems/{itemId} {
-       allow write: if request.auth != null;
-    }
-    
-    match /employees/{empId} {
-       allow write: if request.auth != null;
-    }
-
   }
 }
