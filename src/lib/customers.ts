@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   query,
 } from 'firebase/firestore';
-import type { Customer, Site, Contact, ProjectSummary } from './types';
+import type { Customer, Site, Contact, Project } from './types';
 
 // Main Customers collection
 const customersCollection = collection(db, 'customers');
@@ -45,15 +45,6 @@ export async function getCustomerContacts(customerId: string): Promise<Contact[]
     const snapshot = await getDocs(contactsRef);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
 }
-
-export async function getCustomerProjects(customerId: string): Promise<ProjectSummary[]> {
-    // In a real app, you might query the main 'projects' collection
-    // For now, we'll assume a subcollection if it exists or an empty array
-    const projectsRef = collection(db, 'customers', customerId, 'projects');
-    const snapshot = await getDocs(projectsRef);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProjectSummary));
-}
-
 
 // Add a new customer and their initial contact/site
 export async function addCustomer(customerData: Omit<Customer, 'id'>, initialContact: Omit<Contact, 'id'>, initialSite: Omit<Site, 'id' | 'primaryContactId'>) {
@@ -102,11 +93,4 @@ export async function addContact(customerId: string, contactData: Omit<Contact, 
     const contactsRef = collection(db, 'customers', customerId, 'contacts');
     const newContactRef = await addDoc(contactsRef, contactData);
     return newContactRef.id;
-}
-
-// Add a project to a customer's subcollection (for summary view)
-export async function addProjectToCustomer(customerId: string, projectData: Omit<ProjectSummary, 'id'>) {
-    const projectsRef = collection(db, 'customers', customerId, 'projects');
-    const newProjectRef = await addDoc(projectsRef, projectData);
-    return newProjectRef.id;
 }

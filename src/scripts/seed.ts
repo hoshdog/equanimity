@@ -1,4 +1,3 @@
-
 // scripts/seed.ts
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -37,7 +36,7 @@ const db = getFirestore();
 const mockEmployees = [
     { 
         id: 'EMP001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Project Manager', status: 'Active', 
-        payType: 'Salary', annualSalary: 110000, wage: undefined, calculatedCostRate: 64.91,
+        payType: 'Salary', annualSalary: 110000, wage: undefined, calculatedCostRate: 74.17,
         employmentType: 'Full-time', isOverhead: true, tfn: '111-222-333', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 120, sick: 76, banked: 10 },
         superannuation: { fundName: 'AustralianSuper', memberNumber: 'S1234567T' },
@@ -61,7 +60,7 @@ const mockEmployees = [
     },
     { 
         id: 'EMP004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'HR Specialist', status: 'On Leave', 
-        payType: 'Salary', annualSalary: 85000, wage: undefined, calculatedCostRate: 50.17,
+        payType: 'Salary', annualSalary: 85000, wage: undefined, calculatedCostRate: 57.31,
         employmentType: 'Full-time', isOverhead: true, tfn: '444-555-666', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 10, sick: 5, banked: 0 },
         superannuation: { fundName: 'AustralianSuper', memberNumber: 'S1122334P' },
@@ -69,7 +68,7 @@ const mockEmployees = [
     },
     { 
         id: 'EMP005', name: 'Ethan Hunt', email: 'ethan.h@example.com', role: 'Technician', status: 'Inactive', 
-        payType: 'Casual', wage: 40, annualSalary: undefined, calculatedCostRate: 40.00,
+        payType: 'Casual', wage: 40, annualSalary: undefined, calculatedCostRate: 44.80,
         employmentType: 'Casual', isOverhead: false, tfn: '555-666-777', award: 'Electrical, Electronic and Communications Contracting Award 2020',
         leaveBalances: { annual: 0, sick: 0, banked: 0 },
         superannuation: { fundName: 'Sunsuper', memberNumber: 'U5566778H' },
@@ -85,7 +84,7 @@ const mockEmployees = [
     },
     { 
         id: 'EMP007', name: 'George Costanza', email: 'george.c@example.com', role: 'Sales Manager', status: 'Active', 
-        payType: 'Salary', annualSalary: 95000, wage: undefined, calculatedCostRate: 56.07,
+        payType: 'Salary', annualSalary: 95000, wage: undefined, calculatedCostRate: 64.06,
         employmentType: 'Full-time', isOverhead: true, tfn: '777-888-999', award: 'Clerks - Private Sector Award 2020',
         leaveBalances: { annual: 40, sick: 40, banked: 0 },
         superannuation: { fundName: 'Cbus', memberNumber: 'B1231231C' },
@@ -101,7 +100,7 @@ const mockEmployees = [
     },
     { 
         id: 'EMP009', name: 'Ian Malcolm', email: 'ian.m@example.com', role: 'Compliance Officer', status: 'Active', 
-        payType: 'Salary', annualSalary: 125000, wage: undefined, calculatedCostRate: 73.78,
+        payType: 'Salary', annualSalary: 125000, wage: undefined, calculatedCostRate: 84.28,
         employmentType: 'Full-time', isOverhead: true, tfn: '999-000-111', award: 'Professional Employees Award 2020',
         leaveBalances: { annual: 152, sick: 76, banked: 100 },
         superannuation: { fundName: 'UniSuper', memberNumber: 'U4567890M' },
@@ -109,7 +108,7 @@ const mockEmployees = [
     },
     { 
         id: 'EMP010', name: 'Jane Doe', email: 'jane.d@example.com', role: 'CEO', status: 'Active', 
-        payType: 'Salary', annualSalary: 250000, wage: undefined, calculatedCostRate: 147.56,
+        payType: 'Salary', annualSalary: 250000, wage: undefined, calculatedCostRate: 168.56,
         employmentType: 'Full-time', isOverhead: true, tfn: '000-111-222', award: 'N/A',
         leaveBalances: { annual: 200, sick: 100, banked: 0 },
         superannuation: { fundName: 'Aware Super', memberNumber: 'A1112223D' },
@@ -185,42 +184,34 @@ const mockSites = {
 
 const mockProjects = [
     // Innovate Corp Projects
-    { id: 'PROJ001', name: 'Website Redesign', description: 'Complete overhaul of the corporate website.', customerId: '1', siteId: 'S1A', status: 'In Progress' },
-    { id: 'PROJ002', name: 'Server Upgrade', description: 'Upgrade all production servers.', customerId: '1', siteId: 'S1A', status: 'Completed' },
-    { id: 'PROJ003', name: 'Office Network Setup', description: 'New network infrastructure for Melbourne office.', customerId: '1', siteId: 'S1B', status: 'Planning' },
+    { id: 'PROJ001', name: 'Website Redesign', description: 'Complete overhaul of the corporate website.', customerId: '1', customerName: 'Innovate Corp', siteId: 'S1A', status: 'In Progress' },
+    { id: 'PROJ002', name: 'Server Upgrade', description: 'Upgrade all production servers.', customerId: '1', customerName: 'Innovate Corp', siteId: 'S1A', status: 'Completed' },
+    { id: 'PROJ003', name: 'Office Network Setup', description: 'New network infrastructure for Melbourne office.', customerId: '1', customerName: 'Innovate Corp', siteId: 'S1B', status: 'Planning' },
     // Builders Pty Ltd Projects
-    { id: 'PROJ004', name: 'New Apartment Complex Wiring', description: 'Electrical wiring for a 50-unit complex.', customerId: '2', siteId: 'S2B', status: 'In Progress' },
-    { id: 'PROJ005', name: 'Main Yard Security System', description: 'Install new security cameras and alarm system.', customerId: '2', siteId: 'S2A', status: 'On Hold' },
+    { id: 'PROJ004', name: 'New Apartment Complex Wiring', description: 'Electrical wiring for a 50-unit complex.', customerId: '2', customerName: 'Builders Pty Ltd', siteId: 'S2B', status: 'In Progress' },
+    { id: 'PROJ005', name: 'Main Yard Security System', description: 'Install new security cameras and alarm system.', customerId: '2', customerName: 'Builders Pty Ltd', siteId: 'S2A', status: 'On Hold' },
     // Greenleaf Cafe Projects
-    { id: 'PROJ006', name: 'Kitchen Appliance Test & Tag', description: 'Annual safety check for all kitchen equipment.', customerId: '3', siteId: 'S3A', status: 'Completed' },
-    { id: 'PROJ007', name: 'POS System Upgrade', description: 'Install new Point of Sale hardware and software.', customerId: '3', siteId: 'S3A', status: 'Planning' },
+    { id: 'PROJ006', name: 'Kitchen Appliance Test & Tag', description: 'Annual safety check for all kitchen equipment.', customerId: '3', customerName: 'Greenleaf Cafe', siteId: 'S3A', status: 'Completed' },
+    { id: 'PROJ007', name: 'POS System Upgrade', description: 'Install new Point of Sale hardware and software.', customerId: '3', customerName: 'Greenleaf Cafe', siteId: 'S3A', status: 'Planning' },
     // State Education Dept. Projects
-    { id: 'PROJ008', name: 'Hawkins High CCTV Upgrade', description: 'Upgrade all CCTV cameras to digital IP.', customerId: '4', siteId: 'S4A', status: 'In Progress' },
-    { id: 'PROJ009', name: 'Starcourt Primary PA System', description: 'Install new public address system.', customerId: '4', siteId: 'S4B', status: 'Planning' },
+    { id: 'PROJ008', name: 'Hawkins High CCTV Upgrade', description: 'Upgrade all CCTV cameras to digital IP.', customerId: '4', customerName: 'State Education Dept.', siteId: 'S4A', status: 'In Progress' },
+    { id: 'PROJ009', name: 'Starcourt Primary PA System', description: 'Install new public address system.', customerId: '4', customerName: 'State Education Dept.', siteId: 'S4B', status: 'Planning' },
     // Oceanic Airlines Projects
-    { id: 'PROJ010', name: 'Hangar 5 Lighting Retrofit', description: 'Replace all hangar lighting with LEDs.', customerId: '5', siteId: 'S5A', status: 'Completed' },
+    { id: 'PROJ010', name: 'Hangar 5 Lighting Retrofit', description: 'Replace all hangar lighting with LEDs.', customerId: '5', customerName: 'Oceanic Airlines', siteId: 'S5A', status: 'Completed' },
 ];
 
-const mockJobs = {
-    'PROJ001': [
-        { id: 'JOB001', description: 'Design new homepage mockup', status: 'Completed', technicianId: 'EMP001' },
-        { id: 'JOB002', description: 'Develop frontend components', status: 'In Progress', technicianId: 'EMP006' },
-        { id: 'JOB003', description: 'Setup staging server', status: 'Not Started', technicianId: 'EMP011' },
-    ],
-    'PROJ004': [
-        { id: 'JOB004', description: 'Run conduit for Level 1', status: 'In Progress', technicianId: 'EMP002' },
-        { id: 'JOB005', description: 'Pull cabling for Level 1', status: 'Not Started', technicianId: 'EMP003' },
-        { id: 'JOB006', description: 'Install distribution board', status: 'Not Started', technicianId: 'EMP002' },
-    ],
-    'PROJ006': [
-        { id: 'JOB007', description: 'Test and tag all kitchen appliances', status: 'Completed', technicianId: 'EMP005' },
-    ],
-    'PROJ008': [
-        { id: 'JOB008', description: 'Audit existing camera locations', status: 'Completed', technicianId: 'EMP006' },
-        { id: 'JOB009', description: 'Install Cat6 cabling for new cameras', status: 'In Progress', technicianId: 'EMP008' },
-        { id: 'JOB010', description: 'Mount and configure 10x IP cameras', status: 'Not Started', technicianId: 'EMP006' },
-    ],
-};
+const mockJobs = [
+    { id: 'JOB001', projectId: 'PROJ001', projectName: 'Website Redesign', customerId: '1', customerName: 'Innovate Corp', description: 'Design new homepage mockup', status: 'Completed', technicianId: 'EMP001' },
+    { id: 'JOB002', projectId: 'PROJ001', projectName: 'Website Redesign', customerId: '1', customerName: 'Innovate Corp', description: 'Develop frontend components', status: 'In Progress', technicianId: 'EMP006' },
+    { id: 'JOB003', projectId: 'PROJ001', projectName: 'Website Redesign', customerId: '1', customerName: 'Innovate Corp', description: 'Setup staging server', status: 'Not Started', technicianId: 'EMP002' },
+    { id: 'JOB004', projectId: 'PROJ004', projectName: 'New Apartment Complex Wiring', customerId: '2', customerName: 'Builders Pty Ltd', description: 'Run conduit for Level 1', status: 'In Progress', technicianId: 'EMP002' },
+    { id: 'JOB005', projectId: 'PROJ004', projectName: 'New Apartment Complex Wiring', customerId: '2', customerName: 'Builders Pty Ltd', description: 'Pull cabling for Level 1', status: 'Not Started', technicianId: 'EMP003' },
+    { id: 'JOB006', projectId: 'PROJ004', projectName: 'New Apartment Complex Wiring', customerId: '2', customerName: 'Builders Pty Ltd', description: 'Install distribution board', status: 'Not Started', technicianId: 'EMP002' },
+    { id: 'JOB007', projectId: 'PROJ006', projectName: 'Kitchen Appliance Test & Tag', customerId: '3', customerName: 'Greenleaf Cafe', description: 'Test and tag all kitchen appliances', status: 'Completed', technicianId: 'EMP005' },
+    { id: 'JOB008', projectId: 'PROJ008', projectName: 'Hawkins High CCTV Upgrade', customerId: '4', customerName: 'State Education Dept.', description: 'Audit existing camera locations', status: 'Completed', technicianId: 'EMP006' },
+    { id: 'JOB009', projectId: 'PROJ008', projectName: 'Hawkins High CCTV Upgrade', customerId: '4', customerName: 'State Education Dept.', description: 'Install Cat6 cabling for new cameras', status: 'In Progress', technicianId: 'EMP008' },
+    { id: 'JOB010', projectId: 'PROJ008', projectName: 'Hawkins High CCTV Upgrade', customerId: '4', customerName: 'State Education Dept.', description: 'Mount and configure 10x IP cameras', status: 'Not Started', technicianId: 'EMP006' },
+];
 
 async function seedDatabase() {
     console.log('Starting to seed database with Admin privileges...');
@@ -272,15 +263,17 @@ async function seedDatabase() {
     });
     console.log(`${mockProjects.length} projects queued for seeding.`);
     
-    // Seed Jobs (Subcollection of Projects)
-    Object.entries(mockJobs).forEach(([projectId, jobs]) => {
-        jobs.forEach(job => {
-            const { id, ...jobData } = job;
-            const jobDocRef = db.collection('projects').doc(projectId).collection('jobs').doc(id);
-            batch.set(jobDocRef, jobData);
+    // Seed Jobs (Root Collection)
+    const jobsCollection = db.collection('jobs');
+    mockJobs.forEach(job => {
+        const { id, ...jobData } = job;
+        const jobDocRef = jobsCollection.doc(id);
+        batch.set(jobDocRef, {
+            ...jobData,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`Queued ${jobs.length} jobs for project ${projectId}.`);
     });
+    console.log(`Queued ${mockJobs.length} jobs for seeding.`);
 
 
     try {

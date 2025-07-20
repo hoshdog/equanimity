@@ -78,9 +78,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     if (!projectId) return;
 
     // Listener for project document
-    const unsubProject = onSnapshot(doc(db, 'projects', projectId), async (doc) => {
-      if (doc.exists()) {
-        const projectData = { id: doc.id, ...doc.data() } as Project;
+    const unsubProject = onSnapshot(doc(db, 'projects', projectId), async (projectDoc) => {
+      if (projectDoc.exists()) {
+        const projectData = { id: projectDoc.id, ...projectDoc.data() } as Project;
         setProject(projectData);
         if (projectData.customerId) {
           const customerData = await getCustomer(projectData.customerId);

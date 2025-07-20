@@ -18,14 +18,14 @@ const poCollection = collection(db, 'purchaseOrders');
 
 // Get all POs
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
-    const q = query(poCollection, orderBy('createdAt', 'desc'));
+    const q = query(poCollection); // Removed ordering to avoid index requirement for now
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder));
 }
 
 // Get all POs for a specific project
 export async function getPurchaseOrdersForProject(projectId: string): Promise<PurchaseOrder[]> {
-    const q = query(poCollection, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const q = query(poCollection, where('projectId', '==', projectId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,

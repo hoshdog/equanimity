@@ -9,6 +9,7 @@ import {
   orderBy,
   where,
   getDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import type { Job, Project } from './types';
 
@@ -23,7 +24,7 @@ export async function getJobs(): Promise<Job[]> {
 
 // Get all jobs for a specific project
 export async function getJobsForProject(projectId: string): Promise<Job[]> {
-    const q = query(jobsCollection, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const q = query(jobsCollection, where('projectId', '==', projectId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -48,7 +49,7 @@ export async function addJob(projectId: string, jobData: Omit<Job, 'id' | 'creat
         projectName: projectData.name,
         customerId: projectData.customerId,
         customerName: projectData.customerName,
-        createdAt: new Date(), // Use client-side timestamp for immediate consistency
+        createdAt: serverTimestamp(),
     });
     return newJobRef.id;
 }

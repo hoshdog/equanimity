@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSite, addContact } from '@/lib/customers';
-import type { Customer, Contact, Site, ProjectSummary, OptionType } from '@/lib/types';
+import type { Customer, Contact, Site, Project, OptionType } from '@/lib/types';
 import { Combobox } from '@/components/ui/combobox';
 import { onSnapshot, doc, collection, where, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -44,7 +44,7 @@ const contactSchema = z.object({
   name: z.string().min(2, "Contact name must be at least 2 characters."),
   emails: z.array(z.object({ value: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
   phones: z.array(z.object({ value: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
-  siteId: z.string().optional(),
+  jobTitle: z.string().optional(),
 });
 
 const getStatusColor = (status: string) => {
@@ -63,7 +63,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
@@ -91,8 +91,9 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                     setSelectedSiteId(sitesData[0].id);
                 }
             }),
+            // Query the top-level projects collection
             onSnapshot(query(collection(db, 'projects'), where('customerId', '==', customerId)), (snapshot) => {
-                 setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProjectSummary)));
+                 setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
             })
         ];
 
@@ -113,7 +114,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
 
   const siteForm = useForm<z.infer<typeof siteSchema>>({ resolver: zodResolver(siteSchema), defaultValues: { name: "", address: "", primaryContactId: "" } });
   const projectForm = useForm<z.infer<typeof projectSchema>>({ resolver: zodResolver(projectSchema), defaultValues: { name: "", siteId: "", status: "Planning" } });
-  const contactForm = useForm<z.infer<typeof contactSchema>>({ resolver: zodResolver(contactSchema), defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" } });
+  const contactForm = useForm<z.infer<typeof contactSchema>>({ resolver: zodResolver(contactSchema), defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" } });
 
   const { fields: emailFields, append: appendEmail, remove: removeEmail } = useFieldArray({ control: contactForm.control, name: "emails" });
   const { fields: phoneFields, append: appendPhone, remove: removePhone } = useFieldArray({ control: contactForm.control, name: "phones" });
@@ -145,11 +146,11 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const handleAddContact = async (values: z.infer<typeof contactSchema>) => {
     if (!customer) return;
     try {
-      const contactData = { name: values.name, emails: values.emails.map(e => e.value), phones: values.phones.map(p => p.value) };
+      const contactData = { name: values.name, emails: values.emails.map(e => e.value), phones: values.phones.map(p => p.value), jobTitle: values.jobTitle };
       await addContact(customer.id, contactData);
       toast({ title: "Contact Added", description: `"${values.name}" has been added.` });
       setIsContactDialogOpen(false);
-      contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" });
+      contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" });
     } catch (error) {
        toast({ variant: "destructive", title: "Error", description: "Failed to add contact." });
     }
@@ -184,7 +185,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     );
   }
 
-  const filteredProjects = projects.filter(p => sites.find(s => s.id === selectedSiteId)?.projects?.some(proj => proj.id === p.id));
+  const filteredProjects = projects.filter(p => p.siteId === selectedSiteId);
 
 
   return (
@@ -320,7 +321,6 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                     <CardTitle>All Projects for {customer.name}</CardTitle>
                                     <CardDescription>A list of all projects across all sites for this customer.</CardDescription>
                                 </div>
-                                 {/* Add Project Dialog would go here, but it's more complex with DB */}
                             </CardHeader>
                             <CardContent className="space-y-2">
                                 {projects.length > 0 ? projects.map(project => (
@@ -331,7 +331,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                                     <div className="font-semibold">{project.name}</div>
                                                     <div className={cn("text-sm", getStatusColor(project.status))}>{project.status}</div>
                                                 </div>
-                                                <Badge variant="outline">{sites.find(s => s.projects?.some(p => p.id === project.id))?.name}</Badge>
+                                                <Badge variant="outline">{sites.find(s => s.id === project.siteId)?.name}</Badge>
                                              </CardContent>
                                         </Card>
                                     </Link>
@@ -351,14 +351,15 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                     <CardTitle>Contacts at {customer.name}</CardTitle>
                                     <CardDescription>Manage all contact persons for this customer.</CardDescription>
                                 </div>
-                                <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" }); }}>
+                                <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" }); }}>
                                     <DialogTrigger asChild><Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4"/>New Contact</Button></DialogTrigger>
                                     <DialogContent className="sm:max-w-md">
                                         <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customer.name}.</DialogDescription></DialogHeader>
                                         <Form {...contactForm}>
                                           <form onSubmit={contactForm.handleSubmit(handleAddContact)} className="space-y-4">
                                             <FormField control={contactForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                            
+                                            <FormField control={contactForm.control} name="jobTitle" render={({ field }) => ( <FormItem><FormLabel>Job Title (Optional)</FormLabel><FormControl><Input placeholder="e.g., Project Manager" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+
                                             <div>
                                                 <FormLabel>Email Addresses</FormLabel>
                                                 {emailFields.map((field, index) => (

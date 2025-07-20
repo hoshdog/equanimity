@@ -15,7 +15,7 @@ import {
   writeBatch,
   onSnapshot
 } from 'firebase/firestore';
-import type { Project, ProjectSummary, Customer } from './types';
+import type { Project, Customer } from './types';
 import { getCustomer } from './customers';
 
 const projectsCollection = collection(db, 'projects');
@@ -54,28 +54,13 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
         throw new Error("Customer not found for project creation.");
     }
     
-    const batch = writeBatch(db);
-    
-    // 1. Create the main project document with denormalized customer name
-    const newProjectRef = doc(projectsCollection);
-    batch.set(newProjectRef, {
+    const newProjectRef = await addDoc(projectsCollection, {
         ...projectData,
         customerName: customer.name, // Denormalized field
         status: 'Planning',
         createdAt: serverTimestamp(),
     });
 
-    // 2. Add a summary to the customer's subcollection
-    const customerProjectSummaryRef = doc(collection(db, 'customers', projectData.customerId, 'projects'));
-    const projectSummary: ProjectSummary = {
-        id: newProjectRef.id,
-        name: projectData.name,
-        status: 'Planning',
-        value: 0, // Initial value
-    };
-    batch.set(customerProjectSummaryRef, projectSummary);
-
-    await batch.commit();
     return newProjectRef.id;
 }
 
@@ -90,5 +75,6 @@ export async function updateProject(id: string, data: Partial<Project>) {
 export async function deleteProject(id: string) {
   const docRef = doc(db, 'projects', id);
   await deleteDoc(docRef);
-  // Also delete from customer subcollection if needed
+  // In a real app, you would also need to delete associated jobs, quotes, etc.
+  // This is best handled with a Firebase Cloud Function.
 }

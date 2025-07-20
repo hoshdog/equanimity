@@ -22,13 +22,6 @@ export interface Site {
   primaryContactId: string;
 }
 
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  status: string;
-  value: number;
-}
-
 export interface Customer {
   id: string;
   name: string;
@@ -37,12 +30,6 @@ export interface Customer {
   primaryContactName: string;
   email: string;
   phone: string;
-}
-
-export interface CustomerWithSubcollections extends Customer {
-    contacts: Contact[];
-    sites: Site[];
-    projects: ProjectSummary[];
 }
 
 export interface ProjectContact {
