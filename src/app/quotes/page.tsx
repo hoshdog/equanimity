@@ -26,7 +26,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -188,7 +188,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <Tabs defaultValue="core">
-                            <TabsList className="grid w-full grid-cols-3">
+                            <TabsList className="grid w-full grid-cols-3 max-w-lg">
                                 <TabsTrigger value="core">Core Details</TabsTrigger>
                                 <TabsTrigger value="assignment">Assignment</TabsTrigger>
                                 <TabsTrigger value="ai">AI Generation</TabsTrigger>
@@ -199,12 +199,12 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                     name="projectId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Link to Project or Job</FormLabel>
+                                            <FormLabel>Project or Job (Optional)</FormLabel>
                                             <SearchableCombobox
                                                 options={projectOptions}
                                                 value={field.value || ''}
                                                 onChange={field.onChange}
-                                                placeholder="Select a project (optional)..."
+                                                placeholder="Select a project or job..."
                                                 disabled={!!initialProjectId}
                                             />
                                             <FormMessage />
