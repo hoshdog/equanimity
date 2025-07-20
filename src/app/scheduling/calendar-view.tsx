@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronLeft, ChevronRight, Briefcase, Plane, CircleHelp } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from 'date-fns';
 import { ScheduleEvent, Resource } from './data';
 import { cn } from '@/lib/utils';
 import {
@@ -15,6 +15,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Calendar } from '@/components/ui/calendar';
+
 
 interface CalendarViewProps {
   events: ScheduleEvent[];
@@ -54,39 +56,17 @@ function EventCard({ event, resource }: { event: ScheduleEvent, resource?: Resou
     )
 }
 
+function WeekView({ currentDate, events, resources }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[] }) {
+    const weekDays = eachDayOfInterval({
+        start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+        end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+    });
 
-export function CalendarView({ events, resources }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
+    const getEventsForDay = (day: Date) => {
+        return events.filter(event => isSameDay(event.start, day));
+    };
 
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(currentDate, { weekStartsOn: 1 }),
-    end: endOfWeek(currentDate, { weekStartsOn: 1 }),
-  });
-
-  const getEventsForDay = (day: Date) => {
-    return events.filter(event => isSameDay(event.start, day));
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCurrentDate(addDays(currentDate, -7))}>
-                <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <CardTitle>{format(currentDate, 'MMMM yyyy')}</CardTitle>
-             <Button variant="outline" size="icon" onClick={() => setCurrentDate(addDays(currentDate, 7))}>
-                <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
-        </div>
-         <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as any)} >
-            <ToggleGroupItem value="month" aria-label="Month view">Month</ToggleGroupItem>
-            <ToggleGroupItem value="week" aria-label="Week view">Week</ToggleGroupItem>
-        </ToggleGroup>
-      </CardHeader>
-      <CardContent>
+    return (
         <div className="grid grid-cols-7 border-t border-l">
             {weekDays.map(day => (
                 <div key={day.toString()} className="border-b border-r p-2 min-h-48">
@@ -99,6 +79,72 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
                 </div>
             ))}
         </div>
+    );
+}
+
+
+export function CalendarView({ events, resources }: CalendarViewProps) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
+
+  const handleDateChange = (amount: number) => {
+    if (viewMode === 'week') {
+      setCurrentDate(addDays(currentDate, amount));
+    } else {
+      setCurrentDate(addMonths(currentDate, amount));
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => handleDateChange(-1 * (viewMode === 'week' ? 7 : 1))}>
+                <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle>{format(currentDate, 'MMMM yyyy')}</CardTitle>
+             <Button variant="outline" size="icon" onClick={() => handleDateChange(viewMode === 'week' ? 7 : 1)}>
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
+        </div>
+         <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'month' | 'week') => value && setViewMode(value)} >
+            <ToggleGroupItem value="month" aria-label="Month view">Month</ToggleGroupItem>
+            <ToggleGroupItem value="week" aria-label="Week view">Week</ToggleGroupItem>
+        </ToggleGroup>
+      </CardHeader>
+      <CardContent>
+        {viewMode === 'week' ? (
+          <WeekView currentDate={currentDate} events={events} resources={resources} />
+        ) : (
+          <Calendar
+            mode="single"
+            selected={currentDate}
+            onSelect={(date) => date && setCurrentDate(date)}
+            month={currentDate}
+            onMonthChange={setCurrentDate}
+            className="rounded-md border p-0"
+            classNames={{
+              months: 'flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 p-3',
+              month: 'space-y-4 w-full',
+              caption: 'hidden',
+            }}
+            components={{
+              DayContent: ({ date }) => {
+                const dayEvents = events.filter(e => isSameDay(e.start, date));
+                return (
+                  <div className="flex flex-col h-full w-full justify-end p-1 space-y-0.5 overflow-hidden">
+                    {dayEvents.map(event => (
+                      <div key={event.id} className="w-full">
+                        <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              },
+            }}
+          />
+        )}
       </CardContent>
     </Card>
   );
