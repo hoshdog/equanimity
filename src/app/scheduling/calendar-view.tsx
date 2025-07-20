@@ -1,4 +1,3 @@
-
 // src/app/scheduling/calendar-view.tsx
 'use client';
 
@@ -6,8 +5,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { ChevronLeft, ChevronRight, Briefcase, Plane, CircleHelp } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, setHours, setMinutes, differenceInMinutes } from 'date-fns';
+import { ChevronLeft, ChevronRight, Briefcase, Plane } from 'lucide-react';
+import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, setHours, setMinutes, differenceInMinutes, getHours } from 'date-fns';
 import { ScheduleEvent, Resource } from './data';
 import { cn } from '@/lib/utils';
 import {
@@ -50,11 +49,73 @@ function EventCard({ event, resource }: { event: ScheduleEvent, resource?: Resou
                     <p className="font-bold">{event.title}</p>
                     <p>Resource: {resource?.title}</p>
                     <p>Status: <span className="capitalize">{event.status}</span></p>
-                    <p>Dates: {format(event.start, 'PP')} - {format(event.end, 'PP')}</p>
+                    <p>Dates: {format(event.start, 'p')} - {format(event.end, 'p')}</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
     )
+}
+
+function DayView({ currentDate, events, resources }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[] }) {
+    const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
+    const ROW_HEIGHT = 60;
+
+    const dayEvents = events.filter(event => isSameDay(event.start, currentDate));
+
+    return (
+      <div className="grid grid-cols-[auto_1fr] border-t border-l">
+        {/* Time column */}
+        <div className="border-r">
+          <div className="h-10 border-b">&nbsp;</div> {/* Header spacer */}
+          {hours.map(hour => (
+            <div key={hour} className="h-[60px] text-right pr-2 text-xs text-muted-foreground border-b flex items-center justify-end">
+              {format(setMinutes(setHours(new Date(), hour), 0), 'ha')}
+            </div>
+          ))}
+        </div>
+
+        {/* Day grid */}
+        <div className="grid grid-cols-1">
+          {/* Day Header */}
+          <div className="border-b border-r p-2 text-center font-semibold text-muted-foreground h-10">
+              <span className="text-xs">{format(currentDate, 'EEE')}</span>
+              <p>{format(currentDate, 'd')}</p>
+          </div>
+          
+          {/* Day Cell */}
+          <div className="border-r relative">
+            {/* Background hour lines */}
+            {hours.map(hour => (
+              <div key={`line-${currentDate.toString()}-${hour}`} className="h-[60px] border-b"></div>
+            ))}
+            
+            {/* Events */}
+            {dayEvents.map(event => {
+                const eventStartMinutes = getHours(event.start) * 60 + event.start.getMinutes() - (7 * 60);
+                const eventDurationMinutes = differenceInMinutes(event.end, event.start);
+
+                const top = (eventStartMinutes / 60) * ROW_HEIGHT;
+                const height = (eventDurationMinutes / 60) * ROW_HEIGHT;
+
+                if (top < 0) return null; // Don't render events that start before the view
+
+              return (
+                 <div
+                    key={event.id}
+                    className="absolute w-full px-1"
+                    style={{
+                        top: `${top}px`,
+                        height: `${height}px`,
+                    }}
+                 >
+                     <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
+                 </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    );
 }
 
 function WeekView({ currentDate, events, resources }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[] }) {
@@ -69,7 +130,6 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
         return events.filter(event => isSameDay(event.start, day));
     };
     
-    // Each hour represents 60px in height for positioning
     const ROW_HEIGHT = 60; 
 
     return (
@@ -106,11 +166,9 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
                 
                 {/* Events */}
                 {dayEvents.map(event => {
-                  const dayStart = setMinutes(setHours(new Date(), 7), 0); // 7 AM
-                  const eventStartMinutes = differenceInMinutes(event.start, setHours(event.start, 7));
+                  const eventStartMinutes = getHours(event.start) * 60 + event.start.getMinutes() - (7 * 60);
                   const eventDurationMinutes = differenceInMinutes(event.end, event.start);
                   
-                  // Calculate top and height based on a 60px row height per hour
                   const top = (eventStartMinutes / 60) * ROW_HEIGHT;
                   const height = (eventDurationMinutes / 60) * ROW_HEIGHT;
 
@@ -140,11 +198,14 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
 
 export function CalendarView({ events, resources }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
 
-  const handleDateChange = (amount: number) => {
-    if (viewMode === 'week') {
+  const handleDateChange = (direction: 'next' | 'prev') => {
+    const amount = direction === 'next' ? 1 : -1;
+    if (viewMode === 'day') {
       setCurrentDate(addDays(currentDate, amount));
+    } else if (viewMode === 'week') {
+      setCurrentDate(addDays(currentDate, amount * 7));
     } else {
       setCurrentDate(addMonths(currentDate, amount));
     }
@@ -154,23 +215,26 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => handleDateChange(-1 * (viewMode === 'week' ? 7 : 1))}>
+            <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             <CardTitle>{format(currentDate, 'MMMM yyyy')}</CardTitle>
-             <Button variant="outline" size="icon" onClick={() => handleDateChange(viewMode === 'week' ? 7 : 1)}>
+             <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                 <ChevronRight className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
         </div>
-         <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'month' | 'week') => value && setViewMode(value)} >
+         <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'month' | 'week' | 'day') => value && setViewMode(value)} >
             <ToggleGroupItem value="month" aria-label="Month view">Month</ToggleGroupItem>
             <ToggleGroupItem value="week" aria-label="Week view">Week</ToggleGroupItem>
+            <ToggleGroupItem value="day" aria-label="Day view">Day</ToggleGroupItem>
         </ToggleGroup>
       </CardHeader>
       <CardContent>
         {viewMode === 'week' ? (
           <WeekView currentDate={currentDate} events={events} resources={resources} />
+        ) : viewMode === 'day' ? (
+           <DayView currentDate={currentDate} events={events} resources={resources} />
         ) : (
           <Calendar
             mode="single"
