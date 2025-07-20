@@ -252,26 +252,27 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                                     form.setValue('siteId', '');
                                                 }}
                                                 placeholder="Select a customer..."
-                                                disabled={!!watchedProjectId}
                                             />
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-                                <FormField
-                                    control={form.control}
-                                    name="siteId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Site</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || sites.length === 0 || !!watchedProjectId}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
-                                                <SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                {!watchedProjectId && (
+                                     <FormField
+                                        control={form.control}
+                                        name="siteId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Site</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || sites.length === 0}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                                    <SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                                  <FormField
                                     control={form.control}
                                     name="projectId"
@@ -283,7 +284,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                                 value={field.value || ''}
                                                 onChange={field.onChange}
                                                 placeholder="Select a project or job..."
-                                                disabled={!!initialProjectId}
+                                                disabled={!watchedCustomerId}
                                             />
                                             <FormMessage />
                                         </FormItem>
