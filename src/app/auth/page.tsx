@@ -77,7 +77,7 @@ export default function AuthPage() {
           errorMessage = 'The email address is not valid.';
           break;
         case 'auth/operation-not-allowed':
-           errorMessage = 'Email/password accounts are not enabled.';
+           errorMessage = 'Email/password sign-in is not enabled. Please enable it in your Firebase project settings.';
            break;
         case 'auth/weak-password':
             errorMessage = 'The password is too weak.';
