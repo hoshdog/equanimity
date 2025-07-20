@@ -63,11 +63,12 @@ export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
 
 // Helper function to reliably get the current user, waiting if necessary.
 async function getCurrentUser(): Promise<User> {
-    const user = auth.currentUser;
+    const authInstance = auth();
+    const user = authInstance.currentUser;
     if (user) return user;
 
     return new Promise((resolve, reject) => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged((user) => {
             unsubscribe();
             if (user) {
                 resolve(user);

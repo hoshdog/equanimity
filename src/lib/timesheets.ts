@@ -11,7 +11,10 @@ import {
   doc,
   Timestamp,
   limit,
+  updateDoc,
+  getDoc,
 } from 'firebase/firestore';
+import { auth } from './auth';
 
 interface TimesheetEntry {
     userId: string;

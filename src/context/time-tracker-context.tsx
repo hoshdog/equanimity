@@ -17,7 +17,6 @@ interface TimeTrackerContextType {
     isTimerActive: boolean;
     context: TrackableContext;
     setContext: (context: TrackableContext) => void;
-    logTime: () => Promise<number>; // Returns the duration in hours
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | null>(null);
@@ -41,8 +40,8 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const timeStore = useRef<Record<string, number>>({});
-    
-    // Use a ref to hold the current timer active state to avoid including it in useCallback dependencies
+    const previousContextRef = useRef<TrackableContext>(null);
+
     const isTimerActiveRef = useRef(isTimerActive);
     isTimerActiveRef.current = isTimerActive;
 
@@ -66,11 +65,13 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         if (inactivityTimerRef.current) {
             clearTimeout(inactivityTimerRef.current);
         }
-        inactivityTimerRef.current = setTimeout(pauseTimer, INACTIVITY_TIMEOUT);
+        if (document.visibilityState === 'visible') {
+            inactivityTimerRef.current = setTimeout(pauseTimer, INACTIVITY_TIMEOUT);
+        }
     }, [pauseTimer]);
 
     const handleActivity = useCallback(() => {
-        if (document.visibilityState === 'visible') {
+         if (document.visibilityState === 'visible') {
             if (!isTimerActiveRef.current) {
                 startTimer();
             }
@@ -79,64 +80,10 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     }, [startTimer, resetInactivityTimer]);
 
 
-    // This effect runs when the context changes.
-    // It's responsible for saving the time from the *previous* context
-    // and setting up the timer for the *new* context.
-    useEffect(() => {
-        const previousContextKey = context ? `${context.type}-${context.id}` : null;
-        
-        // This function will be called on cleanup, which happens just before
-        // the effect runs for the next context, or when the component unmounts.
-        return () => {
-            // If there was a previous context and time was tracked, log it.
-            if (previousContextKey && timeStore.current[previousContextKey] > 0) {
-                 logTime(timeStore.current[previousContextKey], context!);
-                 // Clear the stored time after logging.
-                 timeStore.current[previousContextKey] = 0;
-            }
-
-            // Cleanup for the current context
-            pauseTimer();
-            window.removeEventListener('mousemove', handleActivity);
-            window.removeEventListener('keydown', handleActivity);
-            document.removeEventListener('visibilitychange', handleActivity);
-            if (inactivityTimerRef.current) {
-                clearTimeout(inactivityTimerRef.current);
-            }
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [context]); // This effect now ONLY runs when the context itself changes.
-
-    // This effect manages the current time being tracked in the local state and ref store.
-    useEffect(() => {
-        if (context) {
-            const contextKey = `${context.type}-${context.id}`;
-            // Load saved time for this context or default to 0
-            setTimeSpent(timeStore.current[contextKey] || 0);
-
-             // Set up activity listeners for the new context
-            handleActivity();
-            window.addEventListener('mousemove', handleActivity);
-            window.addEventListener('keydown', handleActivity);
-            document.addEventListener('visibilitychange', handleActivity);
-        } else {
-             setTimeSpent(0);
-        }
-
-    }, [context, handleActivity]);
-
-    // Update the time store ref whenever timeSpent changes
-    useEffect(() => {
-        if (context) {
-            const contextKey = `${context.type}-${context.id}`;
-            timeStore.current[contextKey] = timeSpent;
-        }
-    }, [timeSpent, context]);
-
-
-    const logTime = async (durationInSeconds: number, contextToLog: TrackableContext): Promise<number> => {
-        const user = auth.currentUser;
-        if (durationInSeconds < 1 || !user || !contextToLog) {
+    const logTime = useCallback(async (durationInSeconds: number, contextToLog: TrackableContext) => {
+        const authInstance = auth();
+        const user = authInstance.currentUser;
+        if (durationInSeconds < 60 || !user || !contextToLog) { // Only log if more than a minute
             return 0;
         }
 
@@ -163,23 +110,65 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             toast({ variant: 'destructive', title: 'Error', description: 'Could not log time entry.' });
             return 0;
         }
-    };
+    }, [toast]);
     
-    // A function to manually trigger logging, though it won't be used if the button is removed.
-    // Kept for potential future use or for other parts of the app.
-    const manualLogTime = async (): Promise<number> => {
-        if (isTimerActive) {
-            pauseTimer();
+    // Main effect to manage context changes
+    useEffect(() => {
+        // Log time for the previous context before switching
+        if (previousContextRef.current) {
+            const oldContextKey = `${previousContextRef.current.type}-${previousContextRef.current.id}`;
+            const timeToLog = timeStore.current[oldContextKey] || 0;
+            if (timeToLog > 0) {
+                logTime(timeToLog, previousContextRef.current);
+                timeStore.current[oldContextKey] = 0; // Reset after logging
+            }
         }
-        return logTime(timeSpent, context);
-    }
+        
+        // Cleanup timers and listeners when context changes
+        pauseTimer();
+        window.removeEventListener('mousemove', handleActivity);
+        window.removeEventListener('keydown', handleActivity);
+        document.removeEventListener('visibilitychange', handleActivity);
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        
+        // Setup for new context
+        if (context) {
+            const contextKey = `${context.type}-${context.id}`;
+            setTimeSpent(timeStore.current[contextKey] || 0);
+
+            // Set up activity listeners for the new context
+            handleActivity(); // Start immediately
+            window.addEventListener('mousemove', handleActivity);
+            window.addEventListener('keydown', handleActivity);
+            document.addEventListener('visibilitychange', handleActivity);
+        } else {
+            setTimeSpent(0);
+        }
+        
+        // Update the previous context ref for the next change
+        previousContextRef.current = context;
+
+        // Cleanup on component unmount
+        return () => {
+             window.removeEventListener('mousemove', handleActivity);
+             window.removeEventListener('keydown', handleActivity);
+             document.removeEventListener('visibilitychange', handleActivity);
+        }
+    }, [context, pauseTimer, handleActivity, logTime]);
+    
+     // Update the time store ref whenever timeSpent changes for the current context
+    useEffect(() => {
+        if (context) {
+            const contextKey = `${context.type}-${context.id}`;
+            timeStore.current[contextKey] = timeSpent;
+        }
+    }, [timeSpent, context]);
     
     const value = {
         timeSpent,
         isTimerActive,
         context,
         setContext,
-        logTime: manualLogTime,
     };
 
     return (

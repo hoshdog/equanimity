@@ -34,7 +34,8 @@ export function subscribeToMessages(
 
 // Send a new message
 export async function sendMessage(projectId: string, text: string) {
-  const user = auth.currentUser;
+  const authInstance = auth();
+  const user = authInstance.currentUser;
   if (!user) {
     throw new Error('You must be logged in to send a message.');
   }

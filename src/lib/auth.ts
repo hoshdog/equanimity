@@ -12,19 +12,29 @@ import {
 } from 'firebase/auth';
 import { app } from './firebase';
 
-export const auth = getAuth(app);
+let authInstance: ReturnType<typeof getAuth>;
+
+function getAuthInstance() {
+    if (!authInstance) {
+        authInstance = getAuth(app);
+    }
+    return authInstance;
+}
+
+export { getAuthInstance as auth };
+
 
 export function onAuthStateChanged(callback: (user: User | null) => void) {
-  return onFirebaseAuthStateChanged(auth, callback);
+  return onFirebaseAuthStateChanged(getAuthInstance(), callback);
 }
 
 export async function signUp(email: string, password: string): Promise<User> {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(getAuthInstance(), email, password);
   return userCredential.user;
 }
 
 export async function signIn(email: string, password: string): Promise<User> {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const userCredential = await signInWithEmailAndPassword(getAuthInstance(), email, password);
   return userCredential.user;
 }
 
@@ -33,5 +43,5 @@ export async function sendVerificationEmail(user: User): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  await firebaseSignOut(auth);
+  await firebaseSignOut(getAuthInstance());
 }

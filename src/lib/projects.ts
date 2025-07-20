@@ -50,7 +50,8 @@ export async function getProject(id: string): Promise<Project | null> {
 
 // Add a new project
 export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName' | 'projectCode'>): Promise<string> {
-    const user = auth.currentUser;
+    const authInstance = auth();
+    const user = authInstance.currentUser;
     if (!user) throw new Error("User must be authenticated to create a project.");
 
     const customer = await getCustomer(projectData.customerId);
@@ -75,7 +76,8 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
 
 // Update a project
 export async function updateProject(id: string, data: Partial<Project>) {
-  const user = auth.currentUser;
+  const authInstance = auth();
+  const user = authInstance.currentUser;
   if (!user) throw new Error("User must be authenticated to update a project.");
   
   const docRef = doc(db, 'projects', id);
