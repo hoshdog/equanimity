@@ -214,10 +214,16 @@ function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerat
                         Suggest Line Items
                     </Button>
                 </div>
+                {loading && (
+                    <div className="flex items-center justify-center text-center p-8">
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                        <p className="mt-2 text-sm text-muted-foreground">AI is thinking...</p>
+                    </div>
+                )}
                 {suggestions && (
                     <div className="space-y-2 pt-4">
                         <Label>AI Suggestions</Label>
-                        <Textarea readOnly value={suggestions} rows={10} className="font-mono text-xs" />
+                        <Textarea readOnly value={suggestions} rows={10} className="font-mono text-xs select-text" />
                         <div className="flex justify-end">
                             <Button variant="ghost" size="sm" onClick={() => setSuggestions(null)}>Clear</Button>
                         </div>
@@ -460,224 +466,228 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            <AIAssistant 
-                quote={quote} 
-                onGenerateDescription={handleGenerateDescription}
-            />
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Quote Description</CardTitle>
-                    <CardDescription>
-                        This is the customer-facing description of the work to be performed. It will appear on the final quote document.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <FormField
-                        control={control}
-                        name="description"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormControl>
-                                    <Textarea
-                                        placeholder="e.g., Supply and install ten new 9W warm white LED downlights to the main kitchen area..."
-                                        rows={6}
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Parts & Materials</CardTitle>
-                        <PartSelectorDialog
-                            onPartSelected={(part) => {
-                                appendLineItem({
-                                    id: `item-${lineItemFields.length}`,
-                                    type: 'Part',
-                                    description: part.description,
-                                    quantity: part.quantity,
-                                    unitCost: part.unitCost,
-                                    unitPrice: part.unitPrice,
-                                    taxRate: 10,
-                                });
-                            }}
-                        >
-                            <Button type="button" variant="outline" size="sm">
-                                <PlusCircle className="mr-2 h-4 w-4"/>Add Part
-                            </Button>
-                        </PartSelectorDialog>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="grid grid-cols-12 gap-2 px-2">
-                            <Label className="col-span-12 sm:col-span-5">Description</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
-                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
-                        </div>
-                        {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
-                            const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                            if (lineItemFields[originalIndex].type !== 'Part') return null;
-                            return (
-                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                                    <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-12 sm:col-span-5">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.taxRate`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <div className="relative flex items-center">
-                                                                <input type="hidden" {...field} />
-                                                                <span className="text-sm">{field.value}%</span>
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Quote Description</CardTitle>
+                            <CardDescription>
+                                This is the customer-facing description of the work to be performed. It will appear on the final quote document.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <FormField
+                                control={control}
+                                name="description"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Textarea
+                                                placeholder="e.g., Supply and install ten new 9W warm white LED downlights to the main kitchen area..."
+                                                rows={6}
+                                                {...field}
                                             />
-                                        </div>
-                                    </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
-                                </div>
-                            )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
-                    </CardContent>
-                </Card>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Labour & Services</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
-                        </Button>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="grid grid-cols-12 gap-2 px-2">
-                            <Label className="col-span-12 sm:col-span-5">Description</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
-                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
-                        </div>
-                        {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
-                            const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                            if (lineItemFields[originalIndex].type !== 'Labour') return null;
-                            return (
-                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                                    <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-12 sm:col-span-5">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.description`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <Select
-                                                            onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                const selectedRate = laborRateOptions.find(opt => opt.value === value);
-                                                                if (selectedRate) {
-                                                                    setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
-                                                                    setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
-                                                                }
-                                                            }}
-                                                            value={field.value}
-                                                        >
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Parts & Materials</CardTitle>
+                            <PartSelectorDialog
+                                onPartSelected={(part) => {
+                                    appendLineItem({
+                                        id: `item-${lineItemFields.length}`,
+                                        type: 'Part',
+                                        description: part.description,
+                                        quantity: part.quantity,
+                                        unitCost: part.unitCost,
+                                        unitPrice: part.unitPrice,
+                                        taxRate: 10,
+                                    });
+                                }}
+                            >
+                                <Button type="button" variant="outline" size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4"/>Add Part
+                                </Button>
+                            </PartSelectorDialog>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="grid grid-cols-12 gap-2 px-2">
+                                <Label className="col-span-12 sm:col-span-5">Description</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
+                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            </div>
+                            {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
+                                const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                                if (lineItemFields[originalIndex].type !== 'Part') return null;
+                                return (
+                                    <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                        <div className="grid grid-cols-12 gap-2 flex-grow">
+                                            <div className="col-span-12 sm:col-span-5">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.taxRate`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
                                                             <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a labor type" />
-                                                                </SelectTrigger>
+                                                                <div className="relative flex items-center">
+                                                                    <input type="hidden" {...field} />
+                                                                    <span className="text-sm">{field.value}%</span>
+                                                                </div>
                                                             </FormControl>
-                                                            <SelectContent>
-                                                                {laborRateOptions.map(option => (
-                                                                    <SelectItem key={option.value} value={option.value}>
-                                                                        {option.label}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.taxRate`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <div className="relative flex items-center">
-                                                                <input type="hidden" {...field} />
-                                                                <span className="text-sm">{field.value}%</span>
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                )
+                            }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Labour & Services</CardTitle>
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
+                                <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="grid grid-cols-12 gap-2 px-2">
+                                <Label className="col-span-12 sm:col-span-5">Description</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
+                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            </div>
+                            {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
+                                const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                                if (lineItemFields[originalIndex].type !== 'Labour') return null;
+                                return (
+                                    <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                        <div className="grid grid-cols-12 gap-2 flex-grow">
+                                            <div className="col-span-12 sm:col-span-5">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.description`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select
+                                                                onValueChange={(value) => {
+                                                                    field.onChange(value);
+                                                                    const selectedRate = laborRateOptions.find(opt => opt.value === value);
+                                                                    if (selectedRate) {
+                                                                        setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
+                                                                        setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
+                                                                    }
+                                                                }}
+                                                                value={field.value}
+                                                            >
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select a labor type" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {laborRateOptions.map(option => (
+                                                                        <SelectItem key={option.value} value={option.value}>
+                                                                            {option.label}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.taxRate`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <div className="relative flex items-center">
+                                                                    <input type="hidden" {...field} />
+                                                                    <span className="text-sm">{field.value}%</span>
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    </div>
+                                )
+                            }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
+                        <CardContent>
+                             <div className="flex justify-end">
+                                <div className="w-full max-w-sm space-y-4">
+                                    <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
+                                    <Separator />
+                                    <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
+                                    <Separator />
+                                    <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
                                 </div>
-                            )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
-                    </CardContent>
-                </Card>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                            <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="lg:col-span-1">
+                     <AIAssistant 
+                        quote={quote} 
+                        onGenerateDescription={handleGenerateDescription}
+                    />
+                </div>
             </div>
-
-            <Card>
-                <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
-                <CardContent>
-                     <div className="flex justify-end">
-                        <div className="w-full max-w-sm space-y-4">
-                            <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
-                            <Separator />
-                            <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
-                            <Separator />
-                            <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                    <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                </CardContent>
-            </Card>
         </form>
         </FormProvider>
     </div>
