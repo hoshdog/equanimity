@@ -258,7 +258,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col"><FormLabel>Link to Project (Optional)</FormLabel>
-                                <SearchableCombobox options={projects} {...field} placeholder="Select a project" />
+                                <SearchableCombobox options={projects} {...field} placeholder="Select a project" disabled={!!initialProjectId}/>
                                 <FormMessage />
                                 </FormItem>
                             )}

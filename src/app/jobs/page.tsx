@@ -73,7 +73,12 @@ export default function JobsPage() {
     }
     
     const handleRowClick = (job: Job) => {
-        router.push(`/projects/${job.projectId}`);
+        if (job.projectId) {
+            router.push(`/projects/${job.projectId}`);
+        } else {
+            // Future: Navigate to a standalone job page, for now, do nothing.
+            toast({ title: "Standalone Job", description: "This job is not linked to a project. A dedicated view is coming soon."})
+        }
     };
 
     const getTechnicianNames = (assignedStaff: Job['assignedStaff']) => {
@@ -103,7 +108,7 @@ export default function JobsPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Job Title</TableHead>
-                                        <TableHead>Project</TableHead>
+                                        <TableHead>Project / Customer</TableHead>
                                         <TableHead>Assigned Staff</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>Priority</TableHead>
@@ -113,7 +118,7 @@ export default function JobsPage() {
                                     {jobs.map(job => (
                                         <TableRow key={job.id} onClick={() => handleRowClick(job)} className="cursor-pointer">
                                             <TableCell className="font-medium">{job.title}</TableCell>
-                                            <TableCell>{job.projectName}</TableCell>
+                                            <TableCell>{job.projectName || job.customerName}</TableCell>
                                             <TableCell>{getTechnicianNames(job.assignedStaff)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={cn(getStatusColor(job.status))}>
