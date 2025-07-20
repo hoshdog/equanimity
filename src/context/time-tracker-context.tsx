@@ -59,9 +59,7 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     }, []);
     
     const resetInactivityTimer = useCallback(() => {
-        if (!isTimerActive) {
-            startTimer();
-        }
+        startTimer();
 
         if (inactivityTimerRef.current) {
             clearTimeout(inactivityTimerRef.current);
@@ -73,8 +71,8 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
               title: "Timer Paused",
               description: "Timer paused due to inactivity.",
             });
-        }, 60000); // 1 minute
-    }, [isTimerActive, startTimer, pauseTimer, toast]);
+        }, 600000); // 10 minutes
+    }, [startTimer, pauseTimer, toast]);
 
 
     useEffect(() => {
