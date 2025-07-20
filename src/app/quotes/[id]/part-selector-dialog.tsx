@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, DollarSign, PlusCircle } from 'lucide-react';
+import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { subscribeToStockItems } from '@/lib/inventory';
 import type { StockItem, QuoteLineItem } from '@/lib/types';
@@ -27,7 +27,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle, Circle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 interface PartSelectorDialogProps {
   children: React.ReactNode;
@@ -43,7 +43,6 @@ interface CataloguePart {
 }
 
 // This mock data simulates a comprehensive parts catalogue imported from suppliers.
-// In a real app, this would come from a dedicated 'parts' collection in Firestore.
 // Common items are moved to the top to simulate "most used".
 const mockPartsCatalogue: CataloguePart[] = [
     { partNumber: 'PDL615', description: 'Standard Single GPO, White', tradePrice: 8.50, supplier: 'Lawrence & Hanson' },
@@ -55,7 +54,6 @@ const mockPartsCatalogue: CataloguePart[] = [
     { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', tradePrice: 35.00, supplier: 'Bunnings Warehouse' },
 ];
 
-
 const oneOffItemSchema = z.object({
   description: z.string().min(3, "Description is required."),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
@@ -64,11 +62,18 @@ const oneOffItemSchema = z.object({
 });
 type OneOffItemValues = z.infer<typeof oneOffItemSchema>;
 
+interface SelectedPart {
+  part: CataloguePart;
+  quantity: number;
+}
+
 export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [stockItems, setStockItems] = React.useState<StockItem[]>([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
+  const [selectedParts, setSelectedParts] = React.useState<Map<string, SelectedPart>>(new Map());
+
   const { toast } = useToast();
 
   const oneOffForm = useForm<OneOffItemValues>({
@@ -83,7 +88,12 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
 
   // Fetch live inventory data when the dialog opens
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+        // Reset state when dialog closes
+        setGlobalFilter('');
+        setSelectedParts(new Map());
+        return;
+    };
 
     const unsubscribe = subscribeToStockItems(
       (items) => {
@@ -103,21 +113,34 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   const inventoryMap = React.useMemo(() => {
     return new Map(stockItems.map(item => [item.sku, item]));
   }, [stockItems]);
+  
+  const handleQuantityChange = (part: CataloguePart, quantity: number) => {
+    const newSelectedParts = new Map(selectedParts);
+    if (quantity > 0) {
+      newSelectedParts.set(part.partNumber, { part, quantity });
+    } else {
+      newSelectedParts.delete(part.partNumber);
+    }
+    setSelectedParts(newSelectedParts);
+  };
 
-
-  const handleSelectItem = (part: CataloguePart) => {
-    // In a real app, sell price would be calculated based on the selected pricing tier (e.g., tradePrice * 1.25)
-    const sellPrice = part.tradePrice * 1.3; // Placeholder 30% markup for demonstration
-
-    onPartSelected({
-      description: `${part.description} (${part.partNumber})`,
-      quantity: 1,
-      unitPrice: parseFloat(sellPrice.toFixed(2)),
-      unitCost: part.tradePrice,
-      taxRate: 10,
+  const handleAddSelectedParts = () => {
+    if (selectedParts.size === 0) {
+        toast({ variant: "destructive", title: "No parts selected", description: "Please enter a quantity for the parts you want to add."});
+        return;
+    }
+    
+    selectedParts.forEach(({ part, quantity }) => {
+        const sellPrice = part.tradePrice * 1.3; // Placeholder 30% markup
+        onPartSelected({
+          description: `${part.description} (${part.partNumber})`,
+          quantity,
+          unitPrice: parseFloat(sellPrice.toFixed(2)),
+          unitCost: part.tradePrice,
+          taxRate: 10,
+        });
     });
     setIsOpen(false);
-    setGlobalFilter('');
   };
   
   const handleAddOneOff = (values: OneOffItemValues) => {
@@ -167,82 +190,141 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
       },
     },
     {
-      id: 'actions',
-      cell: ({ row }) => (
-        <Button size="sm" onClick={() => handleSelectItem(row.original)}>Select</Button>
-      ),
+      id: 'quantity',
+      header: 'Qty',
+      cell: ({ row }) => {
+        const part = row.original;
+        return (
+          <Input
+            type="number"
+            min="0"
+            className="w-20"
+            placeholder="0"
+            value={selectedParts.get(part.partNumber)?.quantity || ''}
+            onChange={(e) => handleQuantityChange(part, parseInt(e.target.value, 10) || 0)}
+            onClick={(e) => e.stopPropagation()} // Prevent row click from triggering
+          />
+        );
+      },
     },
   ];
+  
+  const selectedPartsArray = Array.from(selectedParts.values());
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
-          <DialogTitle>Select a Part or Service</DialogTitle>
+          <DialogTitle>Select Parts</DialogTitle>
           <DialogDescription>
-            Choose a part from the catalogue or add a one-off item. Inventory levels are shown for reference.
+            Choose items from the catalogue or add a one-off item. Specify quantities and add them to your quote.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="catalogue">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="catalogue">From Parts Catalogue</TabsTrigger>
-            <TabsTrigger value="one-off">Add One-Off Item</TabsTrigger>
-          </TabsList>
-          <TabsContent value="catalogue">
-            <Card>
-              <CardContent className="p-0">
-                {loading ? (
-                  <div className="flex justify-center items-center h-96">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="p-4">
-                      <Input
-                        placeholder="Search by description or part number..."
-                        value={globalFilter}
-                        onChange={(event) => setGlobalFilter(event.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                    <DataTable
-                      columns={columns}
-                      data={mockPartsCatalogue}
-                      globalFilter={globalFilter}
-                      setGlobalFilter={setGlobalFilter}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="one-off">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2">
+            <Tabs defaultValue="catalogue">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="catalogue">From Parts Catalogue</TabsTrigger>
+                <TabsTrigger value="one-off">Add One-Off Item</TabsTrigger>
+              </TabsList>
+              <TabsContent value="catalogue">
+                <Card>
+                  <CardContent className="p-0">
+                    {loading ? (
+                      <div className="flex justify-center items-center h-96">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="p-4">
+                          <Input
+                            placeholder="Search by description or part number..."
+                            value={globalFilter}
+                            onChange={(event) => setGlobalFilter(event.target.value)}
+                            className="w-full"
+                          />
+                        </div>
+                        <DataTable
+                          columns={columns}
+                          data={mockPartsCatalogue}
+                          globalFilter={globalFilter}
+                          setGlobalFilter={setGlobalFilter}
+                        />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="one-off">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Add One-Off Item</CardTitle>
+                        <CardDescription>
+                            Use this for items not in your standard parts catalogue.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...oneOffForm}>
+                          <form onSubmit={oneOffForm.handleSubmit(handleAddOneOff)} className="space-y-4">
+                            <FormField control={oneOffForm.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Special order RCD" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                            <div className="grid grid-cols-3 gap-4">
+                                <FormField control={oneOffForm.control} name="quantity" render={({ field }) => ( <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={oneOffForm.control} name="unitCost" render={({ field }) => ( <FormItem><FormLabel>Unit Cost</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={oneOffForm.control} name="unitPrice" render={({ field }) => ( <FormItem><FormLabel>Unit Price (Sell)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                            </div>
+                            <DialogFooter className="pt-4">
+                                <Button type="submit">Add Item to Quote</Button>
+                            </DialogFooter>
+                          </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+          <div className="md:col-span-1">
              <Card>
                 <CardHeader>
-                    <CardTitle>Add One-Off Item</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <ShoppingCart className="h-5 w-5 text-primary" />
+                        Selected Parts ({selectedPartsArray.length})
+                    </CardTitle>
                     <CardDescription>
-                        Use this for items not in your standard parts catalogue.
+                        These items will be added to the quote.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Form {...oneOffForm}>
-                      <form onSubmit={oneOffForm.handleSubmit(handleAddOneOff)} className="space-y-4">
-                        <FormField control={oneOffForm.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Special order RCD" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <div className="grid grid-cols-3 gap-4">
-                            <FormField control={oneOffForm.control} name="quantity" render={({ field }) => ( <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                            <FormField control={oneOffForm.control} name="unitCost" render={({ field }) => ( <FormItem><FormLabel>Unit Cost</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                            <FormField control={oneOffForm.control} name="unitPrice" render={({ field }) => ( <FormItem><FormLabel>Unit Price (Sell)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                <CardContent className="space-y-2 max-h-[450px] overflow-y-auto">
+                    {selectedPartsArray.length > 0 ? (
+                        selectedPartsArray.map(({part, quantity}) => (
+                           <div key={part.partNumber} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
+                                <div>
+                                    <p className="font-medium">{part.description}</p>
+                                    <p className="text-xs text-muted-foreground">Qty: {quantity}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(part, 0)}>
+                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                </Button>
+                           </div>
+                        ))
+                    ) : (
+                        <div className="text-center text-sm text-muted-foreground py-10">
+                            No parts selected. Enter a quantity in the catalogue to add items here.
                         </div>
-                        <DialogFooter className="pt-4">
-                            <Button type="submit">Add Item to Quote</Button>
-                        </DialogFooter>
-                      </form>
-                    </Form>
+                    )}
                 </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+             </Card>
+          </div>
+        </div>
+        <DialogFooter className="pt-6 border-t">
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">Cancel</Button>
+          </DialogClose>
+          <Button onClick={handleAddSelectedParts} disabled={selectedParts.size === 0}>
+             <PlusCircle className="mr-2 h-4 w-4" />
+             Add {selectedParts.size > 0 ? `${selectedParts.size} Item(s)` : 'Items'} to Quote
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
