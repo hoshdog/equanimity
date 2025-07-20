@@ -352,12 +352,9 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
 
 
 function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { part: CataloguePart, inventoryMap: Map<string, StockItem>, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void, defaultSupplierPreference: string }) {
-    const [isOpen, setIsOpen] = React.useState(false);
     const [quickAddQty, setQuickAddQty] = React.useState(1);
-
     const inventoryItem = inventoryMap.get(part.partNumber);
     const stockQty = inventoryItem?.quantityOnHand || 0;
-    
     const sortedSuppliers = [...part.suppliers].sort((a, b) => a.tradePrice - b.tradePrice);
     
     const handleQuickAdd = () => {
@@ -379,50 +376,48 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
     };
 
     return (
-        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
-            <React.Fragment>
+        <Collapsible>
+            <TableRow>
+                <TableCell className="w-12">
+                     <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
+                            <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                        </Button>
+                    </CollapsibleTrigger>
+                </TableCell>
+                <TableCell>
+                    <p className="font-medium">{part.description}</p>
+                    <p className="text-xs text-muted-foreground">{part.partNumber}</p>
+                </TableCell>
+                <TableCell className="text-center">
+                    <Badge variant={stockQty > 0 ? 'default' : 'secondary'} className={cn(stockQty > 0 && "bg-green-600/20 text-green-600 border-green-600/30")}>
+                        {stockQty}
+                    </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                    <div className="flex justify-end items-center gap-2">
+                        <Input type="number" value={quickAddQty} onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)} className="w-20 h-8" />
+                        <Button size="sm" onClick={handleQuickAdd}>Add</Button>
+                    </div>
+                </TableCell>
+            </TableRow>
+            <CollapsibleContent asChild>
                 <TableRow>
-                    <TableCell className="w-12">
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
-                                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                            </Button>
-                        </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell>
-                        <p className="font-medium">{part.description}</p>
-                        <p className="text-xs text-muted-foreground">{part.partNumber}</p>
-                    </TableCell>
-                    <TableCell className="text-center">
-                        <Badge variant={stockQty > 0 ? 'default' : 'secondary'} className={cn(stockQty > 0 && "bg-green-600/20 text-green-600 border-green-600/30")}>
-                            {stockQty}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <div className="flex justify-end items-center gap-2">
-                            <Input type="number" value={quickAddQty} onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)} className="w-20 h-8" />
-                            <Button size="sm" onClick={handleQuickAdd}>Add</Button>
-                        </div>
+                    <TableCell colSpan={4} className="p-0">
+                    <div className="p-2 bg-secondary/50 space-y-1">
+                        {sortedSuppliers.map((supplier, index) => (
+                            <SupplierRow 
+                                key={supplier.supplier} 
+                                supplier={supplier} 
+                                part={part} 
+                                isCheapest={index === 0}
+                                onSelect={onSelect}
+                            />
+                        ))}
+                    </div>
                     </TableCell>
                 </TableRow>
-                <CollapsibleContent asChild>
-                    <TableRow>
-                        <TableCell colSpan={4} className="p-0">
-                        <div className="p-2 bg-secondary/50 space-y-1">
-                            {sortedSuppliers.map((supplier, index) => (
-                                <SupplierRow 
-                                    key={supplier.supplier} 
-                                    supplier={supplier} 
-                                    part={part} 
-                                    isCheapest={index === 0}
-                                    onSelect={onSelect}
-                                />
-                            ))}
-                        </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-            </React.Fragment>
+            </CollapsibleContent>
         </Collapsible>
     )
 }
