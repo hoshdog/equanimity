@@ -3,7 +3,6 @@
 'use client';
 
 import * as React from 'react';
-import { use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, PlusCircle, Calendar, GanttChartSquare, AlertTriangle } from 'lucide-react';
@@ -66,8 +65,7 @@ function useTimelineData(projectId: string): { items: TimelineItem[]; employees:
   return { items, employees, loading };
 }
 
-export default function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: projectId } = use(params);
+export default function TimelinePage({ projectId }: { projectId: string }) {
   const { items, employees, loading } = useTimelineData(projectId);
   const [project, setProject] = React.useState<{ name: string } | null>(null);
 
