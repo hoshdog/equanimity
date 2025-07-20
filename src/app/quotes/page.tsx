@@ -7,11 +7,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlusCircle, FileText, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, FileText, Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { addQuote } from '@/lib/quotes';
 import { getProjects } from '@/lib/projects';
-import { getCustomers, getCustomerSites, getCustomerContacts } from '@/lib/customers';
+import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import type { Quote, Project, OptionType, Contact, Employee, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { jobStaffRoles } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
 
 
 const assignedStaffSchema = z.object({
@@ -50,7 +51,6 @@ const projectContactSchema = z.object({
   contactId: z.string().min(1, "Please select a contact."),
   role: z.string().min(2, "Role is required."),
 });
-
 
 const createQuoteSchema = z.object({
     projectId: z.string().optional(),
@@ -71,8 +71,131 @@ const createQuoteSchema = z.object({
     path: ["customerId"],
 });
 
+
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
 
+const customerSchema = z.object({
+    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
+    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
+    email: z.string().email({ message: "Please enter a valid email address." }),
+    phone: z.string().min(8, { message: "Phone number seems too short." }),
+    type: z.string().min(2, { message: "Please select a customer type." }),
+});
+
+function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof customerSchema>>({
+        resolver: zodResolver(customerSchema),
+        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "Corporate Client" },
+    });
+    
+    async function onSubmit(values: z.infer<typeof customerSchema>) {
+        setLoading(true);
+        try {
+            const newCustomerData = {
+              name: values.name,
+              address: values.address,
+              type: values.type,
+              primaryContactName: values.primaryContactName,
+              email: values.email,
+              phone: values.phone,
+            }
+            const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone], jobTitle: 'Primary Contact' };
+            const initialSite = { name: 'Main Site', address: values.address };
+            
+            const { customerId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
+            const newCustomer = { id: customerId, ...newCustomerData };
+            
+            onCustomerAdded(newCustomer);
+            toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
+            setIsOpen(false);
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add customer", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add customer.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handlePlaceSelect = (place: google.maps.places.PlaceResult | null) => {
+        if (place?.name) {
+            form.setValue('name', place.name);
+        }
+        if (place?.formatted_address) {
+            form.setValue('address', place.formatted_address);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Customer</DialogTitle>
+                    <DialogDescription>Create a new customer record. An initial contact and site will be created automatically.</DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Customer Name</FormLabel>
+                                <FormControl>
+                                    <AddressAutocompleteInput 
+                                        searchType="establishment"
+                                        onPlaceSelect={handlePlaceSelect}
+                                        placeholder="Search for a business..."
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                         <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel>Address</FormLabel>
+                            <FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="primaryContactName" render={({ field }) => (
+                            <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="phone" render={({ field }) => (
+                            <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="type" render={({ field }) => (
+                            <FormItem>
+                                 <FormLabel>Customer Type</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a customer type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Corporate Client">Corporate Client</SelectItem>
+                                        <SelectItem value="Construction Partner">Construction Partner</SelectItem>
+                                        <SelectItem value="Small Business">Small Business</SelectItem>
+                                        <SelectItem value="Government">Government</SelectItem>
+                                        <SelectItem value="Private">Private</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <DialogFooter>
+                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Add Customer'}</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function CreateQuoteDialog({ children, initialProjectId }: { children: React.ReactNode, initialProjectId?: string }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -214,6 +337,10 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     const contactOptions = useMemo(() => contacts.map(c => ({ value: c.id, label: c.name })), [contacts]);
     const employeeOptions = useMemo(() => employees.map(e => ({ value: e.id, label: e.name })), [employees]);
 
+    const handleCustomerAdded = (newCustomer: Customer) => {
+      setCustomers(prev => [...prev, newCustomer]);
+      form.setValue('customerId', newCustomer.id, { shouldValidate: true });
+    }
 
     async function onSubmit(values: CreateQuoteValues) {
         setLoading(true);
@@ -266,27 +393,34 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                 <TabsTrigger value="ai">AI Generation</TabsTrigger>
                             </TabsList>
                             <TabsContent value="core" className="pt-4 space-y-4">
-                                <FormField
+                               <FormField
                                     control={form.control}
                                     name="customerId"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Customer</FormLabel>
-                                            <SearchableCombobox
-                                                options={customerOptions}
-                                                value={field.value || ''}
-                                                onChange={(value) => {
-                                                    field.onChange(value);
-                                                    form.setValue('projectId', ''); 
-                                                    form.setValue('siteId', '');
-                                                }}
-                                                placeholder="Select a customer..."
-                                            />
+                                            <div className="flex gap-2">
+                                                <SearchableCombobox
+                                                    options={customerOptions}
+                                                    value={field.value || ''}
+                                                    onChange={(value) => {
+                                                        field.onChange(value);
+                                                        form.setValue('projectId', ''); 
+                                                        form.setValue('siteId', '');
+                                                    }}
+                                                    placeholder="Select a customer..."
+                                                />
+                                                <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
+                                                    <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </AddCustomerDialog>
+                                            </div>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-                                 <FormField
+                                <FormField
                                     control={form.control}
                                     name="siteId"
                                     render={({ field }) => (
