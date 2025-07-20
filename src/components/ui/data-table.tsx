@@ -33,11 +33,15 @@ import { DataTableViewOptions } from "@/components/ui/data-table-view-options"
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  globalFilter?: string
+  setGlobalFilter?: (value: string) => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  globalFilter,
+  setGlobalFilter,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
@@ -55,12 +59,14 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -71,7 +77,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4 p-4">
-      <DataTableViewOptions table={table} />
+      {setGlobalFilter && <DataTableViewOptions table={table} />}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -126,5 +132,3 @@ export function DataTable<TData, TValue>({
     </div>
   )
 }
-
-    

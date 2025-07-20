@@ -44,14 +44,15 @@ interface CataloguePart {
 
 // This mock data simulates a comprehensive parts catalogue imported from suppliers.
 // In a real app, this would come from a dedicated 'parts' collection in Firestore.
+// Common items are moved to the top to simulate "most used".
 const mockPartsCatalogue: CataloguePart[] = [
-    { partNumber: 'C6-BL-305M', description: 'Cat 6 UTP Cable, Blue, 305m Box', tradePrice: 150.00, supplier: 'Rexel' },
     { partNumber: 'PDL615', description: 'Standard Single GPO, White', tradePrice: 8.50, supplier: 'Lawrence & Hanson' },
     { partNumber: 'LED-DL-9W', description: '9W LED Downlight, Warm White, Dimmable', tradePrice: 22.00, supplier: 'Beacon Lighting' },
+    { partNumber: 'C6-BL-305M', description: 'Cat 6 UTP Cable, Blue, 305m Box', tradePrice: 150.00, supplier: 'Rexel' },
     { partNumber: 'RCD-2P-40A', description: '2 Pole 40A 30mA RCD', tradePrice: 45.00, supplier: 'Rexel' },
-    { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', tradePrice: 35.00, supplier: 'Bunnings Warehouse' },
     { partNumber: 'SMK-AL-9V', description: '9V Photoelectric Smoke Alarm', tradePrice: 18.00, supplier: 'Lawrence & Hanson' },
     { partNumber: 'HPM-XL777', description: 'Weatherproof Double GPO IP54', tradePrice: 38.50, supplier: 'Bunnings Warehouse' },
+    { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', tradePrice: 35.00, supplier: 'Bunnings Warehouse' },
 ];
 
 
@@ -67,6 +68,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [stockItems, setStockItems] = React.useState<StockItem[]>([]);
+  const [globalFilter, setGlobalFilter] = React.useState('');
   const { toast } = useToast();
 
   const oneOffForm = useForm<OneOffItemValues>({
@@ -115,6 +117,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
       taxRate: 10,
     });
     setIsOpen(false);
+    setGlobalFilter('');
   };
   
   const handleAddOneOff = (values: OneOffItemValues) => {
@@ -194,7 +197,22 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <DataTable columns={columns} data={mockPartsCatalogue} />
+                  <>
+                    <div className="p-4">
+                      <Input
+                        placeholder="Search by description or part number..."
+                        value={globalFilter}
+                        onChange={(event) => setGlobalFilter(event.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <DataTable
+                      columns={columns}
+                      data={mockPartsCatalogue}
+                      globalFilter={globalFilter}
+                      setGlobalFilter={setGlobalFilter}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
