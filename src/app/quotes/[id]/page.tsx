@@ -1,3 +1,4 @@
+
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -124,6 +125,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
+    const watchedDescription = watch('description');
 
     const resetFormToQuote = useCallback((quoteData: Quote) => {
         reset({
@@ -420,6 +422,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         taxRate: 10,
                                     });
                                 }}
+                                quoteDescription={watchedDescription || ''}
                             >
                                 <Button type="button" variant="outline" size="sm">
                                     <PlusCircle className="mr-2 h-4 w-4"/>Add Part

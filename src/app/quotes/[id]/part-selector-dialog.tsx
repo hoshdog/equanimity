@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart, ChevronDown, ChevronRight, Star, Percent } from 'lucide-react';
+import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart, ChevronDown, ChevronRight, Star, Percent, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { subscribeToStockItems } from '@/lib/inventory';
 import type { StockItem, QuoteLineItem } from '@/lib/types';
@@ -29,13 +29,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { suggestPartsForQuote, SuggestPartsForQuoteOutput } from '@/ai/flows/suggest-parts-for-quote';
 
 
 interface PartSelectorDialogProps {
   children: React.ReactNode;
   onPartSelected: (part: Omit<QuoteLineItem, 'id' | 'type'>) => void;
+  quoteDescription: string;
 }
 
 // Represents a supplier-specific offering for a part.
@@ -96,13 +97,15 @@ interface SelectedPart {
   quantity: number;
 }
 
-export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDialogProps) {
+export function PartSelectorDialog({ children, onPartSelected, quoteDescription }: PartSelectorDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [stockItems, setStockItems] = React.useState<StockItem[]>([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [selectedParts, setSelectedParts] = React.useState<Map<string, SelectedPart>>(new Map());
   const [defaultSupplier, setDefaultSupplier] = React.useState('cheapest');
+  const [aiSuggestions, setAiSuggestions] = React.useState<SuggestPartsForQuoteOutput | null>(null);
+  const [aiLoading, setAiLoading] = React.useState(false);
 
 
   const { toast } = useToast();
@@ -122,6 +125,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     if (!isOpen) {
         setGlobalFilter('');
         setSelectedParts(new Map());
+        setAiSuggestions(null);
         return;
     };
 
@@ -138,6 +142,22 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     );
     return () => unsubscribe();
   }, [isOpen, toast]);
+  
+  const handleGetAiSuggestions = async () => {
+    setAiLoading(true);
+    try {
+        const result = await suggestPartsForQuote({
+            prompt: quoteDescription,
+            catalogue: mockPartsCatalogue,
+        });
+        setAiSuggestions(result);
+    } catch (error) {
+        console.error("AI Suggestion failed:", error);
+        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get suggestions.' });
+    } finally {
+        setAiLoading(false);
+    }
+  }
 
   const inventoryMap = React.useMemo(() => {
     return new Map(stockItems.map(item => [item.sku, item]));
@@ -215,8 +235,9 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-hidden">
           <div className="md:col-span-2 flex flex-col">
             <Tabs defaultValue="catalogue" className="flex flex-col flex-grow">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="catalogue">From Parts Catalogue</TabsTrigger>
+                <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
                 <TabsTrigger value="one-off">Add One-Off Item</TabsTrigger>
               </TabsList>
               <TabsContent value="catalogue" className="flex-grow mt-0">
@@ -279,6 +300,66 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                   </CardContent>
                 </Card>
               </TabsContent>
+               <TabsContent value="ai-assistant" className="flex-grow mt-0">
+                    <Card className="h-full flex flex-col">
+                         <CardHeader>
+                            <CardTitle>AI Parts Assistant</CardTitle>
+                            <CardDescription>Get part suggestions based on your quote description.</CardDescription>
+                         </CardHeader>
+                         <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
+                            {aiLoading ? (
+                                <>
+                                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                                    <p className="mt-4 text-lg font-semibold">Analyzing your quote...</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">The AI is reading the description and finding matching parts.</p>
+                                </>
+                            ) : aiSuggestions ? (
+                                <div className="w-full text-left space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold">Suggested Parts:</h4>
+                                        <p className="text-sm text-muted-foreground">{aiSuggestions.reasoning}</p>
+                                    </div>
+                                    <ScrollArea className="h-64">
+                                        <div className="space-y-2 pr-4">
+                                            {aiSuggestions.suggestedParts.map(suggested => {
+                                                const part = mockPartsCatalogue.find(p => p.partNumber === suggested.partNumber);
+                                                if (!part) return null;
+                                                
+                                                const cheapestSupplier = part.suppliers.sort((a,b) => a.tradePrice - b.tradePrice)[0];
+
+                                                return (
+                                                    <div key={suggested.partNumber} className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
+                                                        <div>
+                                                            <p className="font-medium">{part.description}</p>
+                                                            <p className="text-xs text-muted-foreground">{part.partNumber}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline">Qty: {suggested.quantity}</Badge>
+                                                            <Button size="sm" onClick={() => handleSelectPart(part, cheapestSupplier, suggested.quantity)}>Add</Button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </ScrollArea>
+                                    <Button onClick={handleGetAiSuggestions} variant="outline" className="w-full">
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Regenerate
+                                    </Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <Sparkles className="h-12 w-12 text-muted-foreground" />
+                                    <p className="mt-4 text-lg font-semibold">Ready to assist</p>
+                                    <p className="mt-1 text-sm text-muted-foreground max-w-sm">Click the button below to analyze the quote description and get part suggestions.</p>
+                                    <Button onClick={handleGetAiSuggestions} className="mt-4">
+                                        Get AI Suggestions
+                                    </Button>
+                                </>
+                            )}
+                         </CardContent>
+                    </Card>
+               </TabsContent>
               <TabsContent value="one-off">
                  <Card>
                     <CardHeader>
@@ -381,10 +462,10 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
 
     return (
         <React.Fragment>
-            <TableRow data-state={isOpen ? 'open' : 'closed'}>
+            <TableRow>
                 <TableCell className="w-12">
                      <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
-                        <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
+                        <ChevronRight className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-90")} />
                     </Button>
                 </TableCell>
                 <TableCell>
