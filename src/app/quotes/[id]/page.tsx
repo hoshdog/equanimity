@@ -1,4 +1,3 @@
-
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -41,6 +40,7 @@ import { generateQuoteDescription } from '@/ai/flows/generate-quote-description'
 import { Badge } from '@/components/ui/badge';
 import { addTimesheetEntry } from '@/lib/timesheets';
 import { auth } from '@/lib/auth';
+import { useTimeTracker } from '@/context/time-tracker-context';
 
 
 const lineItemSchema = z.object({
@@ -101,73 +101,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
-    
-    const [timeSpent, setTimeSpent] = useState(0); // in seconds
-    const [isTimerActive, setIsTimerActive] = useState(false);
-    const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const { setContext, logTime } = useTimeTracker();
 
 
     const { toast } = useToast();
-    
-    const startTimer = useCallback(() => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = setInterval(() => {
-            setTimeSpent(prevTime => prevTime + 1);
-        }, 1000);
-        setIsTimerActive(true);
-    }, []);
-
-    const pauseTimer = useCallback(() => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        setIsTimerActive(false);
-    }, []);
-    
-    const resetInactivityTimer = useCallback(() => {
-        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-        if (document.hidden) {
-            pauseTimer();
-            return;
-        }
-        if (!isTimerActive) {
-            startTimer();
-        }
-        inactivityTimerRef.current = setTimeout(() => {
-            pauseTimer();
-        }, 60000); // 1 minute
-    }, [isTimerActive, pauseTimer, startTimer]);
-    
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                pauseTimer();
-            } else {
-                resetInactivityTimer();
-            }
-        };
-
-        if (!loading) {
-            window.addEventListener('mousemove', resetInactivityTimer);
-            window.addEventListener('keydown', resetInactivityTimer);
-            document.addEventListener('visibilitychange', handleVisibilityChange);
-            resetInactivityTimer(); // Start it initially
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', resetInactivityTimer);
-            window.removeEventListener('keydown', resetInactivityTimer);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-        };
-    }, [loading, resetInactivityTimer, pauseTimer]);
-
-
-    const formatTime = (totalSeconds: number) => {
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-    };
 
     const quotingProfile = useMemo(() => {
         return initialQuotingProfiles.find(p => p.id === quote?.quotingProfileId) || initialQuotingProfiles[0];
@@ -245,6 +182,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 setLoading(true);
                 const quoteData = { id: doc.id, ...doc.data() } as Quote;
                 setQuote(quoteData);
+                setContext({ type: 'quote', id: quoteData.id, name: `Quote ${quoteData.quoteNumber}` });
                 await fetchRelatedData(quoteData);
                 resetFormToQuote(quoteData);
             } else {
@@ -252,8 +190,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             }
             setLoading(false);
         });
-        return () => unsub();
-    }, [quoteId, toast, resetFormToQuote]);
+
+        return () => {
+            unsub();
+            setContext(null); // Clear context on unmount
+        };
+    }, [quoteId, toast, resetFormToQuote, setContext]);
 
     // Fetch lists for dropdowns when editing
     useEffect(() => {
@@ -389,69 +331,17 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
     const siteOptions = useMemo(() => customerSites.map(s => ({ value: s.id, label: s.name })), [customerSites]);
-
-    const handleLogTime = async () => {
-        const user = auth.currentUser;
-        if (timeSpent < 1 || !user || !quote) {
-            toast({ variant: 'destructive', title: 'No time to log or user not found.' });
-            return;
-        }
-
-        const MINUTE_BLOCK = 5;
-        const totalSecondsInBlock = MINUTE_BLOCK * 60;
-        const billedSeconds = Math.ceil(timeSpent / totalSecondsInBlock) * totalSecondsInBlock;
-        const timeInHours = billedSeconds / 3600;
-
-        const firstLaborRate = laborRateOptions[0];
-        if (!firstLaborRate) {
-            toast({ variant: 'destructive', title: 'No labor rates found' });
-            return;
-        }
-
-        try {
-            await addTimesheetEntry({
-                userId: user.uid,
-                date: new Date(),
-                durationHours: timeInHours,
-                notes: `Quoting work for ${quote.quoteNumber}: ${quote.name}`,
-                jobId: `QUOTE-${quote.id}`,
-                isBillable: true,
-            });
-            
-            appendLineItem({
-                id: `item-${Date.now()}`,
-                type: 'Labour',
-                description: 'Quoting / Administration Time',
-                quantity: parseFloat(timeInHours.toFixed(2)),
-                unitCost: firstLaborRate.calculatedCostRate,
-                unitPrice: firstLaborRate.standardRate,
-                taxRate: 10,
-            });
-            
-            toast({ title: 'Time Logged', description: `${formatTime(billedSeconds)} has been added to your timesheet and the quote.` });
-            setTimeSpent(0); // Reset timer
-        } catch (error) {
-            console.error("Failed to log time:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not log time entry.' });
-        }
-    };
-
     
     if (loading) return <div className="flex-1 p-8 pt-6 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
     if (!quote) return <div className="flex-1 p-8 pt-6"><h2>Quote not found</h2></div>;
 
     return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="space-y-6">
         <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="flex items-center justify-between">
                  <div className="flex items-center space-x-4">
-                     <Button asChild variant="outline" size="icon">
-                        <Link href={quote.projectId ? `/projects/${quote.projectId}` : '/quotes'}>
-                            <ArrowLeft className="h-4 w-4"/><span className="sr-only">Back</span>
-                        </Link>
-                    </Button>
-                    <h2 className="text-3xl font-bold tracking-tight">Quote: {quote.quoteNumber}</h2>
+                    {/* Breadcrumbs will be handled by the AppHeader now */}
                  </div>
                  <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4"/>Save Changes</>}</Button>
             </div>
@@ -593,7 +483,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-1 text-center">Markup</Label>
                             <Label className="col-span-1 text-center">Margin</Label>
                             <Label className="col-span-1 text-center">Sell</Label>
-                            <Label className="col-span-1 text-center">Line Total</Label>
+                            <Label className="col-span-2 text-center">Line Total</Label>
                         </div>
                          {(!lineItemFields || lineItemFields.filter(item => item.type === 'Part').length === 0) ? (
                             <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>
@@ -648,7 +538,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-1">
                                             <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
-                                        <div className="col-span-1 flex items-center justify-center font-semibold text-sm">
+                                        <div className="col-span-2 flex items-center justify-center font-semibold text-sm">
                                             <span>${lineTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
@@ -754,26 +644,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </Card>
 
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" /> Quote Time Tracker</CardTitle>
-                            <CardDescription>Bill for the time spent preparing this quote.</CardDescription>
-                        </div>
-                        <div className="flex items-center gap-4">
-                           <Badge variant={isTimerActive ? "default" : "outline"} className={cn(isTimerActive && "bg-primary/20 text-primary border-primary/30")}>
-                              {isTimerActive ? "Tracking" : "Paused"}
-                           </Badge>
-                           <div className="text-2xl font-mono font-bold text-primary">{formatTime(timeSpent)}</div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="flex justify-center">
-                        <Button type="button" onClick={handleLogTime} disabled={timeSpent < 1}>
-                           Log Time & Add Cost to Quote
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card>
                     <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
                     <CardContent>
                          <div className="w-full space-y-4">
@@ -829,6 +699,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </Card>
                 
                 <Card>
+                    <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                        <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                    </CardContent>
+                </Card>
+                
+                <Card>
                     <CardHeader>
                         <CardTitle>Terms & Conditions</CardTitle>
                         <CardDescription>These terms will be displayed on the final quote document.</CardDescription>
@@ -849,14 +727,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 </FormItem>
                             )}
                         />
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                        <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
                     </CardContent>
                 </Card>
 

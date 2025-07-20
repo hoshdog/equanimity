@@ -1,3 +1,6 @@
+
+'use client';
+import { useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -21,8 +24,15 @@ import {
   FileText,
 } from 'lucide-react';
 import { ProjectStatusChart } from '@/components/dashboard-charts';
+import { useTimeTracker } from '@/context/time-tracker-context';
 
 export default function Dashboard() {
+  const { setContext } = useTimeTracker();
+
+  useEffect(() => {
+    setContext(null); // Clear context on dashboard
+  }, [setContext]);
+
   const recentActivities = [
     { id: 1, user: 'Alice', action: 'approved leave request for Bob', time: '2m ago', type: 'Leave' },
     { id: 2, user: 'Charlie', action: 'added a new task to "Website Redesign"', time: '15m ago', type: 'Project' },
@@ -42,8 +52,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+    <div className="flex-1 space-y-4">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

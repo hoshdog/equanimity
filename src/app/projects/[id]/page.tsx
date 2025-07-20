@@ -1,4 +1,3 @@
-
 // src/app/projects/[id]/page.tsx
 'use client'
 
@@ -41,6 +40,7 @@ import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useTimeTracker } from '@/context/time-tracker-context';
 
 
 const createQuoteSchema = z.object({
@@ -206,6 +206,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { setContext } = useTimeTracker();
+
 
   useEffect(() => {
     if (!projectId) return;
@@ -215,6 +217,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       if (projectDoc.exists()) {
         const projectData = { id: projectDoc.id, ...projectDoc.data() } as Project;
         setProject(projectData);
+        setContext({ type: 'project', id: projectData.id, name: projectData.name });
         if (projectData.customerId) {
           const customerData = await getCustomer(projectData.customerId);
           setCustomer(customerData);
@@ -261,8 +264,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         unsubJobs();
         unsubQuotes();
         unsubPOs();
+        setContext(null); // Clear context on unmount
     };
-  }, [projectId, toast]);
+  }, [projectId, toast, setContext]);
 
   const employeeMap = useMemo(() => {
     return new Map(employees.map(e => [e.id, e.name]));
@@ -289,19 +293,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex items-center space-x-4">
-             <Button asChild variant="outline" size="icon">
-                <Link href="/projects">
-                    <ArrowLeft className="h-4 w-4"/>
-                    <span className="sr-only">Back to Projects</span>
-                </Link>
-            </Button>
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-                <p className="text-muted-foreground">{project.description}</p>
-            </div>
-        </div>
+    <div className="space-y-4">
       
       <Tabs defaultValue="overview">
         <TabsList>

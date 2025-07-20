@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
+import { TimeTrackerProvider } from '@/context/time-tracker-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -22,9 +23,11 @@ export default function RootLayout({
         className={inter.className}
         suppressHydrationWarning={true}
       >
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <TimeTrackerProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </TimeTrackerProvider>
         <Toaster />
       </body>
     </html>
