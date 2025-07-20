@@ -70,6 +70,12 @@ function GlobalTimeTracker() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const handleLogTime = () => {
+    // The logTime function now primarily handles logging to timesheets.
+    // Specific pages can decide what to do with the returned duration.
+    logTime();
+  }
+
   return (
      <TooltipProvider>
       <Tooltip>
@@ -82,16 +88,19 @@ function GlobalTimeTracker() {
                   <Timer className="h-4 w-4 mr-1.5" />
                   {formatTime(timeSpent)}
               </Badge>
-              <Button onClick={logTime} size="sm" disabled={!context || timeSpent < 1}>
+              <Button onClick={handleLogTime} size="sm" disabled={!context || timeSpent < 1}>
                   Log Time
               </Button>
           </div>
         </TooltipTrigger>
         <TooltipContent>
             {context ? (
-                <p>Tracking time for: <span className="font-semibold">{context.name}</span></p>
+                <div>
+                    <p>Tracking time for: <span className="font-semibold">{context.name}</span></p>
+                    <p className="text-xs text-muted-foreground">Clicking "Log Time" will add an entry to your timesheet.</p>
+                </div>
             ) : (
-                <p>Navigate to a project or quote to start tracking time.</p>
+                <p>Navigate to a project, job, or quote to start tracking time.</p>
             )}
         </TooltipContent>
       </Tooltip>

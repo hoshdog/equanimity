@@ -17,7 +17,7 @@ interface TimeTrackerContextType {
     isTimerActive: boolean;
     context: TrackableContext;
     setContext: (context: TrackableContext) => void;
-    logTime: () => Promise<void>;
+    logTime: () => Promise<number>; // Returns the duration in hours
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | null>(null);
@@ -117,11 +117,11 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         };
     }, [context, resetInactivityTimer, pauseTimer]);
 
-    const logTime = async () => {
+    const logTime = async (): Promise<number> => {
         const user = auth.currentUser;
         if (timeSpent < 1 || !user || !context) {
             toast({ variant: 'destructive', title: 'Cannot log time', description: 'Not enough time tracked or no active context.' });
-            return;
+            return 0;
         }
 
         const MINUTE_BLOCK = 5;
@@ -141,9 +141,11 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             
             toast({ title: 'Time Logged', description: `${(billedSeconds/60).toFixed(0)} minutes logged to your timesheet.` });
             setTimeSpent(0);
+            return timeInHours;
         } catch (error) {
             console.error("Failed to log time:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not log time entry.' });
+            return 0;
         }
     };
     
