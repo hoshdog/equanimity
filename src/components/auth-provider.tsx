@@ -20,11 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const needsSetup = false; 
 
   useEffect(() => {
-    // If on a public or setup route, redirect to the dashboard.
-    if (publicRoutes.includes(pathname) || pathname === setupRoute) {
+    // If auth is not loading and the user is on a public/setup route, redirect.
+    if (!loading && (publicRoutes.includes(pathname) || pathname === setupRoute)) {
       router.push('/');
     }
-  }, [pathname, router]);
+  }, [pathname, router, loading]);
 
   if (loading) {
     return (
