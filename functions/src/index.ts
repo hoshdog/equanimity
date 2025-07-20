@@ -31,7 +31,7 @@ export const createuserprofile = onUserCreate((event) => {
     displayName: email?.split('@')[0] || 'New User',
     createdAt: new Date().toISOString(),
     // Add any other default fields you want for a new user
-    roles: ['user'], // Default role
+    roles: ['user', 'client'], // Default roles for a new user
   };
   
   // Create a new document in the 'users' collection with the user's UID.

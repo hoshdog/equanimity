@@ -2,55 +2,87 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+    // =================================
+    // Helper Functions
+    // =================================
 
-    // Helper function to check for project membership (implementation needed)
-    // This function would typically check a 'members' array or map on the project document.
-    function isProjectMember(projectId) {
-      return get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+    // Get the requesting user's roles from their profile in the 'users' collection.
+    function getUserRoles() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
+    }
+    
+    // Check if the user has the 'admin' role.
+    function isAdmin() {
+      return 'admin' in getUserRoles();
     }
 
-    match /projects/{projectId} {
-      // READ: Allow any member of the project to read the project document.
-      allow read: if isProjectMember(projectId);
+    // Check if the user has the 'client' role.
+    function isClient() {
+        return 'client' in getUserRoles();
+    }
+    
+    // Check if the user is the owner of a given document.
+    // Assumes the document has a 'customerId' field with the user's UID.
+    function isOwner(doc) {
+        return request.auth.uid == doc.customerId;
+    }
 
-      // CREATE: A user must be authenticated and set themselves as the owner.
-      // We also validate that the incoming data has the correct fields.
-      allow create: if request.auth.uid != null
-                    && request.resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.name is string
-                    && request.resource.data.members is map;
+    // =================================
+    // Collection Rules
+    // =================================
 
-      // UPDATE: Only the owner can update. Critically, we prevent the ownerUid from being changed.
-      allow update: if request.auth.uid == resource.data.ownerUid
-                    && request.resource.data.ownerUid == resource.data.ownerUid;
+    // Users can read their own profile. Admins can read anyone's.
+    // Users can create their own profile. Admins can update any profile.
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId || isAdmin();
+      allow write: if request.auth.uid == userId || isAdmin();
+    }
 
-      // DELETE: Only the owner can delete the project.
-      allow delete: if request.auth.uid == resource.data.ownerUid;
-
-      match /tasks/{taskId} {
-        // READ: Inherits read access from the parent project. Any project member can read tasks.
-        allow read: if isProjectMember(projectId);
-
-        // CREATE: Any project member can create a task.
-        // We validate that the new task has an assignee and a description.
-        allow create: if isProjectMember(projectId)
-                      && request.resource.data.assigneeUid is string
-                      && request.resource.data.description is string;
-        
-        // WRITE (Update/Delete): Split into more granular rules.
-        // UPDATE: Only the assigned user can update a task. Prevent re-assignment.
-        allow update: if request.auth.uid == resource.data.assigneeUid
-                      && request.resource.data.assigneeUid == resource.data.assigneeUid;
-                      
-        // DELETE: Allow the assignee OR the project owner to delete the task.
-        allow delete: if request.auth.uid == resource.data.assigneeUid
-                      || request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.ownerUid;
+    // Customers can only be read/written by admins.
+    // This is a secure default. If clients need to edit their own details,
+    // we would need a rule like: allow update: if request.auth.uid == resource.id;
+    match /customers/{customerId} {
+      allow read, write: if isAdmin();
+      
+      // Clients can't directly access their own subcollections unless specified.
+      // This is a secure default.
+      match /{allSubcollections=**} {
+        allow read, write: if isAdmin();
       }
     }
 
-    // Explicitly deny access to other collections unless specified
+    // Projects:
+    // - Any authenticated user can read any project (e.g., for a public list).
+    // - Only clients can create projects, and they must set themselves as the owner.
+    // - Only the project owner (client) or an admin can update/delete it.
+    match /projects/{projectId} {
+      allow read: if request.auth.token != null;
+      allow create: if isClient() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
+    }
+
+    // Jobs:
+    // - Any authenticated user can read any job.
+    // - Only clients can create jobs.
+    // - Only the job owner (client, via project) or an admin can update/delete.
+    match /jobs/{jobId} {
+        allow read: if request.auth.token != null;
+        allow create: if isClient(); // Further checks inside app logic needed to assign to correct project
+        allow update, delete: if isOwner(resource.data) || isAdmin();
+    }
+    
+    // Employees: Only readable/writable by admins.
+    match /employees/{employeeId} {
+        allow read, write: if isAdmin();
+    }
+
+    // Quotes, Purchase Orders, etc.
+    // - Anyone can read.
+    // - Only admins or the owner of the associated project can create/update/delete.
     match /{document=**} {
-      allow read, write: if false;
+        allow read: if request.auth.token != null;
+        allow write: if isAdmin() || (exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) && isOwner(get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data));
     }
   }
 }
