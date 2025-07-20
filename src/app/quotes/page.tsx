@@ -7,11 +7,13 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlusCircle, FileText } from 'lucide-react';
+import { Loader2, PlusCircle, FileText, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { addQuote } from '@/lib/quotes';
 import { getProjects } from '@/lib/projects';
-import type { Quote, Project, OptionType } from '@/lib/types';
+import { getCustomerContacts } from '@/lib/customers';
+import { getEmployees } from '@/lib/employees';
+import type { Quote, Project, OptionType, Contact, Employee, AssignedStaff, ProjectContact } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
@@ -25,17 +27,37 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { onSnapshot, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { addDays } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { jobStaffRoles } from '@/lib/types';
+
+
+const assignedStaffSchema = z.object({
+  employeeId: z.string().min(1, "Please select a staff member."),
+  role: z.string().min(2, "Role is required."),
+});
+
+const projectContactSchema = z.object({
+  contactId: z.string().min(1, "Please select a contact."),
+  role: z.string().min(2, "Role is required."),
+});
 
 
 const createQuoteSchema = z.object({
     projectId: z.string().optional(),
+    name: z.string().min(3, "Quote name must be at least 3 characters."),
+    description: z.string().optional(),
+    prompt: z.string().optional(),
+    assignedStaff: z.array(assignedStaffSchema).optional(),
+    projectContacts: z.array(projectContactSchema).optional(),
 });
 
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
@@ -45,47 +67,94 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+
     const router = useRouter();
     const { toast } = useToast();
 
     const form = useForm<CreateQuoteValues>({
         resolver: zodResolver(createQuoteSchema),
-        defaultValues: { projectId: initialProjectId || "" },
+        defaultValues: { 
+            projectId: initialProjectId || "",
+            name: "",
+            description: "",
+            prompt: "",
+            assignedStaff: [{ employeeId: '', role: '' }],
+            projectContacts: [{ contactId: '', role: '' }],
+        },
     });
+
+    const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({
+        control: form.control,
+        name: 'assignedStaff'
+    });
+     const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
+        control: form.control,
+        name: 'projectContacts'
+    });
+
+    const watchedProjectId = form.watch('projectId');
+    const selectedProject = useMemo(() => projects.find(p => p.id === watchedProjectId), [projects, watchedProjectId]);
 
     useEffect(() => {
         if (!isOpen) return;
-        async function fetchProjects() {
+
+        async function fetchInitialData() {
             setLoading(true);
             try {
-                const projectsData = await getProjects();
+                const [projectsData, employeesData] = await Promise.all([
+                    getProjects(),
+                    getEmployees()
+                ]);
                 setProjects(projectsData);
+                setEmployees(employeesData);
                 if (initialProjectId) {
                     form.setValue('projectId', initialProjectId);
                 }
             } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Could not load projects." });
+                toast({ variant: "destructive", title: "Error", description: "Could not load projects and employees." });
             } finally {
                 setLoading(false);
             }
         }
-        fetchProjects();
+        fetchInitialData();
     }, [isOpen, toast, initialProjectId, form]);
 
+    useEffect(() => {
+        async function fetchContacts() {
+            if (selectedProject) {
+                setLoading(true);
+                try {
+                    const contactsData = await getCustomerContacts(selectedProject.customerId);
+                    setContacts(contactsData);
+                } catch (error) {
+                    toast({ variant: 'destructive', title: "Error", description: "Could not load contacts for the selected project." });
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                setContacts([]);
+            }
+        }
+        fetchContacts();
+    }, [selectedProject, toast]);
+
     const projectOptions = projects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})`}));
+    const contactOptions = contacts.map(c => ({ value: c.id, label: c.name }));
+    const employeeOptions = employees.map(e => ({ value: e.id, label: e.name }));
+
 
     async function onSubmit(values: CreateQuoteValues) {
         setLoading(true);
-        const selectedProject = projects.find(p => p.id === values.projectId);
-
         try {
              const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
                 projectId: selectedProject?.id,
                 projectName: selectedProject?.name,
                 customerId: selectedProject?.customerId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
-                name: selectedProject ? `${selectedProject.name} - Quote` : "New Quote",
-                description: selectedProject ? `Quote for ${selectedProject.name}` : "",
+                name: values.name,
+                description: values.description || "",
                 quoteDate: new Date(),
                 dueDate: addDays(new Date(), 14),
                 expiryDate: addDays(new Date(), 30),
@@ -93,6 +162,9 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                 lineItems: [{ id: 'item-0', type: 'Part' as const, description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
                 subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
                 version: 1,
+                prompt: values.prompt,
+                assignedStaff: values.assignedStaff,
+                projectContacts: values.projectContacts,
             };
             const newQuoteId = await addQuote(newQuoteData);
             toast({ title: "Quote Created", description: "Redirecting to the new quote..." });
@@ -108,30 +180,96 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Create New Quote</DialogTitle>
-                    <DialogDescription>Select the project or job this quote is for. You can add details on the next screen.</DialogDescription>
+                    <DialogDescription>Fill out the details below to generate a new quote. You can add specific line items on the next screen.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="projectId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Project or Job</FormLabel>
-                                    <SearchableCombobox
-                                        options={projectOptions}
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        placeholder="Select a project or job"
-                                        disabled={!!initialProjectId}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <Tabs defaultValue="core">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="core">Core Details</TabsTrigger>
+                                <TabsTrigger value="assignment">Assignment</TabsTrigger>
+                                <TabsTrigger value="ai">AI Generation</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="core" className="pt-4 space-y-4">
+                                <FormField
+                                    control={form.control}
+                                    name="projectId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Link to Project or Job</FormLabel>
+                                            <SearchableCombobox
+                                                options={projectOptions}
+                                                value={field.value || ''}
+                                                onChange={field.onChange}
+                                                placeholder="Select a project (optional)..."
+                                                disabled={!!initialProjectId}
+                                            />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Quote Name</FormLabel><FormControl><Input placeholder="e.g., Kitchen Lighting Upgrade" {...field} /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A brief summary of the work to be quoted." {...field} /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                            </TabsContent>
+                            <TabsContent value="assignment" className="pt-4 space-y-4">
+                                 <div className="space-y-2">
+                                    <FormLabel>Customer Contacts</FormLabel>
+                                    {contactFields.map((field, index) => (
+                                        <div key={field.id} className="flex items-center gap-2">
+                                             <div className="grid grid-cols-2 gap-2 flex-1">
+                                                <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={contactOptions} {...field} placeholder="Select contact..." disabled={!watchedProjectId} /></FormItem>)} />
+                                                <FormField control={form.control} name={`projectContacts.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Site Contact" {...field} /></FormItem>)} />
+                                            </div>
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)} disabled={contactFields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })} disabled={!watchedProjectId}>Add Contact</Button>
+                                </div>
+                                 <div className="space-y-2">
+                                    <FormLabel>Assigned Staff</FormLabel>
+                                    {staffFields.map((field, index) => (
+                                        <div key={field.id} className="flex items-center gap-2">
+                                             <div className="grid grid-cols-2 gap-2 flex-1">
+                                                <FormField control={form.control} name={`assignedStaff.${index}.employeeId`} render={({ field }) => (<FormItem><SearchableCombobox options={employeeOptions} {...field} placeholder="Select staff..." /></FormItem>)} />
+                                                <FormField control={form.control} name={`assignedStaff.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Estimator" {...field} /></FormItem>)} />
+                                            </div>
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)} disabled={staffFields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}>Add Staff</Button>
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="ai" className="pt-4 space-y-4">
+                                 <FormField
+                                    control={form.control}
+                                    name="prompt"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>AI Quote Generation Prompt</FormLabel>
+                                            <FormControl><Textarea placeholder="Describe the job requirements in detail. Include scope, assumptions, exclusions, parts, labor, etc. The more detail, the better the generated quote." {...field} rows={8} /></FormControl>
+                                            <FormDescription>Leave blank if you prefer to build the quote manually.</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </TabsContent>
+                        </Tabs>
+
                         <DialogFooter>
                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                             <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : "Create Quote"}</Button>

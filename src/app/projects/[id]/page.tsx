@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare, GanttChartSquare, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getProject, getProjects } from '@/lib/projects';
-import { getCustomer } from '@/lib/customers';
+import { getCustomer, getCustomerContacts } from '@/lib/customers';
 import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
@@ -49,6 +49,9 @@ const createQuoteSchema = z.object({
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
 
 
+// This component is now defined in quotes/page.tsx and imported here.
+// For simplicity of this change, I'll keep a reference here but in a larger refactor
+// this would be moved to a shared component file.
 function CreateQuoteDialog({ children, initialProjectId }: { children: React.ReactNode, initialProjectId?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -119,7 +122,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create New Quote</DialogTitle>
-                    <DialogDescription>Select a project to link this quote to (optional). You can add details on the next screen.</DialogDescription>
+                    <DialogDescription>Select the project or job this quote is for. You can add details on the next screen.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -128,12 +131,12 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Project or Job</FormLabel>
+                                    <FormLabel>Project or Job (Optional)</FormLabel>
                                     <SearchableCombobox
                                         options={projectOptions}
                                         value={field.value || ''}
                                         onChange={field.onChange}
-                                        placeholder="Select a project"
+                                        placeholder="Select a project or job"
                                         disabled={!!initialProjectId}
                                     />
                                     <FormMessage />
