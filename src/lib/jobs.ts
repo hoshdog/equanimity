@@ -11,7 +11,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import type { Job, Project } from './types';
+import type { Job, Project, Customer } from './types';
 
 const jobsCollection = collection(db, 'jobs');
 
@@ -27,39 +27,50 @@ export async function getJobs(projectId?: string): Promise<Job[]> {
 }
 
 
-// Add a new job to a specific project
-export async function addJob(projectId: string, jobData: Omit<Job, 'id' | 'createdAt' | 'projectId' | 'projectName' | 'customerId' | 'customerName'>): Promise<string> {
-    const projectRef = doc(db, 'projects', projectId);
-    const projectSnap = await getDoc(projectRef);
+// Add a new job
+export async function addJob(jobData: Omit<Job, 'id' | 'createdAt'>): Promise<string> {
+    let finalJobData = { ...jobData };
 
-    if (!projectSnap.exists()) {
-      throw new Error("Project not found to create a job under.");
+    // If a project is linked, get its details
+    if (jobData.projectId) {
+        const projectRef = doc(db, 'projects', jobData.projectId);
+        const projectSnap = await getDoc(projectRef);
+        if (projectSnap.exists()) {
+            const projectData = projectSnap.data() as Project;
+            finalJobData.projectName = projectData.name;
+        }
     }
-    const projectData = projectSnap.data() as Project;
+    
+    // Ensure customer name is present
+    if (!jobData.customerName) {
+         const customerRef = doc(db, 'customers', jobData.customerId);
+         const customerSnap = await getDoc(customerRef);
+         if (customerSnap.exists()) {
+             finalJobData.customerName = (customerSnap.data() as Customer).name;
+         }
+    }
 
     const newJobRef = await addDoc(jobsCollection, {
-        ...jobData,
+        ...finalJobData,
         // Convert dates to Timestamps if they are Date objects
         startDate: jobData.startDate ? jobData.startDate : null,
         endDate: jobData.endDate ? jobData.endDate : null,
-        projectId: projectId,
-        projectName: projectData.name,
-        customerId: projectData.customerId,
-        customerName: projectData.customerName,
         createdAt: serverTimestamp(),
     });
 
-    // Create a corresponding timeline item
-    const timelineItemsRef = collection(db, 'projects', projectId, 'timelineItems');
-    await addDoc(timelineItemsRef, {
-      name: jobData.title,
-      type: 'job',
-      jobId: newJobRef.id,
-      startDate: jobData.startDate ? (jobData.startDate as Date).toISOString() : new Date().toISOString(),
-      endDate: jobData.endDate ? (jobData.endDate as Date).toISOString() : new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
-      dependencies: jobData.dependencies || [],
-      assignedResourceIds: jobData.assignedStaff.map(s => s.employeeId),
-    });
+    // Create a corresponding timeline item if linked to a project
+    if (finalJobData.projectId) {
+        const timelineItemsRef = collection(db, 'projects', finalJobData.projectId, 'timelineItems');
+        await addDoc(timelineItemsRef, {
+          name: finalJobData.title,
+          type: 'job',
+          jobId: newJobRef.id,
+          startDate: finalJobData.startDate ? (finalJobData.startDate as Date).toISOString() : new Date().toISOString(),
+          endDate: finalJobData.endDate ? (finalJobData.endDate as Date).toISOString() : new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
+          dependencies: finalJobData.dependencies || [],
+          assignedResourceIds: finalJobData.assignedStaff.map(s => s.employeeId),
+        });
+    }
 
     return newJobRef.id;
 }

@@ -9,7 +9,7 @@ import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Job, Employee, OptionType, TimelineItem, AssignedStaff } from '@/lib/types';
+import type { Project, Job, Employee, OptionType, TimelineItem, AssignedStaff, Customer, Site } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { jobStaffRoles } from '@/lib/types';
+import { getCustomers, getCustomerSites } from '@/lib/customers';
 
 
 const assignedStaffSchema = z.object({
@@ -39,7 +40,11 @@ const jobSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
   category: z.string().min(2, "Please select a category."),
-  projectId: z.string({ required_error: "Please select a project." }).min(1, "Please select a project."),
+  
+  // Relationships
+  projectId: z.string().optional(),
+  customerId: z.string({ required_error: "A customer must be selected."}).min(1, "A customer must be selected."),
+  siteId: z.string({ required_error: "A site must be selected."}).min(1, "A site must be selected."),
   
   // Scheduling
   startDate: z.date().optional(),
@@ -84,6 +89,8 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   const [loading, setLoading] = React.useState(false);
   const [projects, setProjects] = React.useState<OptionType[]>([]);
   const [employees, setEmployees] = React.useState<OptionType[]>([]);
+  const [customers, setCustomers] = React.useState<OptionType[]>([]);
+  const [sites, setSites] = React.useState<OptionType[]>([]);
   const [dependencyOptions, setDependencyOptions] = React.useState<OptionType[]>([]);
   const { toast } = useToast();
 
@@ -94,6 +101,8 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
       description: "",
       category: "",
       projectId: initialProjectId || "",
+      customerId: "",
+      siteId: "",
       assignedStaff: [{ employeeId: '', role: '' }],
       dependencies: [],
       status: 'Planned',
@@ -109,56 +118,88 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   });
   
   const watchedProjectId = form.watch('projectId');
+  const watchedCustomerId = form.watch('customerId');
 
   React.useEffect(() => {
     async function fetchInitialData() {
         if (isOpen) {
             setLoading(true);
             try {
-                const [projectsData, employeesData] = await Promise.all([
-                    initialProjectId ? Promise.resolve([]) : getProjects(),
+                const [projectsData, employeesData, customersData] = await Promise.all([
+                    getProjects(),
                     getEmployees(),
+                    getCustomers()
                 ]);
-                if (!initialProjectId) setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
+                setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
                 setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
+                setCustomers(customersData.map(c => ({ value: c.id, label: c.name })));
             } catch (error) {
                 console.error("Failed to load data for job form", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load projects and employees.' });
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load initial data.' });
             } finally {
                 setLoading(false);
             }
         }
     }
     fetchInitialData();
-  }, [isOpen, toast, initialProjectId]);
+  }, [isOpen, toast]);
   
   React.useEffect(() => {
-    async function fetchProjectDependencies() {
+    async function fetchDependencies() {
         if (watchedProjectId) {
-            setLoading(true);
             try {
                 const timelineItems = await getTimelineItems(watchedProjectId);
                 setDependencyOptions(timelineItems.map(item => ({ value: item.id, label: item.name })));
-            } catch (error) {
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load items for dependencies.' });
-            } finally {
-                setLoading(false);
-            }
+            } catch (error) { toast({ variant: 'destructive', title: 'Error', description: 'Could not load items for dependencies.' }); }
+        } else {
+            setDependencyOptions([]);
         }
     }
-    fetchProjectDependencies();
+    fetchDependencies();
   }, [watchedProjectId, toast]);
 
   React.useEffect(() => {
-    if (isOpen && initialProjectId) {
-      form.setValue('projectId', initialProjectId);
+    async function handleProjectSelection() {
+        if (watchedProjectId) {
+            const project = (await getProjects()).find(p => p.id === watchedProjectId);
+            if (project) {
+                form.setValue('customerId', project.customerId);
+                form.setValue('siteId', project.siteId);
+            }
+        }
     }
-     if (!isOpen) {
+    handleProjectSelection();
+  }, [watchedProjectId, form]);
+  
+  React.useEffect(() => {
+    async function handleCustomerSelection() {
+        if (watchedCustomerId) {
+            try {
+                const customerSites = await getCustomerSites(watchedCustomerId);
+                setSites(customerSites.map(s => ({ value: s.id, label: s.name })));
+            } catch (error) {
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load sites for this customer.' });
+            }
+        } else {
+            setSites([]);
+        }
+         // When customer changes and we're not tied to a project, reset siteId
+        if (!watchedProjectId) {
+            form.resetField('siteId');
+        }
+    }
+    handleCustomerSelection();
+  }, [watchedCustomerId, watchedProjectId, form, toast]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
         form.reset({
           title: "",
           description: "",
           category: "",
           projectId: initialProjectId || "",
+          customerId: "",
+          siteId: "",
           assignedStaff: [{ employeeId: '', role: '' }],
           dependencies: [],
           status: 'Planned',
@@ -170,15 +211,13 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           billingRate: undefined,
         });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, initialProjectId]);
+  }, [isOpen, initialProjectId, form]);
 
 
   async function onSubmit(values: JobFormValues) {
     setLoading(true);
     try {
-        const newJobId = await addJob(values.projectId, values);
-        // The real-time listener will handle the UI update.
+        await addJob(values);
         toast({ title: 'Job Created', description: `A new job has been successfully created.` });
         setIsOpen(false);
     } catch (error) {
@@ -200,7 +239,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create New Job</DialogTitle>
-          <DialogDescription>Fill out the form below to create a new job.</DialogDescription>
+          <DialogDescription>Fill out the form below to create a new job. You can optionally link it to a project.</DialogDescription>
         </DialogHeader>
         {loading && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
         <FormProvider {...form}>
@@ -214,18 +253,31 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                         <TabsTrigger value="financials">Financials</TabsTrigger>
                     </TabsList>
                     <TabsContent value="core" className="pt-4 space-y-4">
-                        {!initialProjectId && (
-                            <FormField
-                                control={form.control}
-                                name="projectId"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col"><FormLabel>Project</FormLabel>
-                                    <SearchableCombobox options={projects} {...field} placeholder="Select a project" />
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
+                        <FormField
+                            control={form.control}
+                            name="projectId"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col"><FormLabel>Link to Project (Optional)</FormLabel>
+                                <SearchableCombobox options={projects} {...field} placeholder="Select a project" />
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField control={form.control} name="customerId" render={({ field }) => (
+                            <FormItem className="flex flex-col"><FormLabel>Customer</FormLabel>
+                                <SearchableCombobox options={customers} {...field} placeholder="Select a customer" disabled={!!watchedProjectId} />
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <FormField control={form.control} name="siteId" render={({ field }) => (
+                             <FormItem className="flex flex-col"><FormLabel>Site</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || !!watchedProjectId}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                    <SelectContent>{sites.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
                         <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Job Title</FormLabel><FormControl><Input placeholder="e.g., Install new kitchen downlights" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Job Description</FormLabel><FormControl><Textarea placeholder="Describe the job in detail..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <div className="grid grid-cols-2 gap-4">
@@ -239,7 +291,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                             <FormField control={form.control} name="startDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Start Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                             <FormField control={form.control} name="endDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>End Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         </div>
-                        <FormField control={form.control} name="dependencies" render={({ field }) => (<FormItem><FormLabel>Dependencies</FormLabel><MultiSelect options={dependencyOptions} selected={dependencyOptions.filter(opt => field.value?.includes(opt.value))} onChange={(selected) => field.onChange(selected.map(s => s.value))} placeholder="Select prerequisite jobs or tasks..." /><FormDescription>This job can only start after these items are completed.</FormDescription><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="dependencies" render={({ field }) => (<FormItem><FormLabel>Dependencies</FormLabel><MultiSelect options={dependencyOptions} selected={dependencyOptions.filter(opt => field.value?.includes(opt.value))} onChange={(selected) => field.onChange(selected.map(s => s.value))} placeholder="Select prerequisite jobs or tasks..." disabled={!watchedProjectId} /><FormDescription>Dependencies can only be set if the job is linked to a project.</FormDescription><FormMessage /></FormItem>)}/>
                         <FormField control={form.control} name="isMilestone" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Mark as Milestone</FormLabel><FormDescription>Key milestones are highlighted on the project timeline.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
                     </TabsContent>
                     <TabsContent value="assignment" className="pt-4 space-y-4">

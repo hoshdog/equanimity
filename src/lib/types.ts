@@ -94,15 +94,18 @@ export const jobStaffRoles = ["Lead Technician", "Technician", "Apprentice", "Pr
 export interface Job {
     id: string;
     jobCode?: string; // e.g. PRJ-2024-001-JB-001
-    projectId: string;
-    projectName: string; // Denormalized
-    customerId: string; // Denormalized
-    customerName: string; // Denormalized
-
+    
     // Core Details
     title: string;
     description: string;
     category: string;
+    
+    // Relationships (denormalized for querying)
+    projectId?: string | null;
+    projectName?: string | null;
+    customerId: string;
+    customerName: string;
+    siteId: string;
 
     // Scheduling
     startDate?: Date | Timestamp;
