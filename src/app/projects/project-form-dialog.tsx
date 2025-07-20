@@ -289,9 +289,12 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     try {
         const newProjectId = await addProject(values);
         
+        const customer = customers.find(c => c.id === values.customerId);
+        
         const newProject: Project = { 
             id: newProjectId, 
             ...values,
+            customerName: customer?.name || "Unknown",
             status: 'Planning',
             createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
         };

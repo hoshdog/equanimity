@@ -95,22 +95,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load project details.' });
     });
 
-    // Listeners for subcollections
-    const jobsQuery = query(collection(db, 'projects', projectId, 'jobs'), orderBy('createdAt', 'desc'));
+    // Listeners for related collections
+    const jobsQuery = query(collection(db, 'jobs'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     const unsubJobs = onSnapshot(jobsQuery, (snapshot) => {
-        setJobs(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as Job)));
+        setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job)));
     });
     
-    // Quotes are in a root collection, so we query them
     const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId));
     const unsubQuotes = onSnapshot(quotesQuery, (snapshot) => {
         setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
     });
 
-    // POs are in a project subcollection
-    const poQuery = query(collection(db, 'projects', projectId, 'purchaseOrders'), orderBy('createdAt', 'desc'));
+    const poQuery = query(collection(db, 'purchaseOrders'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     const unsubPOs = onSnapshot(poQuery, (snapshot) => {
-        setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as PurchaseOrder)));
+        setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder)));
     });
     
     // Fetch employees once

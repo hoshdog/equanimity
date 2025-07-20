@@ -91,7 +91,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
         setLoading(true);
         try {
           const projectsData = await getProjects();
-          setProjects(projectsData.map(p => ({ value: p.id, label: p.name })));
+          setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
         } catch (error) {
           toast({ variant: 'destructive', title: 'Error', description: 'Could not load projects.' });
         } finally {
@@ -126,12 +126,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
         totalValue,
       };
       const newPOId = await addPurchaseOrder(values.projectId, poData);
-      const newPO: PurchaseOrder = {
-        id: newPOId,
-        ...poData,
-        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } // Simulate timestamp
-      };
-      onPOCreated(newPO);
+      onPOCreated({ id: newPOId, ...poData, createdAt: new Date() } as any);
       toast({ title: "Purchase Order Created", description: `${values.poNumber} has been successfully created.` });
       setIsOpen(false);
     } catch (error) {

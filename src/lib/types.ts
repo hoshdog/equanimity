@@ -20,7 +20,6 @@ export interface Site {
   name: string;
   address: string;
   primaryContactId: string;
-  projects?: ProjectSummary[];
 }
 
 export interface ProjectSummary {
@@ -39,14 +38,11 @@ export interface Customer {
   email: string;
   phone: string;
 }
+
 export interface CustomerWithSubcollections extends Customer {
     contacts: Contact[];
     sites: Site[];
     projects: ProjectSummary[];
-}
-
-export interface CustomerDetails {
-    [key: string]: CustomerWithSubcollections;
 }
 
 export interface ProjectContact {
@@ -66,6 +62,7 @@ export interface Project {
     status: string;
     assignedStaff: AssignedStaff[];
     customerId: string;
+    customerName: string; // Denormalized for easier display
     siteId: string;
     projectContacts: ProjectContact[];
     createdAt: Timestamp;
@@ -73,7 +70,10 @@ export interface Project {
 
 export interface Job {
     id: string;
-    projectId: string; // The ID of the project this job belongs to
+    projectId: string;
+    projectName: string; // Denormalized
+    customerId: string; // Denormalized
+    customerName: string; // Denormalized
     description: string;
     status: 'Not Started' | 'In Progress' | 'On Hold' | 'Completed';
     technicianId: string;
@@ -125,6 +125,8 @@ export interface PurchaseOrder {
   id: string;
   poNumber: string;
   projectId: string;
+  projectName: string; // Denormalized
+  customerId: string; // Denormalized
   supplierName: string;
   status: 'Draft' | 'Sent' | 'Partially Received' | 'Received' | 'Cancelled';
   lineItems: POLineItem[];

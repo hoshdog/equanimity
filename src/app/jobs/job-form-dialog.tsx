@@ -14,6 +14,10 @@ import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
 import { ItemCreationForm } from '@/components/forms/item-creation-form';
+import { Combobox } from '@/components/ui/combobox';
+import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const jobSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
@@ -32,7 +36,7 @@ interface JobFormDialogProps {
 export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [projects, setProjects] = React.useState<OptionType[]>([]);
   const [employees, setEmployees] = React.useState<OptionType[]>([]);
   const { toast } = useToast();
 
@@ -54,11 +58,10 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
             setLoading(true);
             try {
                 const [projectsData, employeesData] = await Promise.all([
-                    // Only fetch projects if no initial project is set
                     initialProjectId ? Promise.resolve([]) : getProjects(),
                     getEmployees(),
                 ]);
-                if (!initialProjectId) setProjects(projectsData);
+                if (!initialProjectId) setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
                 setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
             } catch (error) {
                 console.error("Failed to load data for job form", error);
@@ -71,18 +74,12 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
     fetchInitialData();
   }, [isOpen, toast, initialProjectId]);
 
-  const projectOptions = projects.map(p => ({ value: p.id, label: p.name }));
 
   async function onSubmit(values: JobFormValues) {
     setLoading(true);
     try {
         const newJobId = await addJob(values.projectId, values);
-        const newJob: Job = {
-            id: newJobId,
-            ...values,
-            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } // Simulate timestamp
-        };
-        onJobCreated(newJob);
+        // The real-time listener will handle the UI update.
         toast({ title: 'Job Created', description: `A new job has been successfully created.` });
         setIsOpen(false);
         form.reset();
@@ -93,24 +90,6 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
         setLoading(false);
     }
   }
-
-  const fields = [
-    ...(initialProjectId ? [] : [{ name: 'projectId', label: 'Project', type: 'select', options: projectOptions, placeholder: "Select a project" }]),
-    { name: 'description', label: 'Job Description', type: 'textarea', placeholder: 'Describe the job in detail...' },
-    { name: 'technicianId', label: 'Assign Technician', type: 'select', options: employees, placeholder: 'Select a technician' },
-    {
-      name: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { value: 'Not Started', label: 'Not Started' },
-        { value: 'In Progress', label: 'In Progress' },
-        { value: 'On Hold', label: 'On Hold' },
-        { value: 'Completed', label: 'Completed' },
-      ],
-      placeholder: 'Select a status'
-    },
-  ] as const;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -127,13 +106,65 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
         </DialogHeader>
         {loading && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
         <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <ItemCreationForm fields={fields} />
-            <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-              <Button type="submit" disabled={loading}>Create Job</Button>
-            </DialogFooter>
-          </form>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {!initialProjectId && (
+                    <FormField
+                        control={form.control}
+                        name="projectId"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col"><FormLabel>Project</FormLabel>
+                            <Combobox options={projects} {...field} placeholder="Select a project" />
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+                <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                        <FormItem><FormLabel>Job Description</FormLabel>
+                        <FormControl><Textarea placeholder="Describe the job in detail..." {...field} /></FormControl>
+                        <FormMessage /></FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="technicianId"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col"><FormLabel>Assign Technician</FormLabel>
+                        <Combobox options={employees} {...field} placeholder="Select a technician" />
+                        <FormMessage /></FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                        <FormItem><FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a status" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="Not Started">Not Started</SelectItem>
+                                <SelectItem value="In Progress">In Progress</SelectItem>
+                                <SelectItem value="On Hold">On Hold</SelectItem>
+                                <SelectItem value="Completed">Completed</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage /></FormItem>
+                    )}
+                />
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                    <Button type="submit" disabled={loading}>Create Job</Button>
+                </DialogFooter>
+            </form>
+          </Form>
         </FormProvider>
       </DialogContent>
     </Dialog>

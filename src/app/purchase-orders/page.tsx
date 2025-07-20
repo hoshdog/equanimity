@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { getPurchaseOrders } from '@/lib/purchase-orders';
-import { getProjects } from '@/lib/projects';
-import type { PurchaseOrder, Project } from '@/lib/types';
+import type { PurchaseOrder } from '@/lib/types';
 import { PurchaseOrderFormDialog } from './po-form-dialog';
+import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -26,37 +28,27 @@ const getStatusColor = (status: string) => {
 
 export default function PurchaseOrdersPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const [poData, projectsData] = await Promise.all([
-          getPurchaseOrders(),
-          getProjects(),
-        ]);
-        setPurchaseOrders(poData);
-        setProjects(projectsData);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load purchase orders.' });
-      } finally {
+    const q = query(collection(db, 'purchaseOrders'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder)));
         setLoading(false);
-      }
-    }
-    fetchData();
+    }, (error) => {
+        console.error("Failed to fetch POs:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load purchase orders.' });
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [toast]);
 
-  const projectMap = useMemo(() => {
-    return new Map(projects.map(p => [p.id, p.name]));
-  }, [projects]);
 
   const handlePOCreated = (newPO: PurchaseOrder) => {
-    setPurchaseOrders(prev => [newPO, ...prev]);
+    // Listener will handle this
   };
 
   const handleRowClick = (po: PurchaseOrder) => {
@@ -97,7 +89,7 @@ export default function PurchaseOrdersPage() {
                   <TableRow key={po.id} onClick={() => handleRowClick(po)} className="cursor-pointer">
                     <TableCell className="font-medium">{po.poNumber}</TableCell>
                     <TableCell>{po.supplierName}</TableCell>
-                    <TableCell>{projectMap.get(po.projectId) || 'N/A'}</TableCell>
+                    <TableCell>{po.projectName || 'N/A'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={getStatusColor(po.status)}>{po.status}</Badge>
                     </TableCell>

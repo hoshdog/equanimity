@@ -7,52 +7,47 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  writeBatch,
   serverTimestamp,
   query,
   orderBy,
   where,
-  collectionGroup,
 } from 'firebase/firestore';
-import type { PurchaseOrder } from './types';
+import type { PurchaseOrder, Project } from './types';
 
-// Get all POs from all projects for the main list view
+const poCollection = collection(db, 'purchaseOrders');
+
+// Get all POs
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
-    const posRef = collectionGroup(db, 'purchaseOrders');
-    // Removed orderBy('createdAt', 'desc') to prevent index error
-    const q = query(posRef);
+    const q = query(poCollection, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    
-    const pos: PurchaseOrder[] = [];
-    snapshot.forEach(doc => {
-        const path = doc.ref.path;
-        const pathSegments = path.split('/');
-        // The structure is projects/{projectId}/purchaseOrders/{poId}
-        const projectId = pathSegments[pathSegments.length - 3];
-        pos.push({ id: doc.id, projectId, ...doc.data() } as PurchaseOrder);
-    });
-
-    return pos;
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder));
 }
 
 // Get all POs for a specific project
 export async function getPurchaseOrdersForProject(projectId: string): Promise<PurchaseOrder[]> {
-    const poRef = collection(db, 'projects', projectId, 'purchaseOrders');
-    const q = query(poRef, orderBy('createdAt', 'desc'));
+    const q = query(poCollection, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
-        projectId,
         ...doc.data()
     } as PurchaseOrder));
 }
 
 
 // Add a new PO to a specific project
-export async function addPurchaseOrder(projectId: string, poData: Omit<PurchaseOrder, 'id' | 'createdAt'>): Promise<string> {
-    const poCollectionRef = collection(db, 'projects', projectId, 'purchaseOrders');
-    const newPORef = await addDoc(poCollectionRef, {
+export async function addPurchaseOrder(projectId: string, poData: Omit<PurchaseOrder, 'id' | 'createdAt' | 'projectName' | 'customerId'>): Promise<string> {
+    const projectRef = doc(db, 'projects', projectId);
+    const projectSnap = await getDoc(projectRef);
+
+    if (!projectSnap.exists()) {
+      throw new Error("Project not found to create a purchase order under.");
+    }
+    const projectData = projectSnap.data() as Project;
+
+    const newPORef = await addDoc(poCollection, {
         ...poData,
+        projectName: projectData.name,
+        customerId: projectData.customerId,
         createdAt: serverTimestamp(),
     });
     return newPORef.id;

@@ -15,7 +15,8 @@ import {
   writeBatch,
   onSnapshot
 } from 'firebase/firestore';
-import type { Project, ProjectSummary } from './types';
+import type { Project, ProjectSummary, Customer } from './types';
+import { getCustomer } from './customers';
 
 const projectsCollection = collection(db, 'projects');
 
@@ -47,13 +48,19 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 // Add a new project
-export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status'>): Promise<string> {
+export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName'>): Promise<string> {
+    const customer = await getCustomer(projectData.customerId);
+    if (!customer) {
+        throw new Error("Customer not found for project creation.");
+    }
+    
     const batch = writeBatch(db);
-
-    // 1. Create the main project document
+    
+    // 1. Create the main project document with denormalized customer name
     const newProjectRef = doc(projectsCollection);
     batch.set(newProjectRef, {
         ...projectData,
+        customerName: customer.name, // Denormalized field
         status: 'Planning',
         createdAt: serverTimestamp(),
     });

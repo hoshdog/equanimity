@@ -9,11 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
-import type { Job, Project, Employee } from '@/lib/types';
+import type { Job, Employee } from '@/lib/types';
 import { JobFormDialog } from './job-form-dialog';
-import { onSnapshot, collectionGroup, query } from 'firebase/firestore';
+import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const getStatusColor = (status: string) => {
@@ -29,22 +28,15 @@ const getStatusColor = (status: string) => {
 export default function JobsPage() {
     const router = useRouter();
     const [jobs, setJobs] = useState<Job[]>([]);
-    const [projects, setProjects] = useState<Project[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         // Subscribe to all jobs in real-time
-        const jobsQuery = query(collectionGroup(db, 'jobs'));
+        const jobsQuery = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(jobsQuery, (snapshot) => {
-            const jobsData: Job[] = [];
-            snapshot.forEach(doc => {
-                const path = doc.ref.path;
-                const pathSegments = path.split('/');
-                const projectId = pathSegments[pathSegments.length - 3];
-                jobsData.push({ id: doc.id, projectId, ...doc.data() } as Job);
-            });
+            const jobsData: Job[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
             setJobs(jobsData);
             setLoading(false);
         }, (error) => {
@@ -53,17 +45,13 @@ export default function JobsPage() {
             setLoading(false);
         });
 
-        // Fetch projects and employees once
+        // Fetch employees once
         async function fetchSupportingData() {
             try {
-                const [projectsData, employeesData] = await Promise.all([
-                    getProjects(),
-                    getEmployees(),
-                ]);
-                setProjects(projectsData);
+                const employeesData = await getEmployees();
                 setEmployees(employeesData);
             } catch (error) {
-                console.error("Failed to fetch projects/employees:", error);
+                console.error("Failed to fetch employees:", error);
             }
         }
         fetchSupportingData();
@@ -78,10 +66,6 @@ export default function JobsPage() {
     const handleRowClick = (job: Job) => {
         router.push(`/projects/${job.projectId}`);
     };
-
-    const getProjectName = (projectId: string) => {
-        return projects.find(p => p.id === projectId)?.name || 'Unknown Project';
-    }
 
     const getTechnicianName = (technicianId: string) => {
         return employees.find(e => e.id === technicianId)?.name || 'Unassigned';
@@ -120,7 +104,7 @@ export default function JobsPage() {
                                         <TableRow key={job.id} onClick={() => handleRowClick(job)} className="cursor-pointer">
                                             <TableCell className="font-medium">{job.id.substring(0, 6)}...</TableCell>
                                             <TableCell>{job.description}</TableCell>
-                                            <TableCell>{getProjectName(job.projectId)}</TableCell>
+                                            <TableCell>{job.projectName}</TableCell>
                                             <TableCell>{getTechnicianName(job.technicianId)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={cn(getStatusColor(job.status))}>
