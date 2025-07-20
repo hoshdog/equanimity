@@ -1,14 +1,10 @@
+
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
-import type { SuggestQuoteLineItemsInputSchema, SuggestQuoteLineItemsOutputSchema } from '@/ai/flows/suggest-quote-line-items';
-import { z } from 'zod';
+import type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/ai/flows/suggest-quote-line-items';
 
-
-// Types are now correctly inferred from the schemas in the flow file.
-export type SuggestQuoteLineItemsInput = z.infer<typeof SuggestQuoteLineItemsInputSchema>;
-export type SuggestQuoteLineItemsOutput = z.infer<typeof SuggestQuoteLineItemsOutputSchema>;
-
+export type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput };
 
 export interface OptionType {
   value: string;

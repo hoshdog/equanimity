@@ -1,3 +1,4 @@
+
 // src/ai/flows/suggest-quote-line-items.ts
 'use server';
 /**
@@ -19,7 +20,7 @@ const LineItemSchemaForAI = z.object({
   unitCost: z.number().optional().describe('The COST price per unit or per hour.'),
 });
 
-export const SuggestQuoteLineItemsInputSchema = z.object({
+const SuggestQuoteLineItemsInputSchema = z.object({
   userPrompt: z
     .string()
     .describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
@@ -46,7 +47,7 @@ export const SuggestQuoteLineItemsInputSchema = z.object({
   quotingProfile: z.any().describe("The selected quoting profile containing rules, rates, and persona."),
 });
 
-export const SuggestQuoteLineItemsOutputSchema = z.object({
+const SuggestQuoteLineItemsOutputSchema = z.object({
   suggestedLineItems: z.array(LineItemSchemaForAI).describe('A complete list of suggested line items, including parts and labor, with quantities, costs, and sell prices.'),
   reasoning: z
     .string()
