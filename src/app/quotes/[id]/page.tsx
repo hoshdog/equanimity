@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { use, useEffect, useMemo, useState, useCallback } from 'react';
+import { use, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useFieldArray, useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -39,7 +39,8 @@ import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
 import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { addTimesheetEntry } from '@/lib/timesheets';
+import { auth } from '@/lib/auth';
 
 
 const lineItemSchema = z.object({
@@ -100,41 +101,72 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
+    
     const [timeSpent, setTimeSpent] = useState(0); // in seconds
+    const [isTimerActive, setIsTimerActive] = useState(false);
+    const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
 
     const { toast } = useToast();
+    
+    const startTimer = useCallback(() => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        intervalRef.current = setInterval(() => {
+            setTimeSpent(prevTime => prevTime + 1);
+        }, 1000);
+        setIsTimerActive(true);
+    }, []);
 
-    // Time tracking effect
+    const pauseTimer = useCallback(() => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        setIsTimerActive(false);
+    }, []);
+    
+    const resetInactivityTimer = useCallback(() => {
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        if (document.hidden) {
+            pauseTimer();
+            return;
+        }
+        if (!isTimerActive) {
+            startTimer();
+        }
+        inactivityTimerRef.current = setTimeout(() => {
+            pauseTimer();
+        }, 60000); // 1 minute
+    }, [isTimerActive, pauseTimer, startTimer]);
+    
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        
         const handleVisibilityChange = () => {
             if (document.hidden) {
-                clearInterval(interval);
+                pauseTimer();
             } else {
-                interval = setInterval(() => {
-                    setTimeSpent(prevTime => prevTime + 1);
-                }, 1000);
+                resetInactivityTimer();
             }
         };
 
         if (!loading) {
-            interval = setInterval(() => {
-                setTimeSpent(prevTime => prevTime + 1);
-            }, 1000);
+            window.addEventListener('mousemove', resetInactivityTimer);
+            window.addEventListener('keydown', resetInactivityTimer);
             document.addEventListener('visibilitychange', handleVisibilityChange);
+            resetInactivityTimer(); // Start it initially
         }
 
         return () => {
-            clearInterval(interval);
+            window.removeEventListener('mousemove', resetInactivityTimer);
+            window.removeEventListener('keydown', resetInactivityTimer);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         };
-    }, [loading]);
+    }, [loading, resetInactivityTimer, pauseTimer]);
+
 
     const formatTime = (totalSeconds: number) => {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        return `${minutes}m ${seconds}s`;
+        return `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
     };
 
     const quotingProfile = useMemo(() => {
@@ -358,23 +390,34 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
     const siteOptions = useMemo(() => customerSites.map(s => ({ value: s.id, label: s.name })), [customerSites]);
 
-    const handleAddTime = (distribution: 'labour' | 'parts' | 'both') => {
-        if (timeSpent === 0) {
-            toast({ variant: 'destructive', title: 'No time to add' });
+    const handleLogTime = async () => {
+        const user = auth.currentUser;
+        if (timeSpent < 1 || !user || !quote) {
+            toast({ variant: 'destructive', title: 'No time to log or user not found.' });
             return;
         }
+
+        const MINUTE_BLOCK = 5;
+        const totalSecondsInBlock = MINUTE_BLOCK * 60;
+        const billedSeconds = Math.ceil(timeSpent / totalSecondsInBlock) * totalSecondsInBlock;
+        const timeInHours = billedSeconds / 3600;
 
         const firstLaborRate = laborRateOptions[0];
         if (!firstLaborRate) {
-            toast({ variant: 'destructive', title: 'No labor rates found', description: 'Please configure a labor rate in the quoting profile.' });
+            toast({ variant: 'destructive', title: 'No labor rates found' });
             return;
         }
 
-        const timeInHours = timeSpent / 3600;
-        const totalCostToAdd = timeInHours * firstLaborRate.calculatedCostRate;
-        const totalSellToAdd = timeInHours * firstLaborRate.standardRate;
-
-        if (distribution === 'labour') {
+        try {
+            await addTimesheetEntry({
+                userId: user.uid,
+                date: new Date(),
+                durationHours: timeInHours,
+                notes: `Quoting work for ${quote.quoteNumber}: ${quote.name}`,
+                jobId: `QUOTE-${quote.id}`,
+                isBillable: true,
+            });
+            
             appendLineItem({
                 id: `item-${Date.now()}`,
                 type: 'Labour',
@@ -384,35 +427,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 unitPrice: firstLaborRate.standardRate,
                 taxRate: 10,
             });
-        } else {
-            let itemsToUpdate = lineItemsWatch;
-            if (distribution === 'parts') {
-                itemsToUpdate = lineItemsWatch.filter(item => item.type === 'Part');
-            }
-            if (itemsToUpdate.length === 0) {
-                toast({ variant: 'destructive', title: 'No items to distribute cost to' });
-                return;
-            }
-
-            const currentTotalCost = itemsToUpdate.reduce((sum, item) => sum + (item.unitCost || 0) * item.quantity, 0);
             
-            itemsToUpdate.forEach((item, index) => {
-                const originalIndex = lineItemsWatch.findIndex(li => li.id === item.id);
-                const itemCost = (item.unitCost || 0) * item.quantity;
-                const proportion = itemCost / currentTotalCost;
-                const costToAdd = totalCostToAdd * proportion;
-                const newUnitCost = (item.unitCost || 0) + (costToAdd / item.quantity);
-                setValue(`lineItems.${originalIndex}.unitCost`, parseFloat(newUnitCost.toFixed(2)));
-
-                // Also update the sell price to maintain margin
-                const sellToAdd = totalSellToAdd * proportion;
-                const newUnitPrice = item.unitPrice + (sellToAdd / item.quantity);
-                setValue(`lineItems.${originalIndex}.unitPrice`, parseFloat(newUnitPrice.toFixed(2)));
-            });
+            toast({ title: 'Time Logged', description: `${formatTime(billedSeconds)} has been added to your timesheet and the quote.` });
+            setTimeSpent(0); // Reset timer
+        } catch (error) {
+            console.error("Failed to log time:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not log time entry.' });
         }
-        
-        toast({ title: 'Time Added', description: `${formatTime(timeSpent)} has been added to the quote.` });
-        setTimeSpent(0); // Reset timer
     };
 
     
@@ -735,28 +756,20 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
-                            <CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" /> Time Tracker</CardTitle>
+                            <CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" /> Quote Time Tracker</CardTitle>
                             <CardDescription>Bill for the time spent preparing this quote.</CardDescription>
                         </div>
-                        <div className="text-2xl font-mono font-bold text-primary">{formatTime(timeSpent)}</div>
+                        <div className="flex items-center gap-4">
+                           <Badge variant={isTimerActive ? "default" : "outline"} className={cn(isTimerActive && "bg-primary/20 text-primary border-primary/30")}>
+                              {isTimerActive ? "Tracking" : "Paused"}
+                           </Badge>
+                           <div className="text-2xl font-mono font-bold text-primary">{formatTime(timeSpent)}</div>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <RadioGroup defaultValue="labour" onValueChange={(value: 'labour' | 'parts' | 'both') => handleAddTime(value)}>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Label htmlFor="dist-labour" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                    <RadioGroupItem value="labour" id="dist-labour" className="sr-only"/>
-                                    Add as "Quoting" Labour
-                                </Label>
-                                <Label htmlFor="dist-parts" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                    <RadioGroupItem value="parts" id="dist-parts" className="sr-only"/>
-                                    Distribute to Parts
-                                </Label>
-                                <Label htmlFor="dist-both" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                    <RadioGroupItem value="both" id="dist-both" className="sr-only"/>
-                                    Distribute to Both
-                                </Label>
-                            </div>
-                        </RadioGroup>
+                    <CardContent className="flex justify-center">
+                        <Button type="button" onClick={handleLogTime} disabled={timeSpent < 1}>
+                           Log Time & Add Cost to Quote
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -814,6 +827,30 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         </div>
                     </CardContent>
                 </Card>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Terms & Conditions</CardTitle>
+                        <CardDescription>These terms will be displayed on the final quote document.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            control={control}
+                            name="terms"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Textarea
+                                            rows={8}
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
@@ -855,34 +892,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                        )}
                     </CardContent>
                 </Card>
-                
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Terms & Conditions</CardTitle>
-                        <CardDescription>These terms will be displayed on the final quote document.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <FormField
-                            control={control}
-                            name="terms"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <Textarea
-                                            rows={8}
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                </Card>
             </div>
         </form>
         </FormProvider>
     </div>
   );
 }
-
