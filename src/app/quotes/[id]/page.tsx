@@ -29,7 +29,8 @@ import { updateQuote } from '@/lib/quotes';
 import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
+import { SuggestQuoteLineItemsInputSchema } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
@@ -38,7 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { jobStaffRoles } from '@/lib/types';
 import { PartSelectorDialog } from './part-selector-dialog';
-import { suggestQuoteLineItems, SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/ai/flows/suggest-quote-line-items';
+import { suggestQuoteLineItems } from '@/ai/flows/suggest-quote-line-items';
 import { mockPartsCatalogue } from './part-selector-dialog'; // Reuse the catalogue for now
 import { Checkbox } from '@/components/ui/checkbox';
 import {
