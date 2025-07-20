@@ -6,8 +6,59 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { SuggestQuoteLineItemsInputSchema, SuggestQuoteLineItemsOutputSchema } from '@/lib/types';
-import type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
+import {z} from 'zod';
+import type { QuotingProfile } from '@/lib/quoting-profiles';
+
+
+// Schemas are defined directly within the flow file, which is the correct pattern.
+const LineItemSchemaForAI = z.object({
+  type: z.enum(['Part', 'Labour']),
+  description: z.string().describe('Description of the line item (e.g., part name or labor type).'),
+  quantity: z.number().describe('Quantity of the item or hours of labor.'),
+  unitPrice: z.number().describe('The SELL price per unit or per hour.'),
+  unitCost: z.number().optional().describe('The COST price per unit or per hour.'),
+});
+
+export const SuggestQuoteLineItemsInputSchema = z.object({
+  userPrompt: z
+    .string()
+    .describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
+  uploadedDocuments: z.array(
+      z.object({
+        dataUri: z.string().describe("A document (plan, RFQ, etc.) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+        fileName: z.string(),
+      })
+    ).optional().describe('An array of uploaded documents for context.'),
+  previousQuotesContext: z.array(z.string()).optional().describe('An array of strings, each containing JSON data for a previous, similar quote.'),
+  partsCatalogue: z
+    .array(
+      z.object({
+        partNumber: z.string(),
+        description: z.string(),
+        suppliers: z.array(
+          z.object({
+            supplier: z.string(),
+            tradePrice: z.number(),
+          })
+        ),
+      })
+    ).describe('The entire parts catalogue available for quoting.'),
+  quotingProfile: z.any().describe("The selected quoting profile containing rules, rates, and persona."),
+});
+
+export const SuggestQuoteLineItemsOutputSchema = z.object({
+  suggestedLineItems: z.array(LineItemSchemaForAI).describe('A complete list of suggested line items, including parts and labor, with quantities, costs, and sell prices.'),
+  reasoning: z
+    .string()
+    .describe('A brief explanation of why these parts and labor estimates were chosen for the job.'),
+  disclaimer: z
+    .string()
+    .describe('A mandatory disclaimer for the user to acknowledge before accepting the suggestions.'),
+});
+
+// Types are inferred from the local schemas.
+export type SuggestQuoteLineItemsInput = z.infer<typeof SuggestQuoteLineItemsInputSchema>;
+export type SuggestQuoteLineItemsOutput = z.infer<typeof SuggestQuoteLineItemsOutputSchema>;
 
 
 export async function suggestQuoteLineItems(
