@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2, Banknote, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Combobox } from '@/components/ui/combobox';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { getEmployeesWithWageData } from '@/lib/employees';
 import type { Employee, OptionType, LaborRate } from '@/lib/types';
 
@@ -168,7 +168,7 @@ export default function PayrollPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Employee</FormLabel>
-                      <Combobox
+                      <SearchableCombobox
                         options={employeeOptions}
                         value={field.value}
                         onChange={field.onChange}

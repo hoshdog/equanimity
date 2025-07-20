@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getProjects } from '@/lib/projects';
 import { addPurchaseOrder } from '@/lib/purchase-orders';
 import type { PurchaseOrder, Project, POLineItem, OptionType } from '@/lib/types';
-import { Combobox } from '@/components/ui/combobox';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 
 const poLineItemSchema = z.object({
   id: z.string(),
@@ -160,7 +160,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
                   name="projectId"
                   render={({ field }) => (
                     <FormItem className="flex flex-col"><FormLabel>Project</FormLabel>
-                      <Combobox
+                      <SearchableCombobox
                           options={projects}
                           value={field.value}
                           onChange={field.onChange}
@@ -174,7 +174,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
                   name="supplierName"
                   render={({ field }) => (
                     <FormItem className="flex flex-col"><FormLabel>Supplier</FormLabel>
-                       <Combobox
+                       <SearchableCombobox
                           options={mockSuppliers}
                           value={field.value}
                           onChange={field.onChange}

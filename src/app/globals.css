@@ -89,3 +89,7 @@
 .cmdk-list {
   user-select: text !important;
 }
+
+.select-text {
+  user-select: text !important;
+}

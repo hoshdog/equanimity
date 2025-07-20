@@ -13,7 +13,7 @@ import type { Project, Job, Employee, OptionType } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
-import { Combobox } from '@/components/ui/combobox';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -114,7 +114,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                         name="projectId"
                         render={({ field }) => (
                             <FormItem className="flex flex-col"><FormLabel>Project</FormLabel>
-                            <Combobox options={projects} {...field} placeholder="Select a project" />
+                            <SearchableCombobox options={projects} {...field} placeholder="Select a project" />
                             <FormMessage />
                             </FormItem>
                         )}
@@ -134,7 +134,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                     name="technicianId"
                     render={({ field }) => (
                         <FormItem className="flex flex-col"><FormLabel>Assign Technician</FormLabel>
-                        <Combobox options={employees} {...field} placeholder="Select a technician" />
+                        <SearchableCombobox options={employees} {...field} placeholder="Select a technician" />
                         <FormMessage /></FormItem>
                     )}
                 />

@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { getJobs } from '@/lib/jobs';
 import type { Job, OptionType } from '@/lib/types';
-import { Combobox } from '@/components/ui/combobox';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Loader2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -262,7 +262,7 @@ export default function TimesheetsPage() {
                                                 <div className="grid grid-cols-12 gap-2 items-end">
                                                     <div className="col-span-12 md:col-span-6 space-y-1">
                                                         {index === 0 && <Label className="text-xs ml-1">Job/Task</Label>}
-                                                        <Combobox
+                                                        <SearchableCombobox
                                                             options={jobOptions}
                                                             value={task.jobId}
                                                             onChange={(value) => handleTaskChange(date, task.id, 'jobId', value)}

@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSite, addContact } from '@/lib/customers';
 import type { Customer, Contact, Site, Project, OptionType } from '@/lib/types';
-import { Combobox } from '@/components/ui/combobox';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { onSnapshot, doc, collection, where, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -259,7 +259,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                                 <FormField control={siteForm.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={siteForm.control} name="primaryContactId" render={({ field }) => (
                                                   <FormItem className="flex flex-col"><FormLabel>Primary Contact</FormLabel>
-                                                    <Combobox
+                                                    <SearchableCombobox
                                                         options={contactOptions as OptionType[]}
                                                         value={field.value}
                                                         onChange={field.onChange}
