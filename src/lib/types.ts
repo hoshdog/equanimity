@@ -67,6 +67,23 @@ export interface Job {
     createdAt: Timestamp;
 }
 
+export interface UserProfile {
+    id: string; // Document ID, should match UID
+    uid: string; // Firebase Auth UID
+    displayName: string;
+    email: string;
+    phone?: string;
+    photoURL?: string;
+    roles: ('admin' | 'client' | 'contractor' | 'user')[];
+    skills: string[];
+    certifications: Array<{
+        name: string;
+        expiryDate: string; // ISO 8601 format (YYYY-MM-DD)
+    }>;
+    createdAt: string; // ISO 8601 format
+}
+
+
 export interface Employee {
     id: string;
     name: string;
