@@ -243,7 +243,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             {jobs.length > 0 ? jobs.map(job => (
                                 <TableRow key={job.id}>
                                     <TableCell className="font-medium">{job.title}</TableCell>
-                                    <TableCell>{job.assignedStaffIds.map(id => employeeMap.get(id) || 'Unknown').join(', ')}</TableCell>
+                                    <TableCell>{job.assignedStaff.map(staff => employeeMap.get(staff.employeeId) || 'Unknown').join(', ')}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={cn(getJobStatusColor(job.status))}>
                                             {job.status}
@@ -273,37 +273,36 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div className='space-y-1.5'>
                         <CardTitle>Quotes</CardTitle>
-                        <CardDescription>All quotes associated with this project.</CardDescription>
+                        <CardDescription>All quotes and variations for this project.</CardDescription>
                     </div>
                     <QuoteFormDialog onQuoteCreated={handleQuoteCreated} projectId={projectId} />
                 </CardHeader>
                 <CardContent>
                     {quotes.length > 0 ? (
-                        <div className="space-y-4">
-                            {quotes.map(quote => (
-                                <Card key={quote.id}>
-                                    <CardHeader className="pb-4">
-                                        <CardTitle className="text-lg flex justify-between items-center">
-                                            <span className="truncate pr-4">Quote for: "{quote.prompt.substring(0, 50)}{quote.prompt.length > 50 ? '...' : ''}"</span>
-                                            <span className="text-primary">${quote.totalAmount.toFixed(2)}</span>
-                                        </CardTitle>
-                                        <CardDescription className="flex justify-between items-center">
-                                            <span>
-                                              Created on: {new Date(quote.createdAt.seconds * 1000).toLocaleDateString()}
-                                            </span>
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Quote #</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {quotes.map(quote => (
+                                    <TableRow key={quote.id}>
+                                        <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                                        <TableCell>{format(quote.quoteDate.toDate(), 'PPP')}</TableCell>
+                                        <TableCell>
                                             <Badge variant="outline" className={cn(getQuoteStatusColor(quote.status))}>
                                                 {quote.status}
                                             </Badge>
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <pre className="text-xs p-4 rounded-md bg-muted whitespace-pre-wrap font-sans max-h-40 overflow-auto">
-                                            {quote.quoteText}
-                                        </pre>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold">${quote.totalAmount.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     ) : (
                          <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-64">
                             <FileText className="h-12 w-12 text-muted-foreground" />

@@ -2,7 +2,7 @@
 // src/app/quotes/new-quote-dialog.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,7 +17,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription as UiCardDescription
 } from '@/components/ui/card';
 import {
   Form,
@@ -44,6 +43,7 @@ import { ProfileFormDialog } from '@/app/training/profile-form-dialog';
 import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 
 const customerSchema = z.object({
     name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
@@ -328,14 +328,15 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
         status: 'Draft' as const,
       };
       
-      const newQuoteId = await addQuote(quoteData);
-      const newQuote: Quote = {
-        id: newQuoteId,
+      const newQuoteId = await addQuote({
         ...quoteData,
-        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-      };
+        quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
+        quoteDate: new Date(),
+        expiryDate: addDays(new Date(), 30),
+        version: 1,
+      });
 
-      onQuoteCreated(newQuote);
+      // The listener will handle the UI update.
       toast({ title: 'Quote Saved as Draft', description: 'The new quote has been saved.' });
       setIsOpen(false);
 
@@ -392,53 +393,48 @@ export function NewQuoteDialog({ onQuoteCreated }: NewQuoteDialogProps) {
                 <ScrollArea className="h-full pr-4">
                      <Form {...form}>
                       <form id="quote-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="customerId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Customer</FormLabel>
-                                    <div className="flex gap-2">
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a customer" />
-                                            </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                            {customerOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
-                                            <Button type="button" variant="outline" size="icon" className="shrink-0">
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        </AddCustomerDialog>
-                                    </div>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="projectId"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Project (Optional)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || ''} disabled={!watchedCustomerId}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a project" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {projectOptions.map(opt => <SelectItem key={opt.value} value={opt.value} >{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="customerId"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Customer</FormLabel>
+                                        <div className="flex gap-2">
+                                            <SearchableCombobox
+                                                options={customerOptions}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Select a customer"
+                                            />
+                                            <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
+                                                <Button type="button" variant="outline" size="icon" className="shrink-0">
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </AddCustomerDialog>
+                                        </div>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="projectId"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                    <FormLabel>Project (Optional)</FormLabel>
+                                    <SearchableCombobox
+                                        options={projectOptions}
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        placeholder="Select a project"
+                                        disabled={!watchedCustomerId}
+                                    />
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                          <FormField
                           control={form.control}
                           name="prompt"

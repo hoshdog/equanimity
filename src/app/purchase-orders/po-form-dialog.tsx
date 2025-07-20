@@ -20,7 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Trash2, Loader2, MinusCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, MinusCircle, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getProjects } from '@/lib/projects';
 import { addPurchaseOrder } from '@/lib/purchase-orders';
@@ -152,7 +152,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
         </DialogHeader>
         {loading && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
         <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!initialProjectId && (
                 <FormField
@@ -240,8 +240,8 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
                                     render={({ field }) => (
                                         <FormItem><FormControl>
                                             <div className="relative">
-                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                                                <Input type="number" placeholder="Unit Price" className="pl-6" {...field} />
+                                                <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input type="number" placeholder="Unit Price" step="0.01" className="pl-6" {...field} />
                                             </div>
                                         </FormControl><FormMessage /></FormItem>
                                     )} />

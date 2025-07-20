@@ -10,13 +10,13 @@ import {
   doc,
   collectionGroup,
   where,
+  Timestamp,
 } from 'firebase/firestore';
 import type { Quote } from './types';
 
 
 // Get all quotes from all projects for the main list view
 export async function getQuotes(): Promise<Quote[]> {
-    // This query is now on a root-level 'quotes' collection
     const quotesRef = collection(db, 'quotes');
     const q = query(quotesRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
@@ -36,13 +36,18 @@ export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
   } as Quote));
 }
 
-// Add a new quote to a specific project
-export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt'>): Promise<string> {
+// Add a new quote
+export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   const quotesCollectionRef = collection(db, 'quotes');
-  const newQuoteRef = await addDoc(quotesCollectionRef, {
-      ...quoteData,
-      createdAt: serverTimestamp(),
-  });
-  // Here you would also update subcollections if needed, for example in customer or project docs.
+  
+  const dataToSave = {
+    ...quoteData,
+    quoteDate: Timestamp.fromDate(quoteData.quoteDate as Date),
+    expiryDate: Timestamp.fromDate(quoteData.expiryDate as Date),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  const newQuoteRef = await addDoc(quotesCollectionRef, dataToSave);
   return newQuoteRef.id;
 }

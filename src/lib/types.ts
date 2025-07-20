@@ -146,13 +146,41 @@ export interface Employee {
     };
 }
 
-export interface Quote extends GenerateQuoteFromPromptInput, GenerateQuoteFromPromptOutput {
-    id: string;
-    customerId: string;
-    projectId?: string;
-    status: 'Draft' | 'Sent' | 'Approved' | 'Rejected';
-    createdAt: Timestamp;
+export interface QuoteLineItem {
+    id: string; // For React key
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    taxRate?: number; // Optional, defaults can be applied
+    discount?: number; // Optional
 }
+
+export interface Quote {
+    id: string;
+    quoteNumber: string;
+    projectId: string;
+    customerId: string;
+    quoteDate: Timestamp;
+    expiryDate: Timestamp;
+    status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Invoiced';
+    lineItems: QuoteLineItem[];
+    subtotal: number;
+    totalDiscount: number;
+    totalTax: number;
+    totalAmount: number; // This is the final grand total
+    prompt?: string; // The AI prompt that may have generated it
+    // From AI Flow
+    lineItemsFromAI?: GenerateQuoteFromPromptOutput['lineItems'];
+    quoteText?: string;
+    paymentTerms?: string;
+    validityTerms?: string;
+    internalNotes?: string;
+    clientNotes?: string;
+    version: number;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
 
 export interface POLineItem {
   id: string; // For react key

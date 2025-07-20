@@ -84,11 +84,11 @@ export default function QuotesPage() {
                 <Card className="flex flex-col h-full hover:border-primary transition-colors">
                     <CardHeader className="pb-4">
                         <CardTitle className="text-lg flex justify-between items-start">
-                            <span className="truncate pr-4 line-clamp-2">"{quote.prompt.substring(0, 50)}{quote.prompt.length > 50 ? '...' : ''}"</span>
-                            <span className="text-primary font-bold">${quote.totalAmount.toFixed(2)}</span>
+                            <span className="font-semibold text-primary">{quote.quoteNumber}</span>
+                            <span className="font-bold text-lg">${quote.totalAmount.toFixed(2)}</span>
                         </CardTitle>
                         <CardDescription>
-                            For customer: <span className="font-medium text-foreground">{customerMap.get(quote.customerId) || 'Unknown Customer'}</span>
+                           For: <span className="font-medium text-foreground">{customerMap.get(quote.customerId) || 'Unknown Customer'}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">
