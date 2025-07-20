@@ -77,7 +77,6 @@ export interface Job {
     
     // Assignment
     assignedStaff: AssignedStaff[];
-    estimatedHours?: number;
     
     // Status & Priority
     status: 'Draft' | 'Planned' | 'In Progress' | 'On Hold' | 'Completed';

@@ -49,7 +49,6 @@ const jobSchema = z.object({
 
   // Assignment & Resources
   assignedStaff: z.array(assignedStaffSchema).min(1, "Please assign at least one staff member."),
-  estimatedHours: z.coerce.number().min(0, "Hours must be a positive number.").optional(),
   
   // Status & Priority
   status: z.enum(['Draft', 'Planned', 'In Progress', 'On Hold', 'Completed']),
@@ -168,7 +167,6 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           billable: true,
           startDate: undefined,
           endDate: undefined,
-          estimatedHours: undefined,
           billingRate: undefined,
         });
     }
@@ -287,7 +285,6 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                             </Button>
                             <FormMessage>{form.formState.errors.assignedStaff?.message}</FormMessage>
                         </div>
-                        <FormField control={form.control} name="estimatedHours" render={({ field }) => (<FormItem><FormLabel>Estimated Hours</FormLabel><FormControl><Input type="number" placeholder="e.g., 16" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                     </TabsContent>
                     <TabsContent value="financials" className="pt-4 space-y-4">
                         <FormField control={form.control} name="billable" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Billable Job</FormLabel><FormDescription>Should the time and materials for this job be billed to the client?</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>

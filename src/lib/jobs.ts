@@ -48,5 +48,18 @@ export async function addJob(projectId: string, jobData: Omit<Job, 'id' | 'creat
         customerName: projectData.customerName,
         createdAt: serverTimestamp(),
     });
+
+    // Create a corresponding timeline item
+    const timelineItemsRef = collection(db, 'projects', projectId, 'timelineItems');
+    await addDoc(timelineItemsRef, {
+      name: jobData.title,
+      type: 'job',
+      jobId: newJobRef.id,
+      startDate: jobData.startDate ? (jobData.startDate as Date).toISOString() : new Date().toISOString(),
+      endDate: jobData.endDate ? (jobData.endDate as Date).toISOString() : new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
+      dependencies: jobData.dependencies || [],
+      assignedResourceIds: jobData.assignedStaff.map(s => s.employeeId),
+    });
+
     return newJobRef.id;
 }
