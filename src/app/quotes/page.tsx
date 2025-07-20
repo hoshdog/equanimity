@@ -62,7 +62,6 @@ const createQuoteSchema = z.object({
     customerId: z.string().optional(),
     siteId: z.string().optional(),
 }).refine(data => {
-    // If no project is selected, a customer must be selected.
     if (!data.projectId) {
         return !!data.customerId;
     }
@@ -266,7 +265,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                                 value={field.value || ''}
                                                 onChange={(value) => {
                                                     field.onChange(value);
-                                                    form.setValue('projectId', ''); // Clear project if customer changes
+                                                    form.setValue('projectId', ''); 
                                                     form.setValue('siteId', '');
                                                 }}
                                                 placeholder="Select a customer..."
@@ -322,11 +321,11 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                 />
                             </TabsContent>
                             <TabsContent value="assignment" className="pt-4 space-y-4">
-                                 <div className="space-y-2">
+                                <div className="space-y-2">
                                     <FormLabel>Customer Contacts</FormLabel>
                                     {contactFields.map((field, index) => (
                                         <div key={field.id} className="flex items-center gap-2">
-                                             <div className="grid grid-cols-2 gap-2 flex-1">
+                                            <div className="grid grid-cols-2 gap-2 flex-1">
                                                 <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={contactOptions} {...field} placeholder="Select contact..." disabled={!watchedCustomerId} /></FormItem>)} />
                                                 <FormField control={form.control} name={`projectContacts.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Site Contact" {...field} /></FormItem>)} />
                                             </div>
@@ -339,9 +338,20 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                     <FormLabel>Assigned Staff</FormLabel>
                                     {staffFields.map((field, index) => (
                                         <div key={field.id} className="flex items-center gap-2">
-                                             <div className="grid grid-cols-2 gap-2 flex-1">
+                                            <div className="grid grid-cols-2 gap-2 flex-1">
                                                 <FormField control={form.control} name={`assignedStaff.${index}.employeeId`} render={({ field }) => (<FormItem><SearchableCombobox options={employeeOptions} {...field} placeholder="Select staff..." /></FormItem>)} />
-                                                <FormField control={form.control} name={`assignedStaff.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Estimator" {...field} /></FormItem>)} />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`assignedStaff.${index}.role`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <FormControl><SelectTrigger><SelectValue placeholder="Select role..." /></SelectTrigger></FormControl>
+                                                                <SelectContent>{jobStaffRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                                                            </Select>
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </div>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)} disabled={staffFields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </div>
