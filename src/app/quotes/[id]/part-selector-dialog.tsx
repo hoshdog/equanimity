@@ -1,3 +1,4 @@
+
 // src/app/quotes/[id]/part-selector-dialog.tsx
 'use client';
 
@@ -133,7 +134,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     selectedParts.forEach(({ part, quantity }) => {
         const sellPrice = part.tradePrice * 1.3; // Placeholder 30% markup
         onPartSelected({
-          description: `${part.description} (${part.partNumber})`,
+          description: `${part.description}`,
           quantity,
           unitPrice: parseFloat(sellPrice.toFixed(2)),
           unitCost: part.tradePrice,
@@ -165,8 +166,21 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     },
     {
       accessorKey: 'tradePrice',
-      header: 'Trade Price',
+      header: 'Cost',
        cell: ({ row }) => `$${row.original.tradePrice.toFixed(2)}`,
+    },
+    {
+      id: 'markup',
+      header: 'Markup',
+      cell: () => '30%', // Placeholder markup
+    },
+    {
+      id: 'sellPrice',
+      header: 'Sell Price',
+      cell: ({ row }) => {
+        const sellPrice = row.original.tradePrice * 1.3;
+        return `$${sellPrice.toFixed(2)}`;
+      },
     },
     {
       id: 'inStock',
@@ -300,7 +314,9 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                            <div key={part.partNumber} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
                                 <div>
                                     <p className="font-medium">{part.description}</p>
-                                    <p className="text-xs text-muted-foreground">Qty: {quantity}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Part #: {part.partNumber} &bull; Qty: {quantity}
+                                    </p>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(part, 0)}>
                                     <Trash2 className="h-4 w-4 text-destructive"/>
