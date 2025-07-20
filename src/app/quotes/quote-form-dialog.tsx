@@ -1,4 +1,3 @@
-
 // src/app/quotes/quote-form-dialog.tsx
 'use client';
 
@@ -19,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2, Loader2, MinusCircle, Calendar as CalendarIcon, DollarSign, Percent } from 'lucide-react';
