@@ -30,7 +30,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteFromPrompt, GenerateQuoteFromPromptOutput } from '@/ai/flows/generate-quote-from-prompt';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 
 const lineItemSchema = z.object({
@@ -364,7 +365,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setAiSuggestions(output);
     };
 
-    const isItemLabor = (item: { description: string }) => {
+    const isItemLabor = (item: { description: string, type?: 'Part' | 'Labour' }) => {
+        if (item.type) {
+            return item.type === 'Labour';
+        }
         const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout', 'safety check'];
         return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
     }
@@ -692,23 +696,51 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <h4 className="font-semibold mb-2">Suggested Parts</h4>
+                                    <h4 className="font-semibold mb-2">Suggested Parts & Materials</h4>
                                     <div className="space-y-2">
                                         {aiSuggestions.lineItems.filter(item => !isItemLabor(item)).map((item, index) => (
                                             <div key={`part-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
                                                 <span className="flex-1">{item.quantity} x {item.description}</span>
-                                                <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                                <div className="flex items-center gap-1">
+                                                    {item.isSuggestion && (
+                                                        <>
+                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                                                            <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddSuggestedItem(item)}>One-off</Button>
+                                                         </TooltipTrigger><TooltipContent><p>Add as a one-off item to this quote.</p></TooltipContent></Tooltip></TooltipProvider>
+                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                                                            <Button size="sm" variant="outline" className="h-7">Catalogue</Button>
+                                                         </TooltipTrigger><TooltipContent><p>Add to your parts catalogue for future use (coming soon).</p></TooltipContent></Tooltip></TooltipProvider>
+                                                        </>
+                                                    )}
+                                                    {!item.isSuggestion && (
+                                                        <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                                  <div>
-                                    <h4 className="font-semibold mb-2">Suggested Labour</h4>
+                                    <h4 className="font-semibold mb-2 mt-4">Suggested Labour & Services</h4>
                                     <div className="space-y-2">
                                          {aiSuggestions.lineItems.filter(item => isItemLabor(item)).map((item, index) => (
                                             <div key={`labour-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
                                                 <span className="flex-1">{item.quantity} hrs - {item.description}</span>
-                                                <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                                <div className="flex items-center gap-1">
+                                                     {item.isSuggestion && (
+                                                        <>
+                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                                                            <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddSuggestedItem(item)}>One-off</Button>
+                                                         </TooltipTrigger><TooltipContent><p>Add as a one-off item to this quote.</p></TooltipContent></Tooltip></TooltipProvider>
+                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                                                            <Button size="sm" variant="outline" className="h-7">Catalogue</Button>
+                                                         </TooltipTrigger><TooltipContent><p>Add to your service catalogue for future use (coming soon).</p></TooltipContent></Tooltip></TooltipProvider>
+                                                        </>
+                                                    )}
+                                                    {!item.isSuggestion && (
+                                                        <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

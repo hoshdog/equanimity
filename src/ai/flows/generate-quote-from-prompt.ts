@@ -10,7 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 
 const GenerateQuoteFromPromptInputSchema = z.object({
   prompt: z
@@ -67,6 +67,7 @@ const LineItemSchema = z.object({
   totalCost: z
     .number()
     .describe('Total cost for this line item (quantity * unitCost).'),
+  isSuggestion: z.boolean().describe('True if this item was not found in the provided rate lists and is a new suggestion based on industry knowledge.')
 });
 
 const GenerateQuoteFromPromptOutputSchema = z.object({
@@ -158,15 +159,17 @@ Special Instructions to follow:
 {{/if}}
 
 Calculation Steps:
-1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Use the provided rates and costs where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item. Distinguish clearly between parts and labor.
-2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
-3.  **Set Overheads**: The overheads value is fixed at \${{{overheadCost}}}. Set the 'overheads' field to this value.
-4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.
-5.  **Calculate Markup**: The desired margin is on the final selling price. The formula to find the selling price from a cost and a desired margin is: Selling Price = Total Cost / (1 - (Desired Margin / 100)). The markup amount is the Selling Price minus the Total Cost.
-6.  **Calculate Total Before Tax**: This is the Total Cost plus the Markup Amount (or, the Selling Price).
-7.  **Calculate GST**: Calculate 10% GST on the "Total Before Tax".
-8.  **Calculate Final Total**: Add the GST to the "Total Before Tax".
-9.  **Generate Formatted Quote**: Create a professional, customer-facing quote in markdown format. It MUST include clear sections using markdown headers: ### Scope of Work, ### Inclusions, ### Exclusions, and ### Assumptions. Be clear and transparent.
+1.  **Itemize Costs**: Break down the job into individual line items for parts and labor. Use the provided rates where applicable.
+2.  **Suggest New Items**: If a required part or service is **NOT** in the provided lists, you MUST still suggest it. Estimate a reasonable industry cost for such items.
+3.  **Flag Suggestions**: For each line item, set the 'isSuggestion' flag. Set it to 'true' if the item is your own suggestion (not from the provided rate lists), and 'false' if it was found in the lists.
+4.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
+5.  **Set Overheads**: The overheads value is fixed at \${{{overheadCost}}}. Set the 'overheads' field to this value.
+6.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.
+7.  **Calculate Markup**: The desired margin is on the final selling price. The formula to find the selling price from a cost and a desired margin is: Selling Price = Total Cost / (1 - (Desired Margin / 100)). The markup amount is the Selling Price minus the Total Cost.
+8.  **Calculate Total Before Tax**: This is the Total Cost plus the Markup Amount (or, the Selling Price).
+9.  **Calculate GST**: Calculate 10% GST on the "Total Before Tax".
+10. **Calculate Final Total**: Add the GST to the "Total Before Tax".
+11. **Generate Formatted Quote**: Create a professional, customer-facing quote in markdown format. It MUST include clear sections using markdown headers: ### Scope of Work, ### Inclusions, ### Exclusions, and ### Assumptions. Be clear and transparent.
 
 Example Calculation:
 - Subtotal (Parts + Labor) = $100
