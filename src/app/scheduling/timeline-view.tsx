@@ -1,10 +1,14 @@
 // src/app/scheduling/timeline-view.tsx
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScheduleEvent, Resource, Project } from './data';
-import { format, differenceInDays, startOfWeek } from 'date-fns';
+import { format, differenceInDays, startOfWeek, addDays, eachDayOfInterval, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +22,8 @@ interface TimelineViewProps {
   projects: Project[];
 }
 
+type TimelineViewMode = 'week' | 'month';
+
 const getEventTypeClass = (event: ScheduleEvent) => {
   if (event.type === 'leave') {
     return 'bg-blue-500/80 hover:bg-blue-600';
@@ -29,58 +35,104 @@ const getEventTypeClass = (event: ScheduleEvent) => {
 };
 
 export function TimelineView({ events, resources, projects }: TimelineViewProps) {
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => format(new Date(weekStart).setDate(weekStart.getDate() + i), 'EEE d'));
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<TimelineViewMode>('week');
+
+  const handleDateChange = (amount: number) => {
+    if (viewMode === 'week') {
+      setCurrentDate(prev => addDays(prev, amount * 7));
+    } else {
+      setCurrentDate(prev => addMonths(prev, amount));
+    }
+  };
+
+  const { intervalStart, dateHeaders } = React.useMemo(() => {
+    if (viewMode === 'week') {
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const end = addDays(start, 6);
+      const headers = eachDayOfInterval({ start, end }).map(day => ({
+        key: day.toISOString(),
+        label: format(day, 'EEE d'),
+      }));
+      return { intervalStart: start, dateHeaders: headers };
+    } else { // month view
+      const start = startOfMonth(currentDate);
+      const end = endOfMonth(currentDate);
+      const headers = eachDayOfInterval({ start, end }).map(day => ({
+        key: day.toISOString(),
+        label: format(day, 'd'),
+      }));
+      return { intervalStart: start, dateHeaders: headers };
+    }
+  }, [currentDate, viewMode]);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Timeline</CardTitle>
-        <CardDescription>Weekly timeline view of projects and assigned resources.</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => handleDateChange(-1)}>
+                <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle>{format(currentDate, 'MMMM yyyy')}</CardTitle>
+             <Button variant="outline" size="icon" onClick={() => handleDateChange(1)}>
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
+        </div>
+         <ToggleGroup type="single" value={viewMode} onValueChange={(value: TimelineViewMode) => value && setViewMode(value)} >
+            <ToggleGroupItem value="month" aria-label="Month view">Month</ToggleGroupItem>
+            <ToggleGroupItem value="week" aria-label="Week view">Week</ToggleGroupItem>
+        </ToggleGroup>
       </CardHeader>
       <CardContent>
         <div className="border rounded-lg overflow-hidden">
-           <div className="grid grid-cols-[200px_1fr]">
-              <div className="font-semibold p-2 border-b border-r bg-muted/50">Project / Resource</div>
-              <div className="grid grid-cols-7 border-b bg-muted/50">
-                {weekDays.map(day => (
-                    <div key={day} className="text-center font-semibold p-2 border-r last:border-r-0">{day}</div>
-                ))}
-              </div>
+           <div className="grid" style={{ gridTemplateColumns: `200px repeat(${dateHeaders.length}, 1fr)` }}>
+              <div className="font-semibold p-2 border-b border-r bg-muted/50 sticky left-0 z-10">Project / Resource</div>
+              {dateHeaders.map(header => (
+                <div key={header.key} className="text-center font-semibold p-2 border-b border-r last:border-r-0 bg-muted/50 text-xs">
+                    {header.label}
+                </div>
+              ))}
            </div>
-           <div className="divide-y">
+           <div className="divide-y max-h-[60vh] overflow-auto">
             {projects.map(project => {
                 const projectEvents = events.filter(e => e.projectId === project.id);
+                if (projectEvents.length === 0) return null;
+
                 const projectResources = [...new Set(projectEvents.map(e => e.resourceId))];
 
                 return (
-                    <div key={project.id} className="grid grid-cols-[200px_1fr] group">
-                        <div className="font-bold p-2 border-r bg-muted/20 group-hover:bg-accent/50">
+                    <div key={project.id} className="grid group" style={{ gridTemplateColumns: `200px repeat(${dateHeaders.length}, 1fr)`}}>
+                        {/* Project Row */}
+                        <div className="font-bold p-2 border-r bg-secondary/20 group-hover:bg-accent/50 sticky left-0 z-10 col-span-1">
                             {project.title}
                         </div>
-                         <div className="grid grid-cols-7 relative h-10 border-r-0">
-                             {/* Placeholder for project-level bar if needed */}
-                         </div>
+                        <div className="col-span-1 border-r-0 bg-secondary/20 group-hover:bg-accent/50" style={{ gridColumn: `span ${dateHeaders.length}`}}>&nbsp;</div>
 
+                        {/* Resource Rows */}
                         {projectResources.map(resourceId => {
                             const resource = resources.find(r => r.id === resourceId);
                             const resourceEvents = projectEvents.filter(e => e.resourceId === resourceId);
 
                             return (
-                                <div key={resourceId} className="grid grid-cols-[200px_1fr] col-span-2 group-hover:bg-accent/20">
-                                    <div className="p-2 border-r text-sm text-muted-foreground pl-6">{resource?.title}</div>
-                                    <div className="grid grid-cols-7 relative h-10">
+                                <React.Fragment key={resourceId}>
+                                    <div className="p-2 border-r text-sm text-muted-foreground pl-6 sticky left-0 z-10 bg-background group-hover:bg-accent/20">
+                                        {resource?.title}
+                                    </div>
+                                    <div className="relative col-span-1 h-10" style={{ gridColumn: `span ${dateHeaders.length}`}}>
                                         {resourceEvents.map(event => {
-                                            const offset = differenceInDays(event.start, weekStart);
+                                            const offset = differenceInDays(event.start, intervalStart);
                                             const duration = differenceInDays(event.end, event.start) + 1;
                                             
-                                            if (offset < 0 && (offset + duration) <= 0) return null; // Event is before this week
-                                            if (offset >= 7) return null; // Event is after this week
+                                            // Basic filtering to not render events completely outside the current view
+                                            if (offset >= dateHeaders.length || (offset + duration) <= 0) return null;
 
                                             const displayOffset = Math.max(0, offset);
                                             const displayDuration = (offset < 0) 
                                                 ? duration + offset 
-                                                : Math.min(duration, 7 - displayOffset);
+                                                : Math.min(duration, dateHeaders.length - displayOffset);
+
+                                            if (displayDuration <= 0) return null;
 
                                             return (
                                                 <TooltipProvider key={event.id}>
@@ -89,8 +141,8 @@ export function TimelineView({ events, resources, projects }: TimelineViewProps)
                                                             <div 
                                                                 className={cn("absolute my-2 rounded-sm text-white text-xs p-1 cursor-pointer truncate", getEventTypeClass(event))}
                                                                 style={{
-                                                                    gridColumnStart: displayOffset + 1,
-                                                                    gridColumnEnd: `span ${displayDuration}`,
+                                                                    left: `calc(${(100 / dateHeaders.length) * displayOffset}% + 2px)`,
+                                                                    width: `calc(${(100 / dateHeaders.length) * displayDuration}% - 4px)`,
                                                                 }}
                                                             >
                                                                 {event.title}
@@ -106,7 +158,7 @@ export function TimelineView({ events, resources, projects }: TimelineViewProps)
                                             )
                                         })}
                                     </div>
-                                </div>
+                                </React.Fragment>
                             )
                         })}
                     </div>
