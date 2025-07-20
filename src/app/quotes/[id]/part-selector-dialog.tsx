@@ -27,11 +27,33 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CheckCircle, Circle } from 'lucide-react';
 
 interface PartSelectorDialogProps {
   children: React.ReactNode;
   onPartSelected: (part: Omit<QuoteLineItem, 'id' | 'type'>) => void;
 }
+
+// Represents an item in a supplier's parts catalogue.
+interface CataloguePart {
+  partNumber: string;
+  description: string;
+  tradePrice: number;
+  supplier: string;
+}
+
+// This mock data simulates a comprehensive parts catalogue imported from suppliers.
+// In a real app, this would come from a dedicated 'parts' collection in Firestore.
+const mockPartsCatalogue: CataloguePart[] = [
+    { partNumber: 'C6-BL-305M', description: 'Cat 6 UTP Cable, Blue, 305m Box', tradePrice: 150.00, supplier: 'Rexel' },
+    { partNumber: 'PDL615', description: 'Standard Single GPO, White', tradePrice: 8.50, supplier: 'Lawrence & Hanson' },
+    { partNumber: 'LED-DL-9W', description: '9W LED Downlight, Warm White, Dimmable', tradePrice: 22.00, supplier: 'Beacon Lighting' },
+    { partNumber: 'RCD-2P-40A', description: '2 Pole 40A 30mA RCD', tradePrice: 45.00, supplier: 'Rexel' },
+    { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', tradePrice: 35.00, supplier: 'Bunnings Warehouse' },
+    { partNumber: 'SMK-AL-9V', description: '9V Photoelectric Smoke Alarm', tradePrice: 18.00, supplier: 'Lawrence & Hanson' },
+    { partNumber: 'HPM-XL777', description: 'Weatherproof Double GPO IP54', tradePrice: 38.50, supplier: 'Bunnings Warehouse' },
+];
+
 
 const oneOffItemSchema = z.object({
   description: z.string().min(3, "Description is required."),
@@ -57,6 +79,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     },
   });
 
+  // Fetch live inventory data when the dialog opens
   React.useEffect(() => {
     if (!isOpen) return;
 
@@ -74,14 +97,21 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     return () => unsubscribe();
   }, [isOpen, toast]);
 
-  const handleSelectItem = (item: StockItem) => {
-    // This part is a placeholder. A real implementation would fetch the actual cost and calculate the sell price based on pricing tiers.
-    const sellPrice = (item.quantityOnHand > 0) ? 55.00 : 60.00; // Simplified logic for demo
+  // Create a map for quick inventory lookups by SKU
+  const inventoryMap = React.useMemo(() => {
+    return new Map(stockItems.map(item => [item.sku, item]));
+  }, [stockItems]);
+
+
+  const handleSelectItem = (part: CataloguePart) => {
+    // In a real app, sell price would be calculated based on the selected pricing tier (e.g., tradePrice * 1.25)
+    const sellPrice = part.tradePrice * 1.3; // Placeholder 30% markup for demonstration
+
     onPartSelected({
-      description: `${item.name} (${item.sku})`,
+      description: `${part.description} (${part.partNumber})`,
       quantity: 1,
-      unitPrice: sellPrice, // Placeholder, should be calculated based on markup
-      unitCost: 45.00, // Placeholder, should be from inventory item
+      unitPrice: parseFloat(sellPrice.toFixed(2)),
+      unitCost: part.tradePrice,
       taxRate: 10,
     });
     setIsOpen(false);
@@ -93,18 +123,45 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     oneOffForm.reset();
   };
 
-  const columns: ColumnDef<StockItem>[] = [
+  const columns: ColumnDef<CataloguePart>[] = [
     {
-      accessorKey: 'name',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Item Name" />,
+      accessorKey: 'description',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      cell: ({ row }) => {
+        const part = row.original;
+        return (
+            <div>
+                <p className="font-medium">{part.description}</p>
+                <p className="text-xs text-muted-foreground">{part.partNumber} &bull; {part.supplier}</p>
+            </div>
+        )
+      }
     },
     {
-      accessorKey: 'sku',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="SKU" />,
+      accessorKey: 'tradePrice',
+      header: 'Trade Price',
+       cell: ({ row }) => `$${row.original.tradePrice.toFixed(2)}`,
     },
     {
-      accessorKey: 'quantityOnHand',
-      header: 'Qty on Hand',
+      id: 'inStock',
+      header: 'In Stock',
+      cell: ({ row }) => {
+        const inventoryItem = inventoryMap.get(row.original.partNumber);
+        if (inventoryItem && inventoryItem.quantityOnHand > 0) {
+          return (
+            <div className="flex items-center gap-1.5 text-green-600">
+              <CheckCircle className="h-4 w-4" />
+              <span className="font-semibold">{inventoryItem.quantityOnHand}</span>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Circle className="h-3 w-3" />
+            <span>No</span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -117,19 +174,19 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Select a Part or Service</DialogTitle>
           <DialogDescription>
-            Choose an item from your inventory or add a one-off item for this quote.
+            Choose a part from the catalogue or add a one-off item. Inventory levels are shown for reference.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="inventory">
+        <Tabs defaultValue="catalogue">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="inventory">From Inventory</TabsTrigger>
+            <TabsTrigger value="catalogue">From Parts Catalogue</TabsTrigger>
             <TabsTrigger value="one-off">Add One-Off Item</TabsTrigger>
           </TabsList>
-          <TabsContent value="inventory">
+          <TabsContent value="catalogue">
             <Card>
               <CardContent className="p-0">
                 {loading ? (
@@ -137,7 +194,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <DataTable columns={columns} data={stockItems} />
+                  <DataTable columns={columns} data={mockPartsCatalogue} />
                 )}
               </CardContent>
             </Card>
@@ -147,7 +204,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                 <CardHeader>
                     <CardTitle>Add One-Off Item</CardTitle>
                     <CardDescription>
-                        Use this for items not in your standard inventory.
+                        Use this for items not in your standard parts catalogue.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
