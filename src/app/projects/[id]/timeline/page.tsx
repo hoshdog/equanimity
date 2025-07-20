@@ -1,3 +1,4 @@
+
 // src/app/projects/[id]/timeline/page.tsx
 'use client';
 
@@ -65,7 +66,7 @@ function useTimelineData(projectId: string): { items: TimelineItem[]; employees:
   return { items, employees, loading };
 }
 
-export default function TimelinePage({ params }: { params: { id: string } }) {
+export default function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
   const { items, employees, loading } = useTimelineData(projectId);
   const [project, setProject] = React.useState<{ name: string } | null>(null);
