@@ -120,9 +120,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
                 form.reset({
                     ...quoteData,
-                    quoteDate: quoteData.quoteDate.toDate(),
-                    dueDate: quoteData.dueDate.toDate(),
-                    expiryDate: quoteData.expiryDate.toDate(),
+                    quoteDate: quoteData.quoteDate?.toDate() || new Date(),
+                    dueDate: quoteData.dueDate?.toDate() || new Date(),
+                    expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
                 });
                 if (quoteData.lineItems) {
                     replaceLineItems(quoteData.lineItems);
