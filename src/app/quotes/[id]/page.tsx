@@ -1,6 +1,8 @@
+
 // src/app/quotes/[id]/page.tsx
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, use } from 'react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
