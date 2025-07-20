@@ -2,15 +2,15 @@
 
 This directory contains the backend Cloud Functions for the Equanimity application.
 
-## OneDrive Integration Setup
+## Integrations Setup (OneDrive & Microsoft Teams)
 
-To enable the OneDrive integration, you must configure an Azure App Registration and set the required environment variables for your functions.
+To enable the OneDrive and/or Microsoft Teams integrations, you must configure an Azure App Registration and set the required environment variables for your functions.
 
 ### 1. Azure App Registration
 
 1.  Go to the [Azure Portal](https://portal.azure.com/) and navigate to **Microsoft Entra ID > App registrations**.
 2.  Click **New registration**.
-3.  Give it a name (e.g., "EquanimityAppOneDriveIntegration").
+3.  Give it a name (e.g., "EquanimityAppIntegration").
 4.  Select **Accounts in this organizational directory only (Single tenant)**.
 5.  Click **Register**.
 
@@ -21,15 +21,17 @@ To enable the OneDrive integration, you must configure an Azure App Registration
 3.  Select **Microsoft Graph**.
 4.  Select **Application permissions**.
 5.  Search for and add the following permissions:
-    *   `Files.ReadWrite.All`
-    *   `Sites.ReadWrite.All` (Required for Teams Channel integration)
-6.  Click **Grant admin consent for [Your Tenant]**. This is crucial for the client credentials flow to work.
+    *   `Files.ReadWrite.All` (Required for both OneDrive and Teams file operations)
+    *   `Sites.ReadWrite.All` (Required for Teams Channel integration to write files)
+    *   `Channel.ReadBasic.All` (Required to list channels in a Team)
+    *   `Group.Read.All` (Required to list Teams your app has access to)
+6.  **CRUCIAL STEP:** Click **Grant admin consent for [Your Tenant]**. This is required for application permissions (client credentials flow) to work. A global administrator for your Azure tenant must perform this step.
 
 ### 3. Create a Client Secret
 
 1.  Go to the **Certificates & secrets** tab.
 2.  Click **New client secret**.
-3.  Give it a description and an expiry period.
+3.  Give it a description and an expiry period (e.g., "AppSecret", 12 months).
 4.  **Important:** Copy the **Value** of the secret immediately. You will not be able to see it again. This is your `AZURE_CLIENT_SECRET`.
 
 ### 4. Set Environment Variables
@@ -42,17 +44,14 @@ firebase functions:config:set azure.client_id="YOUR_APPLICATION_CLIENT_ID"
 firebase functions:config:set azure.tenant_id="YOUR_DIRECTORY_TENANT_ID"
 firebase functions:config:set azure.client_secret="YOUR_CLIENT_SECRET_VALUE"
 
-# For OneDrive Integration
+# Optional: For OneDrive Integration (User-delegated, less common)
 firebase functions:config:set onedrive.user_id="USER_ID_OF_ONEDRIVE_ACCOUNT"
 
-# For Microsoft Teams Integration
-firebase functions:config:set teams.team_id="YOUR_TEAM_ID"
-firebase functions:config:set teams.channel_id="YOUR_CHANNEL_ID"
+# Note: For Teams, the teamId and channelId are now stored per-project in Firestore,
+# not in environment variables, allowing for more flexible configurations.
 ```
 
-*   `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` can be found on the **Overview** page of your App registration.
-*   `ONEDRIVE_USER_ID` is the User Principal Name (usually the email address) of the single OneDrive account where all project folders will be created (e.g., `projects@yourcompany.com`).
-*   `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID` can be found in the URL when you are viewing the channel in the Microsoft Teams web client, or by using the Microsoft Graph Explorer.
+*   `AZURE_CLIENT_ID` (Application (client) ID) and `AZURE_TENANT_ID` (Directory (tenant) ID) can be found on the **Overview** page of your App registration.
 
 After setting the config, deploy your functions for the changes to take effect:
 
@@ -60,9 +59,9 @@ After setting the config, deploy your functions for the changes to take effect:
 firebase deploy --only functions
 ```
 
-### 5. Define OneDrive Folder Templates
+### 5. Define OneDrive Folder Templates (Optional)
 
-To use the automated folder creation, you must define templates in your Firestore database.
+If using the OneDrive integration, you must define templates in your Firestore database.
 
 1.  Go to your Firestore database in the Firebase Console.
 2.  Create a top-level collection named `oneDriveTemplates`.

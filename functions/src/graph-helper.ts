@@ -1,9 +1,6 @@
 // functions/src/graph-helper.ts
 /**
  * @fileOverview A helper module for interacting with the Microsoft Graph API.
- * 
- * This module encapsulates the logic for authenticating with Azure AD,
- * creating folders and permissions in OneDrive, and performing delta syncs.
  */
 
 import { ClientSecretCredential } from "@azure/identity";
@@ -17,13 +14,13 @@ const {
     AZURE_CLIENT_ID, 
     AZURE_CLIENT_SECRET, 
     ONEDRIVE_USER_ID,
-    TEAMS_TEAM_ID,
-    TEAMS_CHANNEL_ID
 } = process.env;
 
 if (!AZURE_TENANT_ID || !AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET) {
     throw new Error("Missing required core Azure environment variables (TENANT_ID, CLIENT_ID, CLIENT_SECRET).");
 }
+
+const GRAPH_API_SCOPE = process.env.GRAPH_API_SCOPE || 'https://graph.microsoft.com/.default';
 
 /**
  * Creates and returns an authenticated Microsoft Graph client instance.
@@ -36,106 +33,90 @@ export function getGraphClient(): Client {
         AZURE_CLIENT_SECRET!
     );
     const authProvider = new TokenCredentialAuthenticationProvider(credential, {
-        scopes: ['https://graph.microsoft.com/.default'],
+        scopes: [GRAPH_API_SCOPE],
     });
 
     return Client.initWithMiddleware({ authProvider });
 }
 
 /**
- * Creates a folder in a specified parent folder or the root of a drive.
- * @param {Client} client - The authenticated Graph client.
- * @param {string} folderName - The name of the folder to create.
- * @param {string} [parentId] - The ID of the parent folder. If not provided, creates in the root.
- * @returns {Promise<any>} The driveItem object of the created folder.
+ * =================================================================
+ * ONEDRIVE-SPECIFIC HELPERS (USER-DELEGATED)
+ * =================================================================
  */
+
 export async function createFolder(client: Client, folderName: string, parentId?: string): Promise<any> {
-    if (!ONEDRIVE_USER_ID) {
-        throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
-    }
-
-    const folder = {
-        name: folderName,
-        folder: {},
-        '@microsoft.graph.conflictBehavior': 'rename'
-    };
-
+    if (!ONEDRIVE_USER_ID) throw new Error("ONEDRIVE_USER_ID is not set.");
     const url = parentId
         ? `/users/${ONEDRIVE_USER_ID}/drive/items/${parentId}/children`
         : `/users/${ONEDRIVE_USER_ID}/drive/root/children`;
+    return client.api(url).post({ name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' });
+}
 
-    return client.api(url).post(folder);
+export async function grantPermission(client: Client, itemId: string, userEmail: string): Promise<any> {
+    if (!ONEDRIVE_USER_ID) throw new Error("ONEDRIVE_USER_ID is not set.");
+    const url = `/users/${ONEDRIVE_USER_ID}/drive/items/${itemId}/invite`;
+    return client.api(url).post({ recipients: [{ email: userEmail }], message: "Access granted.", requireSignIn: true, sendInvitation: true, roles: ['write'] });
+}
+
+/**
+ * =================================================================
+ * TEAMS / SHAREPOINT HELPERS (APPLICATION)
+ * =================================================================
+ */
+
+/**
+ * Lists all Microsoft Teams the application has access to.
+ * Requires Group.Read.All and Channel.ReadBasic.All permissions.
+ */
+export async function listTeams(client: Client): Promise<{ id: string, displayName: string }[]> {
+    const result = await client.api("/groups").filter("resourceProvisioningOptions/Any(x:x eq 'Team')").select('id,displayName').get();
+    return result.value.map((team: any) => ({ id: team.id, displayName: team.displayName }));
+}
+
+/**
+ * Lists all channels within a given Team.
+ * Requires Channel.ReadBasic.All permission.
+ */
+export async function listChannelsInTeam(client: Client, teamId: string): Promise<{ id: string, displayName: string }[]> {
+    const result = await client.api(`/teams/${teamId}/channels`).select('id,displayName').get();
+    return result.value.map((channel: any) => ({ id: channel.id, displayName: channel.displayName }));
+}
+
+/**
+ * Fetches the metadata for the root "Files" folder of a Teams channel.
+ * Requires Sites.Read.All permission.
+ */
+export async function getTeamsChannelFilesFolder(client: Client, teamId: string, channelId: string): Promise<any> {
+    return client.api(`/teams/${teamId}/channels/${channelId}/filesFolder`).get();
 }
 
 /**
  * Creates a folder within a specific Microsoft Teams channel's file library.
- * @param client The authenticated Graph client.
- * @param folderName The name of the folder to create.
- * @returns The driveItem object of the created folder.
+ * Requires Sites.ReadWrite.All permission.
  */
-export async function createFolderInTeamsChannel(client: Client, folderName: string): Promise<any> {
-    if (!TEAMS_TEAM_ID || !TEAMS_CHANNEL_ID) {
-        throw new Error("TEAMS_TEAM_ID or TEAMS_CHANNEL_ID environment variables are not set.");
-    }
-
-    const newFolder = {
-        name: folderName,
-        folder: {},
-        '@microsoft.graph.conflictBehavior': 'rename'
-    };
-    
-    const url = `/teams/${TEAMS_TEAM_ID}/channels/${TEAMS_CHANNEL_ID}/filesFolder/children`;
-
+export async function createFolderInTeamsChannel(client: Client, teamId: string, channelId: string, folderName: string): Promise<any> {
+    const url = `/teams/${teamId}/channels/${channelId}/filesFolder/children`;
     logger.info(`Attempting to create folder "${folderName}" in Teams channel.`);
-    const createdFolder = await client.api(url).post(newFolder);
+    const createdFolder = await client.api(url).post({ name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' });
     logger.info(`Successfully created folder "${folderName}" with ID ${createdFolder.id}.`);
-
     return createdFolder;
 }
 
 /**
- * Grants write permissions to a user on a specific drive item.
- * @param {Client} client - The authenticated Graph client.
- * @param {string} itemId - The ID of the drive item (folder).
- * @param {string} userEmail - The email address of the user to grant permission to.
- * @returns {Promise<any>} The permission object.
+ * Fetches delta changes for a given drive.
+ * Requires Sites.Read.All permission.
  */
-export async function grantPermission(client: Client, itemId: string, userEmail: string): Promise<any> {
-    if (!ONEDRIVE_USER_ID) {
-        throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
-    }
-
-    const permission = {
-        recipients: [{ email: userEmail }],
-        message: "You have been granted access to this project folder.",
-        requireSignIn: true,
-        sendInvitation: true,
-        roles: ['write']
-    };
-
-    const url = `/users/${ONEDRIVE_USER_ID}/drive/items/${itemId}/invite`;
-    return client.api(url).post(permission);
-}
-
-
-/**
- * Fetches delta changes for a given folder in OneDrive.
- * @param {string} folderId The ID of the root folder to sync.
- * @param {string} [deltaToken] The delta token from the previous sync.
- * @returns {Promise<{changes: any[], deltaToken: string}>} A list of changes and the new delta token.
- */
-export async function getDeltaChanges(folderId: string, deltaToken?: string): Promise<{ changes: any[], deltaToken: string }> {
-  const client = getGraphClient();
+export async function getDeltaChanges(client: Client, driveId: string, deltaToken?: string): Promise<{ changes: any[], deltaToken: string }> {
   let allChanges: any[] = [];
   let nextLink: string | undefined;
 
-  if (!ONEDRIVE_USER_ID) {
-      throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
-  }
-  
-  let url = `/users/${ONEDRIVE_USER_ID}/drive/items/${folderId}/delta`;
+  let url = `/drives/${driveId}/root/delta`;
   if (deltaToken) {
     url += `?token=${deltaToken}`;
+  } else {
+    // For the initial sync, we might want to select specific fields
+    url += '?$select=id,name,webUrl,file,parentReference,deleted,lastModifiedDateTime,lastModifiedBy';
   }
 
   try {
@@ -148,13 +129,11 @@ export async function getDeltaChanges(folderId: string, deltaToken?: string): Pr
       const newDeltaToken = response['@odata.deltaLink']?.split('token=')[1];
 
       if (newDeltaToken) {
-        logger.info(`Delta sync successful. Got new delta token for folder ${folderId}.`);
+        logger.info(`Delta sync successful. Got new delta token for drive ${driveId}.`);
         return { changes: allChanges, deltaToken: newDeltaToken };
       }
       
       if (nextLink) {
-        // The API returns a full URL, but we need to call it via the SDK client.
-        // We'll extract the relative path and query string.
         const relativeUrl = nextLink.substring(nextLink.indexOf('/v1.0') + 5);
         response = await client.api(relativeUrl).get();
       } else {
@@ -162,14 +141,29 @@ export async function getDeltaChanges(folderId: string, deltaToken?: string): Pr
       }
     }
     
-    // This case should ideally not be hit if the deltaLink is always present on the last page.
-    logger.warn(`No delta token found in the final response for folder ${folderId}.`);
-    // Depending on requirements, might need to re-run a full sync.
-    // For now, we'll return an empty token to avoid breaking.
+    logger.warn(`No delta token found in the final response for drive ${driveId}.`);
     return { changes: allChanges, deltaToken: '' };
 
   } catch (error) {
-    logger.error(`Error fetching delta changes for folder ${folderId}:`, error);
+    logger.error(`Error fetching delta changes for drive ${driveId}:`, error);
     throw error;
   }
+}
+
+/**
+ * Converts a Microsoft Graph driveItem object to a simplified Firestore document.
+ * @param {any} item - The driveItem object from Graph API.
+ * @returns {object} A simplified object for Firestore.
+ */
+export function driveItemToFirestore(item: any) {
+    return {
+        id: item.id,
+        name: item.name,
+        webUrl: item.webUrl,
+        size: item.size,
+        mimeType: item.file?.mimeType,
+        lastModifiedBy: item.lastModifiedBy?.user?.displayName || 'Unknown',
+        lastModifiedDateTime: item.lastModifiedDateTime,
+        status: 'active',
+    };
 }

@@ -2,78 +2,82 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user's roles from their profile
-    function getUserRoles() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
-    }
-    
-    // Helper function to check if a user has a specific role
-    function hasRole(role) {
-      return role in getUserRoles();
-    }
-    
-    // Helper function to check if the request is from a backend function
-    function isBackend() {
-      // This checks for a claim that is only present for service accounts
-      return request.auth.token.firebase.sign_in_provider == 'custom';
+
+    // Helper functions to reduce boilerplate
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Users can read their own profile, admins can read any
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    function isUserInRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).roles.hasAny([role]);
+    }
+
+    function isUserInAnyRole(roles) {
+      return isSignedIn() && getUserData(request.auth.uid).roles.hasAny(roles);
+    }
+    
+    function isOwner(resource) {
+      return request.auth.uid == resource.data.uid || request.auth.uid == resource.data.customerId;
+    }
+
+    // Only signed-in users can read their own profile, admins can read any
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || hasRole('admin');
-      allow write: if hasRole('admin'); // Only admins can modify user roles, etc.
-      allow create: if request.auth.uid == userId; // Allow users to create their own profile on signup
-    }
-    
-    match /projects/{projectId} {
-      allow read: if request.auth != null; // Any authenticated user can read projects
-      
-      // Clients can create projects for themselves
-      allow create: if request.auth.uid == request.resource.data.customerId;
-      
-      // Clients can only update their own projects, admins can update any
-      allow update: if (resource.data.customerId == request.auth.uid || hasRole('admin'))
-                    // Prevent client-side modification of OneDrive/Teams integration fields
-                    && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['oneDriveConfig', 'teamsFolder']));
-                    
-      // Clients can only delete their own projects, admins can delete any
-      allow delete: if resource.data.customerId == request.auth.uid || hasRole('admin');
-      
-      // Lock down the OneDrive subcollection to be writable only by backend functions
-      match /oneDriveFolders/{folderId} {
-        allow read: if request.auth != null;
-        allow write: if isBackend();
-      }
-      
-      // Allow backend functions to update the teamsFolder field
-      allow update: if isBackend() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teamsFolder']);
+      allow read: if isUserInRole('admin') || request.auth.uid == userId;
+      allow write: if isUserInRole('admin') || request.auth.uid == userId;
+      // Prevent users from escalating their own privileges
+      allow update: if request.auth.uid == userId && !request.resource.data.roles.hasAny(['admin']);
     }
 
-    // Only admins can manage oneDriveTemplates
-    match /oneDriveTemplates/{templateId} {
-        allow read, write: if hasRole('admin');
-    }
-    
-    // A client can only CRUD jobs associated with their own projects
-    // Contractors can read jobs but cannot write
-    match /jobs/{jobId} {
-      // Any authenticated user can read
-      allow read: if request.auth != null;
+    // Admins can do anything. Clients can only manage their own projects.
+    // Contractors/other users can read projects.
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if isUserInRole('admin') || (isUserInRole('client') && isOwner(resource));
       
-      // To create, you must be associated with the project the job belongs to
-      allow create: if get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.customerId == request.auth.uid
-                    || hasRole('admin');
-                    
-      // To update/delete, you must be associated with the project the job belongs to
-      allow update, delete: if get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.customerId == request.auth.uid
-                           || hasRole('admin');
+      // Subcollections
+      match /oneDriveFolders/{folderId} {
+        // Only backend functions can write here. No client-side modifications allowed.
+        allow read: if isUserInRole('admin') || (isUserInRole('client') && isOwner(get(/databases/$(database)/documents/projects/$(projectId))));
+        allow write: if request.auth.token.firebase.sign_in_provider == 'custom';
+      }
+
+      match /teamsFiles/{fileId} {
+        // Only backend functions can write here. No client-side modifications allowed.
+        allow read: if isUserInRole('admin') || (isUserInRole('client') && isOwner(get(/databases/$(database)/documents/projects/$(projectId))));
+        allow write: if request.auth.token.firebase.sign_in_provider == 'custom';
+      }
+
+      // Security rules for the `teamsFolder` field and `settings.teamsIntegration` sub-object
+      allow update: if (
+        (isUserInRole('admin') || (isUserInRole('client') && isOwner(resource)))
+        // Only allow backend to write to specific integration fields
+        && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['teamsFolder', 'settings']))
+      ) || request.auth.token.firebase.sign_in_provider == 'custom';
+
     }
     
-    // Any authenticated user can read, but only admins can write
-    match /employees/{employeeId} {
-      allow read: if request.auth != null;
-      allow write: if hasRole('admin');
+    // Clients can only CRUD jobs for projects they own.
+    // Contractors can read jobs. Admins can do anything.
+    match /jobs/{jobId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.customerId == request.auth.uid;
+        allow update, delete: if isUserInRole('admin') || (isUserInRole('client') && get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.customerId == request.auth.uid);
+    }
+
+    // All authenticated users can read templates
+    match /oneDriveTemplates/{templateId} {
+        allow read: if isSignedIn();
+        allow write: if isUserInRole('admin');
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
