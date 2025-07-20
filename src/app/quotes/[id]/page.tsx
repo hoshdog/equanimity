@@ -146,7 +146,7 @@ function AIAssistant({
                 </div>
                 <Button type="button" onClick={handleGenerateQuote} disabled={loading || !aiPrompt} className="w-full">
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Generate Full Quote
+                    Generate Quote
                 </Button>
             </CardContent>
         </Card>
@@ -167,6 +167,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditingHeader, setIsEditingHeader] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState<GenerateQuoteFromPromptOutput | null>(null);
     const { toast } = useToast();
 
     const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
@@ -298,21 +299,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     
     const handleGenerationComplete = (output: GenerateQuoteFromPromptOutput) => {
         setValue('description', output.quoteText);
-        
-        const newItems = output.lineItems.map((item, index) => {
-            const isPart = !laborRateOptions.some(l => l.label === item.description);
-            return {
-                id: `item-${index}`,
-                type: isPart ? 'Part' : 'Labour',
-                description: item.description,
-                quantity: item.quantity,
-                unitPrice: parseFloat((item.totalCost / item.quantity).toFixed(2)),
-                unitCost: parseFloat(item.unitCost.toFixed(2)),
-                taxRate: 10,
-            }
+        setAiSuggestions(output);
+    };
+
+    const handleAddSuggestedItem = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
+        const isPart = !laborRateOptions.some(l => l.label === item.description);
+        appendLineItem({
+            id: `item-${Date.now()}`,
+            type: isPart ? 'Part' : 'Labour',
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: parseFloat((item.totalCost / item.quantity).toFixed(2)),
+            unitCost: parseFloat(item.unitCost.toFixed(2)),
+            taxRate: 10,
         });
-        replaceLineItems(newItems as any);
-    }
+        toast({ title: "Item Added", description: `Added "${item.description}" to the quote.` });
+    };
 
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
@@ -418,7 +420,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <FormControl>
                                             <Textarea
                                                 placeholder="e.g., Supply and install ten new 9W warm white LED downlights to the main kitchen area..."
-                                                rows={6}
+                                                rows={8}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -617,6 +619,38 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
                 <div className="lg:col-span-1 space-y-4">
                     <AIAssistant onGenerationComplete={handleGenerationComplete} />
+                    {aiSuggestions && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>AI Suggestions</CardTitle>
+                                <CardDescription>Review and add the suggested items to your quote.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <h4 className="font-semibold mb-2">Suggested Parts</h4>
+                                    <div className="space-y-2">
+                                        {aiSuggestions.lineItems.filter(item => !laborRateOptions.some(l => l.label === item.description)).map((item, index) => (
+                                            <div key={`part-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
+                                                <span>{item.quantity} x {item.description}</span>
+                                                <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                 <div>
+                                    <h4 className="font-semibold mb-2">Suggested Labour</h4>
+                                    <div className="space-y-2">
+                                         {aiSuggestions.lineItems.filter(item => laborRateOptions.some(l => l.label === item.description)).map((item, index) => (
+                                            <div key={`labour-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
+                                                <span>{item.quantity} hrs - {item.description}</span>
+                                                <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </form>

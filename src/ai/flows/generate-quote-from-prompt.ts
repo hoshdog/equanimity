@@ -75,7 +75,7 @@ const GenerateQuoteFromPromptOutputSchema = z.object({
   totalAmount: z.number().describe('The final quote total, including all costs, markup, and tax.'),
   quoteText: z
     .string()
-    .describe('The fully formatted, customer-facing quote text.'),
+    .describe('The fully formatted, customer-facing quote text, including sections for Inclusions, Exclusions, and Assumptions.'),
 });
 export type GenerateQuoteFromPromptOutput = z.infer<
   typeof GenerateQuoteFromPromptOutputSchema
@@ -135,7 +135,7 @@ Special Instructions to follow:
 {{/if}}
 
 Calculation Steps:
-1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Use the provided rates and costs where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item.
+1.  **Itemize Costs**: Break down the job description into individual line items for parts and labor. For each item, determine the description, quantity, and unit cost. Use the provided rates and costs where applicable. If the job seems like a small service call and a call-out fee is provided, include it as a line item. Distinguish clearly between parts and labor.
 2.  **Calculate Subtotal**: Sum the total costs of all line items. This is the subtotal.
 3.  **Set Overheads**: The overheads value is fixed at \${{{overheadCost}}}. Set the 'overheads' field to this value.
 4.  **Calculate Total Cost**: Add the overheads to the subtotal. This is your total cost base.
@@ -143,7 +143,7 @@ Calculation Steps:
 6.  **Calculate Total Before Tax**: This is the Total Cost plus the Markup Amount (or, the Selling Price).
 7.  **Calculate GST**: Calculate 10% GST on the "Total Before Tax".
 8.  **Calculate Final Total**: Add the GST to the "Total Before Tax".
-9.  **Generate Formatted Quote**: Create a professional, customer-facing quote in markdown format. It should include the itemized list, subtotal, overheads, markup, GST, and the final total. Be clear and transparent.
+9.  **Generate Formatted Quote**: Create a professional, customer-facing quote in markdown format. It MUST include clear sections using markdown headers: ### Scope of Work, ### Inclusions, ### Exclusions, and ### Assumptions. Be clear and transparent.
 
 Example Calculation:
 - Subtotal (Parts + Labor) = $100
