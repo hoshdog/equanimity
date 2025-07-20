@@ -15,21 +15,15 @@ import type { Job, Project } from './types';
 
 const jobsCollection = collection(db, 'jobs');
 
-// Get all jobs
-export async function getJobs(): Promise<Job[]> {
-  const q = query(jobsCollection, orderBy('createdAt', 'desc'));
+// Get all jobs, optionally filtered by projectId
+export async function getJobs(projectId?: string): Promise<Job[]> {
+  const constraints = [orderBy('createdAt', 'desc')];
+  if (projectId) {
+      constraints.push(where('projectId', '==', projectId));
+  }
+  const q = query(jobsCollection, ...constraints);
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
-}
-
-// Get all jobs for a specific project
-export async function getJobsForProject(projectId: string): Promise<Job[]> {
-    const q = query(jobsCollection, where('projectId', '==', projectId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    } as Job));
 }
 
 

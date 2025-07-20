@@ -21,7 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { onSnapshot, collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
-import { JobStatus } from '@/lib/job-status';
 import { ChatWidget } from './chat-widget';
 import TimelinePage from './timeline/page';
 
@@ -35,12 +34,12 @@ function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.
     )
 }
 
-const getJobStatusColor = (status: JobStatus) => {
+const getJobStatusColor = (status: Job['status']) => {
     switch (status) {
-      case JobStatus.InProgress: return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
-      case JobStatus.Draft: return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
-      case JobStatus.Assigned: return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
-      case JobStatus.Completed: return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'In Progress': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case 'Draft': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
+      case 'Planned': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case 'Completed': return 'text-green-600 bg-green-100/80 border-green-200/80';
       default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
     }
 }
@@ -235,16 +234,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Technician</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Assigned Staff</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {jobs.length > 0 ? jobs.map(job => (
                                 <TableRow key={job.id}>
-                                    <TableCell className="font-medium">{job.description}</TableCell>
-                                    <TableCell>{employeeMap.get(job.technicianId) || 'Unassigned'}</TableCell>
+                                    <TableCell className="font-medium">{job.title}</TableCell>
+                                    <TableCell>{job.assignedStaffIds.map(id => employeeMap.get(id) || 'Unknown').join(', ')}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={cn(getJobStatusColor(job.status))}>
                                             {job.status}

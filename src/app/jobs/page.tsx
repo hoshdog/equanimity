@@ -7,22 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getEmployees } from '@/lib/employees';
 import type { Job, Employee } from '@/lib/types';
 import { JobFormDialog } from './job-form-dialog';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { JobStatus } from '@/lib/job-status';
 
-const getStatusColor = (status: JobStatus) => {
+const getStatusColor = (status: Job['status']) => {
     switch (status) {
-      case JobStatus.InProgress: return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
-      case JobStatus.Draft: return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
-      case JobStatus.Assigned: return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
-      case JobStatus.Completed: return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'In Progress': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case 'Draft': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
+      case 'Planned': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case 'Completed': return 'text-green-600 bg-green-100/80 border-green-200/80';
       default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
+    }
+}
+
+const getPriorityColor = (priority: Job['priority']) => {
+    switch(priority) {
+        case 'Critical': return 'border-red-500 text-red-500';
+        case 'High': return 'border-orange-500 text-orange-500';
+        case 'Medium': return 'border-yellow-500 text-yellow-500';
+        default: return 'border-gray-400 text-gray-400';
     }
 }
 
@@ -68,8 +76,9 @@ export default function JobsPage() {
         router.push(`/projects/${job.projectId}`);
     };
 
-    const getTechnicianName = (technicianId: string) => {
-        return employees.find(e => e.id === technicianId)?.name || 'Unassigned';
+    const getTechnicianNames = (technicianIds: string[]) => {
+        if (!technicianIds || technicianIds.length === 0) return 'Unassigned';
+        return technicianIds.map(id => employees.find(e => e.id === id)?.name || 'Unknown').join(', ');
     }
 
     return (
@@ -93,23 +102,27 @@ export default function JobsPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Job ID</TableHead>
-                                        <TableHead>Description</TableHead>
+                                        <TableHead>Job Title</TableHead>
                                         <TableHead>Project</TableHead>
-                                        <TableHead>Technician</TableHead>
+                                        <TableHead>Assigned Staff</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Priority</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {jobs.map(job => (
                                         <TableRow key={job.id} onClick={() => handleRowClick(job)} className="cursor-pointer">
-                                            <TableCell className="font-medium">{job.id.substring(0, 6)}...</TableCell>
-                                            <TableCell>{job.description}</TableCell>
+                                            <TableCell className="font-medium">{job.title}</TableCell>
                                             <TableCell>{job.projectName}</TableCell>
-                                            <TableCell>{getTechnicianName(job.technicianId)}</TableCell>
+                                            <TableCell>{getTechnicianNames(job.assignedStaffIds)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={cn(getStatusColor(job.status))}>
                                                     {job.status}
+                                                </Badge>
+                                            </TableCell>
+                                             <TableCell>
+                                                <Badge variant="outline" className={cn(getPriorityColor(job.priority))}>
+                                                    {job.priority}
                                                 </Badge>
                                             </TableCell>
                                         </TableRow>

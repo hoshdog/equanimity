@@ -1,7 +1,6 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
-import { JobStatus } from './job-status';
 
 export interface OptionType {
   value: string;
@@ -62,9 +61,31 @@ export interface Job {
     projectName: string; // Denormalized
     customerId: string; // Denormalized
     customerName: string; // Denormalized
+
+    // Core Details
+    title: string;
     description: string;
-    status: JobStatus;
-    technicianId: string;
+    category: string;
+
+    // Scheduling
+    startDate?: Timestamp;
+    endDate?: Timestamp;
+    dependencies?: string[];
+    isMilestone?: boolean;
+    
+    // Assignment
+    assignedStaffIds: string[];
+    estimatedHours?: number;
+    
+    // Status & Priority
+    status: 'Draft' | 'Planned' | 'In Progress' | 'On Hold' | 'Completed';
+    priority: 'Low' | 'Medium' | 'High' | 'Critical';
+    
+    // Financials
+    billable: boolean;
+    billingRate?: number;
+    
+    // Meta
     createdAt: Timestamp;
 }
 
