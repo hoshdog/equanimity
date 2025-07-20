@@ -57,9 +57,9 @@ export function Combobox({ options, value, onChange, placeholder, className }: C
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
+                    value={option.label} // Use label for filtering/display in cmdk
                     onSelect={() => {
-                      onChange(option.value === value ? "" : option.value)
+                      onChange(option.value);
                       setOpen(false)
                     }}
                   >
