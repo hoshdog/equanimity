@@ -1,3 +1,4 @@
+
 // src/app/quotes/quote-form-dialog.tsx
 'use client';
 
@@ -185,26 +186,33 @@ export function QuoteFormDialog({ onQuoteCreated, projectId }: QuoteFormDialogPr
                     </div>
 
                     <div className="space-y-2">
-                         <FormLabel>Line Items</FormLabel>
-                          {fields.map((field, index) => (
-                            <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                                <div className="grid grid-cols-12 gap-2 flex-grow">
-                                    <div className="col-span-12 sm:col-span-6">
-                                        <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Item description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        <div className="grid grid-cols-12 gap-2 px-2">
+                            <Label className="col-span-12 sm:col-span-6">Description</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Tax %</Label>
+                        </div>
+                        <div className="space-y-2">
+                            {fields.map((field, index) => (
+                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                    <div className="grid grid-cols-12 gap-2 flex-grow">
+                                        <div className="col-span-12 sm:col-span-6">
+                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Item description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
                                     </div>
-                                    <div className="col-span-4 sm:col-span-2">
-                                        <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                    </div>
-                                    <div className="col-span-4 sm:col-span-2">
-                                        <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                    </div>
-                                    <div className="col-span-4 sm:col-span-2">
-                                        <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}><Trash2 className="h-5 w-5 text-destructive"/></Button>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ id: `item-${fields.length}`, description: "", quantity: 1, unitPrice: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
                     </div>
 
