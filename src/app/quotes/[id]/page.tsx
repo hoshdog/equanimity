@@ -436,8 +436,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         </CardHeader>
                         <CardContent className="space-y-2">
                             <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-muted-foreground">
-                                <Label className="col-span-4">Description</Label>
                                 <Label className="col-span-2">Part #</Label>
+                                <Label className="col-span-3">Description</Label>
                                 <Label className="col-span-1 text-center">Qty</Label>
                                 <Label className="col-span-1 text-center">Cost</Label>
                                 <Label className="col-span-1 text-center">Markup</Label>
@@ -453,11 +453,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 return (
                                     <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                         <div className="grid grid-cols-12 gap-2 flex-grow">
-                                            <div className="col-span-4">
-                                                <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                            </div>
                                             <div className="col-span-2">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.partNumber`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part #" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-3">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
                                             <div className="col-span-1">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>

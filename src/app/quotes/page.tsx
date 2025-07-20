@@ -533,7 +533,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                 dueDate: addDays(new Date(), 14),
                 expiryDate: addDays(new Date(), 30),
                 status: 'Draft' as const,
-                lineItems: [{ id: 'item-0', type: 'Part' as const, description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
+                lineItems: [],
                 subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
                 version: 1,
                 prompt: values.prompt,
