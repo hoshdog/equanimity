@@ -39,11 +39,9 @@ import { PartSelectorDialog } from './part-selector-dialog';
 import { suggestQuoteLineItems } from '@/ai/flows/suggest-quote-line-items';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
 import { mockPartsCatalogue } from './part-selector-dialog'; // Reuse the catalogue for now
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -53,7 +51,7 @@ const lineItemSchema = z.object({
     type: z.enum(['Part', 'Labour']),
     description: z.string().min(3, "Description is required."),
     quantity: z.coerce.number().min(0.1, "Qty must be > 0."),
-    unitPrice: z.coerce.number().min(0.01, "Price must be > 0."),
+    unitPrice: z.coerce.number().min(0.01, "Price must be greater than 0."),
     unitCost: z.coerce.number().min(0).optional(), // Cost to you
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
@@ -88,14 +86,12 @@ const formSchema = z.object({
 type QuoteFormValues = z.infer<typeof formSchema>;
 
 
-function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void, onGenerateDescription: (description: string) => void }) {
+function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerateDescription: (description: string) => void }) {
     const [aiPrompt, setAiPrompt] = useState(quote.prompt || '');
     const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [generatingDescription, setGeneratingDescription] = useState(false);
     const [suggestions, setSuggestions] = useState<SuggestQuoteLineItemsOutput | null>(null);
-    const [isReviewing, setIsReviewing] = useState(false);
-    const [isDisclaimerAccepted, setIsDisclaimerAccepted] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
     const { toast } = useToast();
     
@@ -132,7 +128,6 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
             };
             const result = await suggestQuoteLineItems(aiInput);
             setSuggestions(result);
-            setIsReviewing(true); // Open the review dialog
         } catch (error) {
             console.error("AI suggestion failed:", error);
             toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to get suggestions.' });
@@ -157,17 +152,6 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
         } finally {
             setGeneratingDescription(false);
         }
-    }
-    
-    const handleAcceptAndApply = () => {
-        if (!suggestions) return;
-        // This is a simplified approach. A real app might parse the text
-        // and add items to the line item list. For now, we'll append the raw text
-        // to the description as an example.
-        onGenerateDescription(suggestions);
-        setIsReviewing(false);
-        setSuggestions(null);
-        toast({ title: "Suggestions Applied", description: "The AI suggestions have been added to the quote description." });
     }
 
     return (
@@ -230,28 +214,16 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
                         Suggest Line Items
                     </Button>
                 </div>
+                {suggestions && (
+                    <div className="space-y-2 pt-4">
+                        <Label>AI Suggestions</Label>
+                        <Textarea readOnly value={suggestions} rows={10} className="font-mono text-xs" />
+                        <div className="flex justify-end">
+                            <Button variant="ghost" size="sm" onClick={() => setSuggestions(null)}>Clear</Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
-
-             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Review AI Suggestions</DialogTitle>
-                    </DialogHeader>
-                    <div className="max-h-[50vh] overflow-y-auto space-y-2 p-1 prose prose-sm dark:prose-invert bg-secondary/30 rounded-md">
-                        <pre className="text-sm whitespace-pre-wrap font-sans p-4">{suggestions}</pre>
-                    </div>
-                     <div className="flex items-center space-x-2 pt-4">
-                        <Checkbox id="accept-disclaimer" checked={isDisclaimerAccepted} onCheckedChange={(checked) => setIsDisclaimerAccepted(checked as boolean)} />
-                        <label htmlFor="accept-disclaimer" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        I have reviewed the suggestions and understand they may not be accurate.
-                        </label>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="secondary" onClick={() => setIsReviewing(false)}>Cancel</Button>
-                        <Button onClick={handleAcceptAndApply} disabled={!isDisclaimerAccepted}>Accept & Add to Quote</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </Card>
     );
 }
@@ -398,10 +370,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             setLoading(false);
         }
     }
-    
-    const handleApplyAISuggestions = (items: QuoteLineItem[]) => {
-        // This is now handled inside the AIAssistant component
-    }
 
     const handleGenerateDescription = (description: string) => {
         setValue('description', description);
@@ -494,7 +462,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
             <AIAssistant 
                 quote={quote} 
-                onApplySuggestions={handleApplyAISuggestions} 
                 onGenerateDescription={handleGenerateDescription}
             />
 
