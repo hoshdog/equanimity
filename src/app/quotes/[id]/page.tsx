@@ -61,7 +61,7 @@ const formSchema = z.object({
   dueDate: z.date({ required_error: "Due date is required." }),
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
-  lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
+  lineItems: z.array(lineItemSchema).min(1, "At least one line item is required.").optional(),
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
@@ -470,27 +470,28 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-muted-foreground">
-                            <Label className="col-span-2">Part #</Label>
-                            <Label className="col-span-3">Description</Label>
+                            <Label className="col-span-1">Part #</Label>
+                            <Label className="col-span-4">Description</Label>
                             <Label className="col-span-1 text-center">Qty</Label>
                             <Label className="col-span-1 text-center">Cost</Label>
                             <Label className="col-span-1 text-center">Markup</Label>
                             <Label className="col-span-1 text-center">Margin</Label>
                             <Label className="col-span-1 text-center">Sell</Label>
-                            <Label className="col-span-1 text-center">Tax</Label>
+                            <Label className="col-span-1 text-center">Total</Label>
                         </div>
                         {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
                             const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
                             if (lineItemFields[originalIndex].type !== 'Part') return null;
                             const item = lineItemsWatch[originalIndex];
                             const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
+                            const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
                             return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-2">
+                                        <div className="col-span-1">
                                             <FormField control={form.control} name={`lineItems.${originalIndex}.partNumber`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part #" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-4">
                                             <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-1">
@@ -530,8 +531,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-1">
                                             <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
-                                        <div className="col-span-1 flex items-center justify-center text-xs">
-                                            <span>{item.taxRate}%</span>
+                                        <div className="col-span-1 flex items-center justify-center font-semibold text-sm">
+                                            <span>${lineTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
@@ -555,22 +556,23 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-muted-foreground">
-                            <Label className="col-span-5">Description</Label>
+                            <Label className="col-span-4">Description</Label>
                             <Label className="col-span-1 text-center">Hours</Label>
                             <Label className="col-span-2 text-center">Cost Rate</Label>
                             <Label className="col-span-2 text-center">Billable Rate</Label>
                             <Label className="col-span-1 text-center">Margin</Label>
-                            <Label className="col-span-1 text-center">Tax</Label>
+                            <Label className="col-span-2 text-center">Line Total</Label>
                         </div>
                         {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
                             const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
                             if (lineItemFields[originalIndex].type !== 'Labour') return null;
                             const item = lineItemsWatch[originalIndex];
                             const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
+                            const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
                             return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-5">
+                                        <div className="col-span-4">
                                             <FormField
                                                 control={form.control}
                                                 name={`lineItems.${originalIndex}.description`}
@@ -617,8 +619,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-1 flex items-center justify-center text-xs p-2 rounded-md bg-background/50">
                                             <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
                                         </div>
-                                        <div className="col-span-1 flex items-center justify-center text-xs">
-                                            <span>{item.taxRate}%</span>
+                                        <div className="col-span-2 flex items-center justify-center font-semibold text-sm">
+                                            <span>${lineTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
@@ -738,3 +740,4 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+
