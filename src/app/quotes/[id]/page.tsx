@@ -28,9 +28,9 @@ import { updateQuote } from '@/lib/quotes';
 import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, SuggestQuoteLineItemsInput } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,7 +44,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 
 const lineItemSchema = z.object({
@@ -92,7 +91,7 @@ function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerat
     const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [generatingDescription, setGeneratingDescription] = useState(false);
-    const [suggestions, setSuggestions] = useState<SuggestQuoteLineItemsOutput | null>(null);
+    const [suggestions, setSuggestions] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
     const { toast } = useToast();
     
