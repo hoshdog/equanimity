@@ -253,10 +253,11 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                                             name={`assignedStaff.${index}.employeeId`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <Select onValueChange={field.onChange} value={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger></FormControl>
-                                                        <SelectContent>{employees.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
-                                                    </Select>
+                                                    <SearchableCombobox 
+                                                        options={employees} 
+                                                        {...field} 
+                                                        placeholder="Select staff..."
+                                                    />
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
