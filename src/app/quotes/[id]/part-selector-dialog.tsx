@@ -380,49 +380,51 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
     };
 
     return (
-        <React.Fragment>
-            <TableRow data-state={isOpen ? 'open' : 'closed'}>
-                <TableCell className="w-12">
-                     <CollapsibleTrigger asChild>
-                       <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
-                            <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
-                        </Button>
-                     </CollapsibleTrigger>
-                </TableCell>
-                <TableCell>
-                    <p className="font-medium">{part.description}</p>
-                    <p className="text-xs text-muted-foreground">{part.partNumber}</p>
-                </TableCell>
-                <TableCell className="text-center">
-                    <Badge variant={stockQty > 0 ? 'default' : 'secondary'} className={cn(stockQty > 0 && "bg-green-600/20 text-green-600 border-green-600/30")}>
-                        {stockQty}
-                    </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                    <div className="flex justify-end items-center gap-2">
-                        <Input type="number" value={quickAddQty} onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)} className="w-20 h-8" />
-                        <Button size="sm" onClick={handleQuickAdd}>Add</Button>
-                    </div>
-                </TableCell>
-            </TableRow>
-             <CollapsibleContent asChild>
-                <tr className="bg-secondary/20">
-                     <TableCell colSpan={4} className="p-0">
-                        <div className="p-2 space-y-1">
-                            {sortedSuppliers.map((supplier, index) => (
-                                <SupplierRow 
-                                    key={supplier.supplier} 
-                                    supplier={supplier} 
-                                    part={part} 
-                                    isCheapest={index === 0}
-                                    onSelect={onSelect}
-                                />
-                            ))}
+        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+            <React.Fragment>
+                <TableRow>
+                    <TableCell className="w-12">
+                         <CollapsibleTrigger asChild>
+                           <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
+                                <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
+                            </Button>
+                         </CollapsibleTrigger>
+                    </TableCell>
+                    <TableCell>
+                        <p className="font-medium">{part.description}</p>
+                        <p className="text-xs text-muted-foreground">{part.partNumber}</p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <Badge variant={stockQty > 0 ? 'default' : 'secondary'} className={cn(stockQty > 0 && "bg-green-600/20 text-green-600 border-green-600/30")}>
+                            {stockQty}
+                        </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <div className="flex justify-end items-center gap-2">
+                            <Input type="number" value={quickAddQty} onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)} className="w-20 h-8" />
+                            <Button size="sm" onClick={handleQuickAdd}>Add</Button>
                         </div>
                     </TableCell>
-                </tr>
-            </CollapsibleContent>
-        </React.Fragment>
+                </TableRow>
+                <CollapsibleContent asChild>
+                    <TableRow className="bg-secondary/20 hover:bg-secondary/30">
+                         <TableCell colSpan={4} className="p-0">
+                            <div className="p-2 space-y-1">
+                                {sortedSuppliers.map((supplier, index) => (
+                                    <SupplierRow 
+                                        key={supplier.supplier} 
+                                        supplier={supplier} 
+                                        part={part} 
+                                        isCheapest={index === 0}
+                                        onSelect={onSelect}
+                                    />
+                                ))}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </React.Fragment>
+        </Collapsible>
     )
 }
 
