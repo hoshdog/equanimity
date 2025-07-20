@@ -1,4 +1,3 @@
-
 // src/context/time-tracker-context.tsx
 'use client';
 
@@ -40,14 +39,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const startTimer = useCallback(() => {
-        if (intervalRef.current) return;
-        setIsTimerActive(true);
-        intervalRef.current = setInterval(() => {
-            setTimeSpent(prev => prev + 1);
-        }, 1000);
-    }, []);
-
     const pauseTimer = useCallback(() => {
         setIsTimerActive(false);
         if (intervalRef.current) {
@@ -59,6 +50,14 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         }
     }, []);
 
+    const startTimer = useCallback(() => {
+        if (intervalRef.current) return;
+        setIsTimerActive(true);
+        intervalRef.current = setInterval(() => {
+            setTimeSpent(prev => prev + 1);
+        }, 1000);
+    }, []);
+    
     const resetInactivityTimer = useCallback(() => {
         if (!isTimerActive) {
             startTimer();
@@ -79,14 +78,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
 
 
     useEffect(() => {
-        // Stop everything if there's no context
-        if (!context) {
-            pauseTimer();
-            setTimeSpent(0);
-            return;
-        }
-
-        // --- Event handlers ---
         const handleActivity = () => {
             if (document.hidden) return; // Don't restart timer if tab is not visible
             resetInactivityTimer();
@@ -95,16 +86,20 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 pauseTimer();
-            } else {
-                handleActivity(); // Restart inactivity timer when tab becomes visible
+            } else if (context) { // Only resume if there's a context
+                handleActivity();
             }
         };
 
-        // --- Setup and Teardown ---
-        handleActivity(); // Start timer immediately when context is set
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('mousemove', handleActivity);
-        window.addEventListener('keydown', handleActivity);
+        if (context) {
+            handleActivity(); // Start timer immediately when context is set
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            window.addEventListener('mousemove', handleActivity);
+            window.addEventListener('keydown', handleActivity);
+        } else {
+             pauseTimer();
+             setTimeSpent(0);
+        }
         
         // Cleanup function
         return () => {
@@ -113,7 +108,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             window.removeEventListener('keydown', handleActivity);
             pauseTimer(); // Ensure timer is cleared on unmount/context change
         };
-    // Re-run this entire effect ONLY when the context or the memoized functions change.
     }, [context, pauseTimer, resetInactivityTimer]);
 
 
