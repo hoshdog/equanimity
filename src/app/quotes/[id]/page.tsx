@@ -65,7 +65,7 @@ const formSchema = z.object({
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
-  paymentTerms: z.string().optional(),
+  terms: z.string().optional(),
   internalNotes: z.string().optional(),
   clientNotes: z.string().optional(),
   projectId: z.string().optional(),
@@ -134,12 +134,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const lineItemsWatch = watch('lineItems');
 
     const resetFormToQuote = useCallback((quoteData: Quote) => {
+        const profile = initialQuotingProfiles.find(p => p.id === quoteData.quotingProfileId) || initialQuotingProfiles[0];
         reset({
             ...quoteData,
             lineItems: quoteData.lineItems || [],
             quoteDate: quoteData.quoteDate instanceof Date ? quoteData.quoteDate : (quoteData.quoteDate as any)?.toDate() || new Date(),
             dueDate: quoteData.dueDate instanceof Date ? quoteData.dueDate : (quoteData.dueDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 14)),
             expiryDate: quoteData.expiryDate instanceof Date ? quoteData.expiryDate : (quoteData.expiryDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 30)),
+            terms: quoteData.terms || profile.terms,
         });
     }, [reset]);
 
@@ -339,7 +341,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                  <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4"/>Save Changes</>}</Button>
             </div>
             
-             <Card>
+            <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>
@@ -690,7 +692,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </Card>
 
                 <Card>
-                    <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
                         <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
@@ -727,6 +729,30 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                        ) : (
                         <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
                        )}
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Terms & Conditions</CardTitle>
+                        <CardDescription>These terms will be displayed on the final quote document.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            control={control}
+                            name="terms"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Textarea
+                                            rows={8}
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </CardContent>
                 </Card>
             </div>

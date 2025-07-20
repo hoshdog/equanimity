@@ -1,3 +1,4 @@
+
 // src/lib/quotes.ts
 import { db, storage } from './firebase';
 import {
@@ -69,7 +70,7 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
   
   const dataToSave = {
     ...quoteData,
-    lineItems: quoteData.lineItems.map(item => ({ ...item, type: item.type || 'Part' })), // Ensure type is set
+    lineItems: quoteData.lineItems?.map(item => ({ ...item, type: item.type || 'Part' })) || [], // Ensure type is set
     version: 1,
     revisions: [],
     attachments: [],

@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 
@@ -228,8 +229,7 @@ export interface Quote {
     assignedStaff?: AssignedStaff[];
     prompt?: string; // The AI prompt that may have generated it
     attachments?: Attachment[];
-    paymentTerms?: string;
-    validityTerms?: string;
+    terms?: string;
     internalNotes?: string;
     clientNotes?: string;
     version: number;
