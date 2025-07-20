@@ -31,7 +31,7 @@ import { updateQuote } from '@/lib/quotes';
 import { getCustomerContacts } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff } from '@/lib/types';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
@@ -59,8 +59,8 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
-  projectContacts: z.array(z.string()).optional(),
-  assignedStaff: z.array(z.string()).optional(),
+  projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
+  assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   paymentTerms: z.string().optional(),
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -129,8 +129,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     quoteDate: quoteData.quoteDate?.toDate() || new Date(),
                     dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
                     expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
-                    projectContacts: quoteData.projectContactIds || [],
-                    assignedStaff: quoteData.assignedStaffIds || [],
+                    projectContacts: quoteData.projectContacts || [],
+                    assignedStaff: quoteData.assignedStaff || [],
                 });
                 if (quoteData.lineItems) {
                     replaceLineItems(quoteData.lineItems);
@@ -170,8 +170,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         try {
             const quoteDataToUpdate = {
                 ...values,
-                projectContactIds: values.projectContacts,
-                assignedStaffIds: values.assignedStaff,
+                projectContacts: values.projectContacts,
+                assignedStaff: values.assignedStaff,
                 subtotal,
                 totalTax,
                 totalAmount,
@@ -251,7 +251,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         name="projectContacts"
                         render={({ field }) => (
                             <FormItem>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={(field.value as any)?.[0]?.contactId}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select contacts" />
@@ -273,7 +273,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         name="assignedStaff"
                         render={({ field }) => (
                             <FormItem>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={(field.value as any)?.[0]?.employeeId}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select staff" />

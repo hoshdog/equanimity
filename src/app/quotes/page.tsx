@@ -34,13 +34,13 @@ import { addDays } from 'date-fns';
 
 
 const createQuoteSchema = z.object({
-    projectId: z.string().min(1, "Please select a project."),
+    projectId: z.string().optional(),
 });
 
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
 
 
-function CreateQuoteDialog() {
+function CreateQuoteDialog({ children, initialProjectId }: { children: React.ReactNode, initialProjectId?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -49,7 +49,7 @@ function CreateQuoteDialog() {
 
     const form = useForm<CreateQuoteValues>({
         resolver: zodResolver(createQuoteSchema),
-        defaultValues: { projectId: "" },
+        defaultValues: { projectId: initialProjectId || "" },
     });
 
     useEffect(() => {
@@ -59,6 +59,9 @@ function CreateQuoteDialog() {
             try {
                 const projectsData = await getProjects();
                 setProjects(projectsData);
+                if (initialProjectId) {
+                    form.setValue('projectId', initialProjectId);
+                }
             } catch (error) {
                 toast({ variant: "destructive", title: "Error", description: "Could not load projects." });
             } finally {
@@ -66,27 +69,22 @@ function CreateQuoteDialog() {
             }
         }
         fetchProjects();
-    }, [isOpen, toast]);
+    }, [isOpen, toast, initialProjectId, form]);
 
     const projectOptions = projects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})`}));
 
     async function onSubmit(values: CreateQuoteValues) {
         setLoading(true);
         const selectedProject = projects.find(p => p.id === values.projectId);
-        if (!selectedProject) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not find selected project.' });
-            setLoading(false);
-            return;
-        }
 
         try {
-             const newQuoteData = {
-                projectId: selectedProject.id,
-                projectName: selectedProject.name,
-                customerId: selectedProject.customerId,
+             const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
+                projectId: selectedProject?.id,
+                projectName: selectedProject?.name,
+                customerId: selectedProject?.customerId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
-                name: `${selectedProject.name} - Quote`,
-                description: `Quote for ${selectedProject.name}`,
+                name: selectedProject ? `${selectedProject.name} - Quote` : "New Quote",
+                description: selectedProject ? `Quote for ${selectedProject.name}` : "",
                 quoteDate: new Date(),
                 dueDate: addDays(new Date(), 14),
                 expiryDate: addDays(new Date(), 30),
@@ -108,13 +106,11 @@ function CreateQuoteDialog() {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button><PlusCircle className="mr-2 h-4 w-4" />Create New Quote</Button>
-            </DialogTrigger>
+            <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create New Quote</DialogTitle>
-                    <DialogDescription>Select the project this quote is for. You can add details on the next screen.</DialogDescription>
+                    <DialogDescription>Select a project to link this quote to (optional). You can add details on the next screen.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -123,10 +119,10 @@ function CreateQuoteDialog() {
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Project</FormLabel>
+                                    <FormLabel>Project (Optional)</FormLabel>
                                     <SearchableCombobox
                                         options={projectOptions}
-                                        value={field.value}
+                                        value={field.value || ''}
                                         onChange={field.onChange}
                                         placeholder="Select a project"
                                     />
@@ -192,7 +188,9 @@ export default function QuotesPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Quotes</h2>
-        <CreateQuoteDialog />
+        <CreateQuoteDialog>
+          <Button><PlusCircle className="mr-2 h-4 w-4" />Create New Quote</Button>
+        </CreateQuoteDialog>
       </div>
 
       {loading ? (
@@ -220,7 +218,7 @@ export default function QuotesPage() {
                             <span className="font-bold text-lg">${quote.totalAmount.toFixed(2)}</span>
                         </CardTitle>
                         <CardDescription>
-                           For: <span className="font-medium text-foreground">{quote.projectName || 'Unknown Project'}</span>
+                           For: <span className="font-medium text-foreground">{quote.projectName || 'Internal Quote'}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">
