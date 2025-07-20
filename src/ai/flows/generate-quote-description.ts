@@ -10,7 +10,7 @@ import {z} from 'genkit';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 
 
-export const GenerateQuoteDescriptionInputSchema = z.object({
+const GenerateQuoteDescriptionInputSchema = z.object({
   userPrompt: z
     .string()
     .describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
@@ -25,7 +25,7 @@ export const GenerateQuoteDescriptionInputSchema = z.object({
 export type GenerateQuoteDescriptionInput = z.infer<typeof GenerateQuoteDescriptionInputSchema>;
 
 
-export const GenerateQuoteDescriptionOutputSchema = z.object({
+const GenerateQuoteDescriptionOutputSchema = z.object({
   quoteDescription: z.string().describe('A well-written, customer-facing description of the work to be performed, including scope, inclusions, and exclusions.'),
 });
 export type GenerateQuoteDescriptionOutput = z.infer<typeof GenerateQuoteDescriptionOutputSchema>;
