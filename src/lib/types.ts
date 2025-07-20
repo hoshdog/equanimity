@@ -1,4 +1,3 @@
-
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
@@ -163,8 +162,8 @@ export interface Quote {
     quoteNumber: string;
     name: string;
     description: string;
-    projectId?: string;
-    projectName?: string; // Denormalized for easier display
+    projectId?: string | null;
+    projectName?: string | null; // Denormalized for easier display
     customerId?: string;
     siteId?: string;
     quoteDate: Timestamp | Date;

@@ -1,4 +1,3 @@
-
 // src/app/quotes/page.tsx
 'use client';
 
@@ -27,7 +26,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -520,7 +519,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
         try {
              const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
                 projectId: values.projectId,
-                projectName: projects.find(p => p.id === values.projectId)?.name,
+                projectName: projects.find(p => p.id === values.projectId)?.name || null,
                 customerId: values.customerId,
                 siteId: values.siteId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
@@ -732,6 +731,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                         <FormItem>
                                             <FormLabel>AI Quote Generation Prompt</FormLabel>
                                             <FormControl><Textarea placeholder="Describe the job requirements in detail. Include scope, assumptions, exclusions, parts, labor, etc. The more detail, the better the generated quote." {...field} rows={8} /></FormControl>
+                                            <FormDescription>Leave blank if you prefer to build the quote manually.</FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
