@@ -1,3 +1,4 @@
+
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -30,11 +31,12 @@ import { updateQuote } from '@/lib/quotes';
 import { getCustomerContacts } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact } from '@/lib/types';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 
 
@@ -57,8 +59,8 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
-  projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
-  assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
+  projectContacts: z.array(z.string()).optional(),
+  assignedStaff: z.array(z.string()).optional(),
   paymentTerms: z.string().optional(),
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -102,8 +104,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const { control, setValue } = form;
 
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
-    const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({ control, name: "projectContacts" });
-    const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({ control, name: "assignedStaff" });
     
     useEffect(() => {
         if (!quoteId) return;
@@ -129,8 +129,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     quoteDate: quoteData.quoteDate?.toDate() || new Date(),
                     dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
                     expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
-                    projectContacts: quoteData.projectContacts || [],
-                    assignedStaff: quoteData.assignedStaff || [],
+                    projectContacts: quoteData.projectContactIds || [],
+                    assignedStaff: quoteData.assignedStaffIds || [],
                 });
                 if (quoteData.lineItems) {
                     replaceLineItems(quoteData.lineItems);
@@ -170,6 +170,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         try {
             const quoteDataToUpdate = {
                 ...values,
+                projectContactIds: values.projectContacts,
+                assignedStaffIds: values.assignedStaff,
                 subtotal,
                 totalTax,
                 totalAmount,
@@ -243,34 +245,48 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                  <div className="space-y-2 rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-semibold leading-none tracking-tight">Customer Contacts</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add</Button>
-                    </div>
-                    {contactFields.map((field, index) => (
-                      <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                         <div className="grid grid-cols-2 gap-2 flex-1">
-                          <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={projectContactOptions} {...field} placeholder="Select contact" /></FormItem>)}/>
-                          <FormField control={form.control} name={`projectContacts.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role on Quote" {...field} /></FormItem>)}/>
-                         </div>
-                         <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    ))}
+                    <h3 className="font-semibold leading-none tracking-tight">Customer Contacts</h3>
+                     <FormField
+                        control={control}
+                        name="projectContacts"
+                        render={({ field }) => (
+                            <FormItem>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select contacts" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {projectContactOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
                 </div>
                 <div className="space-y-2 rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-semibold leading-none tracking-tight">Assigned Staff</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add</Button>
-                    </div>
-                    {staffFields.map((field, index) => (
-                      <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                         <div className="grid grid-cols-2 gap-2 flex-1">
-                          <FormField control={form.control} name={`assignedStaff.${index}.employeeId`} render={({ field }) => (<FormItem><SearchableCombobox options={employeeOptions} {...field} placeholder="Select staff" /></FormItem>)}/>
-                          <FormField control={form.control} name={`assignedStaff.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role on Quote" {...field} /></FormItem>)}/>
-                         </div>
-                         <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    ))}
+                    <h3 className="font-semibold leading-none tracking-tight">Assigned Staff</h3>
+                     <FormField
+                        control={control}
+                        name="assignedStaff"
+                        render={({ field }) => (
+                            <FormItem>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select staff" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {employeeOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
                 </div>
             </div>
             
