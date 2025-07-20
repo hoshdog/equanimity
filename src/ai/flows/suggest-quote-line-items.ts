@@ -1,4 +1,3 @@
-
 // src/ai/flows/suggest-quote-line-items.ts
 'use server';
 /**
@@ -11,7 +10,7 @@ import {z} from 'zod';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 
 
-// Schemas are defined directly within the flow file, which is the correct pattern.
+// Schemas are now defined directly within the flow file, which is the correct pattern.
 const LineItemSchemaForAI = z.object({
   type: z.enum(['Part', 'Labour']),
   description: z.string().describe('Description of the line item (e.g., part name or labor type).'),
@@ -20,7 +19,7 @@ const LineItemSchemaForAI = z.object({
   unitCost: z.number().optional().describe('The COST price per unit or per hour.'),
 });
 
-const SuggestQuoteLineItemsInputSchema = z.object({
+export const SuggestQuoteLineItemsInputSchema = z.object({
   userPrompt: z
     .string()
     .describe('A detailed text prompt from the user describing the job requirements, scope, etc.'),
@@ -47,7 +46,7 @@ const SuggestQuoteLineItemsInputSchema = z.object({
   quotingProfile: z.any().describe("The selected quoting profile containing rules, rates, and persona."),
 });
 
-const SuggestQuoteLineItemsOutputSchema = z.object({
+export const SuggestQuoteLineItemsOutputSchema = z.object({
   suggestedLineItems: z.array(LineItemSchemaForAI).describe('A complete list of suggested line items, including parts and labor, with quantities, costs, and sell prices.'),
   reasoning: z
     .string()
