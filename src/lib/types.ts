@@ -173,8 +173,8 @@ export interface Quote {
     totalDiscount: number;
     totalTax: number;
     totalAmount: number; // This is the final grand total
-    projectContactIds?: string[];
-    assignedStaffIds?: string[];
+    projectContacts?: ProjectContact[];
+    assignedStaff?: AssignedStaff[];
     prompt?: string; // The AI prompt that may have generated it
     // From AI Flow
     lineItemsFromAI?: GenerateQuoteFromPromptOutput['lineItems'];
