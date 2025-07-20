@@ -18,7 +18,8 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Quote, Attachment, Revision } from './types';
-import { auth } from './auth';
+import { auth, onAuthStateChanged } from './auth';
+import type { User } from 'firebase/auth';
 
 
 // Get all quotes from all projects for the main list view
@@ -84,11 +85,26 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
   return newQuoteRef.id;
 }
 
+// Helper function to reliably get the current user, waiting if necessary.
+async function getCurrentUser(): Promise<User> {
+    const user = auth.currentUser;
+    if (user) return user;
+
+    return new Promise((resolve, reject) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            if (user) {
+                resolve(user);
+            } else {
+                reject(new Error("User is not authenticated."));
+            }
+        });
+    });
+}
 
 // Update an existing quote
 export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>, changeSummary: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User must be authenticated to update a quote.");
+  const user = await getCurrentUser();
 
   const quoteRef = doc(db, 'quotes', id);
   const dataToUpdate = { ...quoteData };
@@ -126,8 +142,7 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
 
 // Upload a file and attach it to a quote
 export async function uploadAndAttachFileToQuote(quoteId: string, file: File) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User must be authenticated to upload files.");
+    const user = await getCurrentUser();
 
     // 1. Upload file to Firebase Storage
     const storageRef = ref(storage, `quotes/${quoteId}/${file.name}`);
