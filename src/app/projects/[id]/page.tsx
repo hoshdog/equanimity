@@ -24,6 +24,7 @@ import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
 import { ChatWidget } from './chat-widget';
 import TimelinePage from './timeline/page';
+import { format } from 'date-fns';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
