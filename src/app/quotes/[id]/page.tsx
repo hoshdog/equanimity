@@ -89,8 +89,8 @@ const formSchema = z.object({
 type QuoteFormValues = z.infer<typeof formSchema>;
 
 
-function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void, onGenerateDescription: (description: string) => void }) {
-    const [prompt, setPrompt] = useState(quote.prompt || quote.description || '');
+function AIAssistant({ quote, onApplySuggestions, onGenerateDescription, descriptionValue, onDescriptionChange }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void, onGenerateDescription: (description: string) => void, descriptionValue: string, onDescriptionChange: (value: string) => void }) {
+    const [aiPrompt, setAiPrompt] = useState(quote.prompt || '');
     const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -125,7 +125,7 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
         setSuggestions(null);
         try {
             const aiInput: SuggestQuoteLineItemsInput = {
-                userPrompt: prompt,
+                userPrompt: aiPrompt,
                 uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
                 partsCatalogue: mockPartsCatalogue, // Using mock data for now
                 quotingProfile: selectedProfile,
@@ -146,7 +146,7 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
         setGeneratingDescription(true);
         try {
             const result = await generateQuoteDescription({
-                userPrompt: prompt,
+                userPrompt: aiPrompt,
                 uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
                 quotingProfile: selectedProfile
             });
@@ -195,9 +195,15 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
                         </SelectContent>
                     </Select>
                  </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="ai-prompt">AI Prompt</Label>
+                    <Textarea id="ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={3} />
+                    <FormDescription>Use this field to give instructions to the AI. This will not appear on the final quote.</FormDescription>
+                </div>
                 <div className="space-y-2">
-                    <Label htmlFor="ai-prompt">Job Description / Prompt</Label>
-                    <Textarea id="ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={5} />
+                    <Label htmlFor="quote-description">Quote Description</Label>
+                    <Textarea id="quote-description" value={descriptionValue} onChange={(e) => onDescriptionChange(e.target.value)} placeholder="A detailed description of the work to be performed..." rows={5} />
+                    <FormDescription>This is the customer-facing description. The AI can generate content for this field.</FormDescription>
                 </div>
                  <div className="space-y-2">
                     <Label>Upload RFQ, Plans, or other Documents</Label>
@@ -222,11 +228,11 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
                      )}
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                     <Button onClick={handleGenerateDescription} disabled={generatingDescription || !prompt} className="w-full">
+                     <Button onClick={handleGenerateDescription} disabled={generatingDescription || !aiPrompt} className="w-full">
                         {generatingDescription ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                         Generate Description
                     </Button>
-                    <Button onClick={handleGetSuggestions} disabled={loading || !prompt} className="w-full">
+                    <Button onClick={handleGetSuggestions} disabled={loading || !aiPrompt} className="w-full">
                         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                         Suggest Line Items
                     </Button>
@@ -314,6 +320,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
+    const watchedDescription = watch('description');
 
     const resetFormToQuote = React.useCallback((quoteData: Quote) => {
         reset({
@@ -510,17 +517,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            <AIAssistant quote={quote} onApplySuggestions={handleApplyAISuggestions} onGenerateDescription={handleGenerateDescription} />
-
-             <Card>
-                <CardHeader>
-                    <CardTitle>Quote Details</CardTitle>
-                    <CardDescription>The main description and scope of work for this quote.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel className="sr-only">Quote Description</FormLabel><FormControl><Textarea rows={4} {...field} placeholder="A detailed description of the work to be performed, inclusions, and exclusions."/></FormControl><FormMessage/></FormItem>)}/>
-                </CardContent>
-             </Card>
+            <AIAssistant 
+                quote={quote} 
+                onApplySuggestions={handleApplyAISuggestions} 
+                onGenerateDescription={handleGenerateDescription}
+                descriptionValue={watchedDescription || ''}
+                onDescriptionChange={(value) => setValue('description', value)}
+            />
 
             <div className="space-y-6">
                 <Card>
