@@ -102,7 +102,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     });
     
     // Quotes are in a root collection, so we query them
-    const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId));
     const unsubQuotes = onSnapshot(quotesQuery, (snapshot) => {
         setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
     });
