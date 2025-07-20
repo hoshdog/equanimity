@@ -1,3 +1,4 @@
+
 // src/ai/flows/suggest-quote-line-items.ts
 'use server';
 /**
@@ -8,7 +9,6 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
-
 
 // Schemas are now defined directly within the flow file, which is the correct pattern.
 const LineItemSchemaForAI = z.object({
@@ -43,7 +43,7 @@ const SuggestQuoteLineItemsInputSchema = z.object({
         ),
       })
     ).describe('The entire parts catalogue available for quoting.'),
-  quotingProfile: z.any().describe("The selected quoting profile containing rules, rates, and persona."),
+  quotingProfile: z.any().describe("The selected quotingProfile containing rules, rates, and persona."),
 });
 
 const SuggestQuoteLineItemsOutputSchema = z.object({
