@@ -238,7 +238,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>
+                         <CardTitle>
                             {customer?.name || 'No Customer Selected'}
                             {project && <span className="text-muted-foreground"> / {project.name}</span>}
                         </CardTitle>
@@ -274,7 +274,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <FormField control={form.control} name="quoteNumber" render={({ field }) => ( <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input value={form.getValues('quoteNumber')} readOnly /></FormControl></FormItem>
                                 <FormItem><FormLabel>Quote Date</FormLabel><FormControl><Input readOnly value={form.getValues('quoteDate') ? format(form.getValues('quoteDate'), 'PPP') : 'N/A'} /></FormControl></FormItem>
                                 <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                                 <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
@@ -334,8 +334,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-4 sm:col-span-2">
                                             <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
-                                        <div className="col-span-4 sm:col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                            <FormField
+                                                control={form.control}
+                                                name={`lineItems.${index}.taxRate`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                            <div className="relative flex items-center">
+                                                                <input type="hidden" {...field} />
+                                                                <span className="text-sm">{field.value}%</span>
+                                                            </div>
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
@@ -409,8 +423,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-4 sm:col-span-2">
                                             <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
-                                        <div className="col-span-4 sm:col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                            <FormField
+                                                control={form.control}
+                                                name={`lineItems.${index}.taxRate`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                             <div className="relative flex items-center">
+                                                                <input type="hidden" {...field} />
+                                                                <span className="text-sm">{field.value}%</span>
+                                                            </div>
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
