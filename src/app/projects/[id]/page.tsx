@@ -41,6 +41,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimeTracker } from '@/context/time-tracker-context';
+import { useBreadcrumb } from '@/context/breadcrumb-context';
 
 
 const createQuoteSchema = z.object({
@@ -207,6 +208,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { setContext } = useTimeTracker();
+  const { setBreadcrumbs } = useBreadcrumb();
 
 
   useEffect(() => {
@@ -218,6 +220,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         const projectData = { id: projectDoc.id, ...projectDoc.data() } as Project;
         setProject(projectData);
         setContext({ type: 'project', id: projectData.id, name: projectData.name });
+        setBreadcrumbs({ [projectDoc.ref.path]: projectData.name });
+
         if (projectData.customerId) {
           const customerData = await getCustomer(projectData.customerId);
           setCustomer(customerData);
@@ -265,8 +269,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         unsubQuotes();
         unsubPOs();
         setContext(null); // Clear context on unmount
+        setBreadcrumbs({}); // Clear breadcrumbs on unmount
     };
-  }, [projectId, toast, setContext]);
+  }, [projectId, toast, setContext, setBreadcrumbs]);
 
   const employeeMap = useMemo(() => {
     return new Map(employees.map(e => [e.id, e.name]));

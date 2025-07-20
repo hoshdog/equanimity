@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
 import { TimeTrackerProvider } from '@/context/time-tracker-context';
+import { BreadcrumbProvider } from '@/context/breadcrumb-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -24,9 +25,11 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <TimeTrackerProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <BreadcrumbProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </BreadcrumbProvider>
         </TimeTrackerProvider>
         <Toaster />
       </body>
