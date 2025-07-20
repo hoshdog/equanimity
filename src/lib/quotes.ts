@@ -1,4 +1,3 @@
-
 // src/lib/quotes.ts
 import { db, storage } from './firebase';
 import {
@@ -18,7 +17,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Quote, Attachment } from './types';
+import type { Quote, Attachment, Revision } from './types';
 import { auth } from './auth';
 
 
@@ -94,6 +93,10 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   const quoteRef = doc(db, 'quotes', id);
   const dataToUpdate = { ...quoteData };
 
+  // Get current quote to determine version number
+  const currentQuoteSnap = await getDoc(quoteRef);
+  const currentVersion = currentQuoteSnap.data()?.version || 0;
+
   // Convert Date objects back to Timestamps if they exist
   if (dataToUpdate.quoteDate && dataToUpdate.quoteDate instanceof Date) {
       dataToUpdate.quoteDate = Timestamp.fromDate(dataToUpdate.quoteDate);
@@ -106,17 +109,16 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   }
 
   // Handle revision history
-  const newRevision = {
-      version: quoteData.version || 1, // Use existing version from form
+  const newRevision: Omit<Revision, 'changedAt'> = {
+      version: currentVersion,
       changedBy: user.uid,
-      changedAt: serverTimestamp(),
       changeSummary: changeSummary,
   };
 
   await updateDoc(quoteRef, {
     ...dataToUpdate,
     version: increment(1),
-    revisions: arrayUnion(newRevision),
+    revisions: arrayUnion({ ...newRevision, changedAt: serverTimestamp() }),
     updatedAt: serverTimestamp(),
     updatedBy: user.uid,
   });
