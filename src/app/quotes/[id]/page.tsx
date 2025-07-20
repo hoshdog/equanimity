@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardFooter
 } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,7 +43,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -228,11 +227,11 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription, descrip
                      )}
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                     <Button onClick={handleGenerateDescription} disabled={generatingDescription || !aiPrompt} className="w-full">
+                     <Button type="button" onClick={handleGenerateDescription} disabled={generatingDescription || !aiPrompt} className="w-full">
                         {generatingDescription ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                         Generate Description
                     </Button>
-                    <Button onClick={handleGetSuggestions} disabled={loading || !aiPrompt} className="w-full">
+                    <Button type="button" onClick={handleGetSuggestions} disabled={loading || !aiPrompt} className="w-full">
                         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                         Suggest Line Items
                     </Button>
