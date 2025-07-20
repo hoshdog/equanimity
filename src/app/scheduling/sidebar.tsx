@@ -10,6 +10,9 @@ import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 import { Calendar, GanttChartSquare, BarChart3, List, PlusCircle, Filter } from 'lucide-react';
 import { mockProjects, mockResources } from './data';
 import { LeaveRequestModal } from './leave-request-modal';
+import { useSchedulingView } from './layout';
+import type { ViewMode } from './page';
+
 
 // Mock data for filters
 const projectOptions: OptionType[] = mockProjects.map(p => ({ value: p.id, label: p.title }));
@@ -26,6 +29,8 @@ export function SchedulingSidebar() {
   const [selectedProjects, setSelectedProjects] = useState<OptionType[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<OptionType[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<OptionType[]>([]);
+  const { view, setView } = useSchedulingView();
+
 
   return (
     <Card>
@@ -54,7 +59,7 @@ export function SchedulingSidebar() {
 
         <div className="space-y-2">
             <h4 className="text-sm font-medium">View</h4>
-             <ToggleGroup type="single" defaultValue="calendar" className="w-full grid grid-cols-4">
+             <ToggleGroup type="single" value={view} onValueChange={(value: ViewMode) => value && setView(value)} className="w-full grid grid-cols-4">
                 <ToggleGroupItem value="calendar" aria-label="Calendar view">
                     <Calendar className="h-4 w-4" />
                 </ToggleGroupItem>

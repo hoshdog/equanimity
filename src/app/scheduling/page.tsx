@@ -1,17 +1,17 @@
 // src/app/scheduling/page.tsx
 'use client';
 
-import { useState } from 'react';
 import { CalendarView } from './calendar-view';
 import { TimelineView } from './timeline-view';
 import { ResourceLoadView } from './resource-load-view';
 import { ListView } from './list-view';
 import { mockEvents, mockResources, mockProjects } from './data';
+import { useSchedulingView } from './layout';
 
 export type ViewMode = 'calendar' | 'timeline' | 'load' | 'list';
 
 export default function SchedulingPage() {
-  const [view, setView] = useState<ViewMode>('calendar');
+  const { view } = useSchedulingView();
 
   const renderView = () => {
     switch (view) {
@@ -28,15 +28,9 @@ export default function SchedulingPage() {
     }
   };
 
-  // This would typically be inside the layout, but for simplicity we pass it down
-  // from the page component that controls the state.
   return (
-    <div>
-        {/* The sidebar would control the view state via a callback */}
-        {/* <SchedulingSidebar currentView={view} setView={setView} /> */}
-        <div className="w-full">
-            {renderView()}
-        </div>
+    <div className="w-full">
+        {renderView()}
     </div>
   );
 }
