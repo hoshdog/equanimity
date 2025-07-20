@@ -316,6 +316,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         toast({ title: "Item Added", description: `Added "${item.description}" to the quote.` });
     };
 
+    const isItemLabor = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
+        if (item.type === 'Labour') return true;
+        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs'];
+        return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
+    }
+
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
@@ -629,7 +635,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <div>
                                     <h4 className="font-semibold mb-2">Suggested Parts</h4>
                                     <div className="space-y-2">
-                                        {aiSuggestions.lineItems.filter(item => !laborRateOptions.some(l => l.label === item.description)).map((item, index) => (
+                                        {aiSuggestions.lineItems.filter(item => !isItemLabor(item)).map((item, index) => (
                                             <div key={`part-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
                                                 <span>{item.quantity} x {item.description}</span>
                                                 <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
@@ -640,7 +646,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                  <div>
                                     <h4 className="font-semibold mb-2">Suggested Labour</h4>
                                     <div className="space-y-2">
-                                         {aiSuggestions.lineItems.filter(item => laborRateOptions.some(l => l.label === item.description)).map((item, index) => (
+                                         {aiSuggestions.lineItems.filter(item => isItemLabor(item)).map((item, index) => (
                                             <div key={`labour-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
                                                 <span>{item.quantity} hrs - {item.description}</span>
                                                 <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
