@@ -36,9 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
-import { generateQuoteFromPrompt, GenerateQuoteFromPromptOutput } from '@/ai/flows/generate-quote-from-prompt';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 
 const lineItemSchema = z.object({
@@ -80,142 +78,6 @@ const formSchema = z.object({
 
 type QuoteFormValues = z.infer<typeof formSchema>;
 
-interface UploadedFile {
-    fileName: string;
-    dataUri: string;
-}
-
-function AIAssistant({
-    onGenerationComplete,
-}: {
-    onGenerationComplete: (output: GenerateQuoteFromPromptOutput) => void;
-}) {
-    const [aiPrompt, setAiPrompt] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
-    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-    const { toast } = useToast();
-    
-    const selectedProfile = useMemo(() => {
-        return initialQuotingProfiles.find(p => p.id === selectedProfileId) || initialQuotingProfiles[0];
-    }, [selectedProfileId]);
-    
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files) return;
-
-        const filePromises = Array.from(files).map(file => {
-            return new Promise<UploadedFile>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    resolve({ fileName: file.name, dataUri: e.target?.result as string });
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        });
-        
-        Promise.all(filePromises).then(newFiles => {
-            setUploadedFiles(prev => [...prev, ...newFiles]);
-        }).catch(err => {
-            console.error(err);
-            toast({ variant: 'destructive', title: 'Error reading file' });
-        });
-    };
-    
-    const removeFile = (fileName: string) => {
-        setUploadedFiles(prev => prev.filter(f => f.fileName !== fileName));
-    };
-
-
-    const handleGenerateQuote = async () => {
-        setLoading(true);
-        try {
-            const result = await generateQuoteFromPrompt({
-                prompt: aiPrompt,
-                uploadedDocuments: uploadedFiles,
-                desiredMargin: selectedProfile.defaults.desiredMargin,
-                overheadCost: 50, // This could be a configurable value
-                callOutFee: selectedProfile.defaults.callOutFee,
-                laborRates: selectedProfile.laborRates,
-                materialAndServiceRates: selectedProfile.materialAndServiceRates,
-                persona: selectedProfile.persona,
-                instructions: selectedProfile.instructions
-            });
-            onGenerationComplete(result);
-            toast({ title: 'Quote Generated', description: 'The AI has generated the quote details and line items.' });
-        } catch (error) {
-             console.error("AI quote generation failed:", error);
-            toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to generate the quote.' });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Wand2 className="h-5 w-5 text-primary" />
-                    AI Assistant
-                </CardTitle>
-                <CardDescription>Generate the entire quote from a single prompt and supporting documents.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="quoting-profile">Quoting Profile</Label>
-                    <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                        <SelectTrigger id="quoting-profile">
-                            <SelectValue placeholder="Select a profile" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {initialQuotingProfiles.map(profile => (
-                                <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="ai-prompt">Job Description Prompt</Label>
-                    <Textarea id="ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={5} />
-                    <FormDescription>The more detail you provide, the more accurate the generated quote will be.</FormDescription>
-                </div>
-                <div className="space-y-2">
-                    <Label>Attach Documents (Optional)</Label>
-                    <div className="flex items-center gap-2">
-                        <Button asChild variant="outline" className="w-full">
-                            <label htmlFor="file-upload" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" />
-                                Upload RFQ, Plans, etc.
-                            </label>
-                        </Button>
-                        <Input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
-                    </div>
-                     {uploadedFiles.length > 0 && (
-                        <div className="space-y-1 pt-2">
-                            {uploadedFiles.map(file => (
-                                <div key={file.fileName} className="flex items-center justify-between text-xs p-1 rounded-md bg-secondary/50">
-                                    <span className="flex items-center gap-2 truncate">
-                                        <Paperclip className="h-3 w-3" />
-                                        {file.fileName}
-                                    </span>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(file.fileName)}>
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                <Button type="button" onClick={handleGenerateQuote} disabled={loading || (!aiPrompt && uploadedFiles.length === 0)} className="w-full">
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Generate Quote
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: quoteId } = use(params);
@@ -230,7 +92,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditingHeader, setIsEditingHeader] = useState(false);
-    const [aiSuggestions, setAiSuggestions] = useState<GenerateQuoteFromPromptOutput | null>(null);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
     const { toast } = useToast();
@@ -363,29 +224,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         }
     }
     
-    const handleGenerationComplete = (output: GenerateQuoteFromPromptOutput) => {
-        setValue('description', output.quoteText);
-        setAiSuggestions(output);
-    };
-
-    const isItemLabor = (item: { description: string }) => {
-        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout', 'safety check'];
-        return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
-    }
-    
-    const handleAddSuggestedItem = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
-        appendLineItem({
-            id: `item-${Date.now()}`,
-            type: isItemLabor(item) ? 'Labour' : 'Part',
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: parseFloat((item.totalCost / item.quantity).toFixed(2)),
-            unitCost: parseFloat(item.unitCost.toFixed(2)),
-            taxRate: 10,
-        });
-        toast({ title: "Item Added", description: `Added "${item.description}" to the quote.` });
-    };
-    
     const handleImproveDescription = async () => {
         setAiDescriptionLoading(true);
         try {
@@ -505,8 +343,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                              <div>
@@ -734,71 +571,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         </CardContent>
                     </Card>
                 </div>
-
-                <div className="lg:col-span-1 space-y-4">
-                    <AIAssistant onGenerationComplete={handleGenerationComplete} />
-                    {aiSuggestions && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>AI Suggestions</CardTitle>
-                                <CardDescription>Review and add the suggested items to your quote.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div>
-                                    <h4 className="font-semibold mb-2">Suggested Parts & Materials</h4>
-                                    <div className="space-y-2">
-                                        {aiSuggestions.lineItems.filter(item => !isItemLabor(item)).map((item, index) => (
-                                            <div key={`part-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
-                                                <span className="flex-1">{item.quantity} x {item.description}</span>
-                                                <div className="flex items-center gap-1">
-                                                    {item.isSuggestion && (
-                                                        <>
-                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                                                            <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddSuggestedItem(item)}>One-off</Button>
-                                                         </TooltipTrigger><TooltipContent><p>Add as a one-off item to this quote.</p></TooltipContent></Tooltip></TooltipProvider>
-                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                                                            <Button size="sm" variant="outline" className="h-7">Catalogue</Button>
-                                                         </TooltipTrigger><TooltipContent><p>Add to your parts catalogue for future use (coming soon).</p></TooltipContent></Tooltip></TooltipProvider>
-                                                        </>
-                                                    )}
-                                                    {!item.isSuggestion && (
-                                                        <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                 <div>
-                                    <h4 className="font-semibold mb-2 mt-4">Suggested Labour & Services</h4>
-                                    <div className="space-y-2">
-                                         {aiSuggestions.lineItems.filter(item => isItemLabor(item)).map((item, index) => (
-                                            <div key={`labour-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
-                                                <span className="flex-1">{item.quantity} hrs - {item.description}</span>
-                                                <div className="flex items-center gap-1">
-                                                     {item.isSuggestion && (
-                                                        <>
-                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                                                            <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddSuggestedItem(item)}>One-off</Button>
-                                                         </TooltipTrigger><TooltipContent><p>Add as a one-off item to this quote.</p></TooltipContent></Tooltip></TooltipProvider>
-                                                         <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                                                            <Button size="sm" variant="outline" className="h-7">Catalogue</Button>
-                                                         </TooltipTrigger><TooltipContent><p>Add to your service catalogue for future use (coming soon).</p></TooltipContent></Tooltip></TooltipProvider>
-                                                        </>
-                                                    )}
-                                                    {!item.isSuggestion && (
-                                                        <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-            </div>
         </form>
         </FormProvider>
     </div>
