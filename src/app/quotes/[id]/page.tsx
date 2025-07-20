@@ -49,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const lineItemSchema = z.object({
@@ -397,7 +398,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                  </div>
                  <div className="flex items-center gap-2">
                     <AutoSaveIndicator />
-                    <Button type="submit" disabled={saveStatus === 'saving' || !isDirty}>{saveStatus === 'saving' ? <Loader2 className="animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save</Button>
                  </div>
             </div>
             <Tabs defaultValue="details">
@@ -542,7 +542,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <Label className="col-span-1 text-center">Markup</Label>
                                 <Label className="col-span-1 text-center">Margin</Label>
                                 <Label className="col-span-1 text-center">Sell</Label>
-                                <Label className="col-span-2 text-center">Line Total</Label>
+                                <Label className="col-span-2 text-right">Line Total</Label>
                             </div>
                              {(!lineItemFields || lineItemFields.filter(item => item.type === 'Part').length === 0) ? (
                                 <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>
@@ -597,7 +597,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <div className="col-span-1">
                                                 <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-2 flex items-center justify-center font-semibold text-sm">
+                                            <div className="col-span-2 flex items-center justify-end font-semibold text-sm">
                                                 <span>${lineTotal.toFixed(2)}</span>
                                             </div>
                                         </div>
@@ -627,7 +627,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <Label className="col-span-2 text-center">Cost Rate</Label>
                                 <Label className="col-span-2 text-center">Billable Rate</Label>
                                 <Label className="col-span-1 text-center">Margin</Label>
-                                <Label className="col-span-2 text-center">Line Total</Label>
+                                <Label className="col-span-2 text-right">Line Total</Label>
                             </div>
                             {(!lineItemFields || lineItemFields.filter(item => item.type === 'Labour').length === 0) ? (
                                 <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>
@@ -686,7 +686,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <div className="col-span-1 flex items-center justify-center text-xs p-2 rounded-md bg-background/50">
                                                 <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
                                             </div>
-                                            <div className="col-span-2 flex items-center justify-center font-semibold text-sm">
+                                            <div className="col-span-2 flex items-center justify-end font-semibold text-sm">
                                                 <span>${lineTotal.toFixed(2)}</span>
                                             </div>
                                         </div>
