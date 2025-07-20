@@ -174,3 +174,21 @@ export interface Message {
   senderName: string;
   createdAt: Timestamp;
 }
+
+// Scheduling-specific types
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resourceId: string;
+  projectId?: string;
+  jobId?: string;
+  type: 'work' | 'leave';
+  status: 'confirmed' | 'tentative' | 'pending' | 'approved';
+}
+
+export interface ScheduleResource {
+  id: string;
+  title: string;
+}
