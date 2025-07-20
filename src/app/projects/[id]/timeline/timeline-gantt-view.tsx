@@ -2,16 +2,18 @@
 'use client';
 
 import * as React from 'react';
-import { TimelineItem } from '@/lib/types';
+import { TimelineItem, Employee } from '@/lib/types';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowRight, Circle, CheckCircle, Package, GanttChartSquare } from 'lucide-react';
+import { ArrowRight, Circle, Package, GanttChartSquare, AlertTriangle, User } from 'lucide-react';
 import { ItemFormDialog } from './item-form-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface TimelineGanttViewProps {
   items: TimelineItem[];
   projectId: string;
+  employees: Employee[];
 }
 
 const getProjectDateRange = (items: TimelineItem[]) => {
@@ -77,10 +79,16 @@ function DependencyArrows({ items, projectStart, totalDays }: { items: TimelineI
   );
 }
 
+const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('');
+}
 
-export function TimelineGanttView({ items, projectId }: TimelineGanttViewProps) {
+
+export function TimelineGanttView({ items, projectId, employees }: TimelineGanttViewProps) {
   const { start: projectStart, end: projectEnd } = getProjectDateRange(items);
   const totalDays = differenceInDays(projectEnd, projectStart) + 1;
+  const employeeMap = new Map(employees.map(e => [e.id, e]));
+
 
   if (totalDays <= 0 || items.length === 0) {
       return (
@@ -93,11 +101,12 @@ export function TimelineGanttView({ items, projectId }: TimelineGanttViewProps) 
 
   return (
     <div className="relative overflow-x-auto border rounded-lg">
-      <div className="min-w-[800px]">
+      <div className="min-w-[1200px]">
         {/* Header */}
-        <div className="grid grid-cols-12 bg-muted/50 font-semibold">
+        <div className="grid grid-cols-12 bg-muted/50 font-semibold sticky top-0 z-10">
           <div className="col-span-3 border-r p-2">Task Name</div>
-          <div className="col-span-9 relative grid" style={{ gridTemplateColumns: `repeat(${totalDays}, 1fr)` }}>
+          <div className="col-span-1 border-r p-2">Team</div>
+          <div className="col-span-8 relative grid" style={{ gridTemplateColumns: `repeat(${totalDays}, 1fr)` }}>
             {Array.from({ length: totalDays }).map((_, i) => (
               <div key={i} className="border-r text-xs text-center p-2">
                 {format(new Date(projectStart).setDate(projectStart.getDate() + i), 'd')}
@@ -117,19 +126,38 @@ export function TimelineGanttView({ items, projectId }: TimelineGanttViewProps) 
               <div key={item.id} className="grid grid-cols-12 hover:bg-accent/50">
                 <div className="col-span-3 border-r border-t p-2 flex items-center gap-2 truncate">
                   {item.isCritical ? <ArrowRight className="h-4 w-4 text-destructive shrink-0"/> : item.type === 'job' ? <Package className="h-4 w-4 text-muted-foreground shrink-0"/> : <Circle className="h-3 w-3 ml-1 text-muted-foreground shrink-0"/>}
-                  <ItemFormDialog projectId={projectId} allItems={items} itemToEdit={item}>
+                  <ItemFormDialog projectId={projectId} allItems={items} employees={employees} itemToEdit={item}>
                     <button className="truncate text-left font-medium hover:underline">{item.name}</button>
                   </ItemFormDialog>
                 </div>
-                <div className="col-span-9 relative border-t h-11">
+                <div className="col-span-1 border-r border-t p-2 flex items-center -space-x-2">
+                     {item.assignedResourceIds?.map(empId => {
+                         const emp = employeeMap.get(empId);
+                         return (
+                            <TooltipProvider key={empId}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                    <Avatar className="h-7 w-7 border-2 border-background">
+                                        <AvatarImage src={`https://i.pravatar.cc/40?u=${empId}`} data-ai-hint="person" />
+                                        <AvatarFallback>{emp ? getInitials(emp.name) : '?'}</AvatarFallback>
+                                    </Avatar>
+                                 </TooltipTrigger>
+                                 <TooltipContent>{emp?.name || 'Unknown'}</TooltipContent>
+                               </Tooltip>
+                            </TooltipProvider>
+                         )
+                     })}
+                </div>
+                <div className="col-span-8 relative border-t h-11">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div
                           className={cn(
-                            'absolute h-8 my-1.5 rounded-md flex items-center px-2 text-white text-xs',
+                            'absolute h-8 my-1.5 rounded-md flex items-center justify-between px-2 text-white text-xs',
                             item.isCritical ? 'bg-destructive/80' : 'bg-primary/80',
-                            item.type === 'task' && 'opacity-75'
+                            item.type === 'task' && 'opacity-75',
+                            item.conflict?.isConflict && 'ring-2 ring-offset-2 ring-destructive'
                           )}
                           style={{
                             left: `calc(${(offset / totalDays) * 100}% + 2px)`,
@@ -137,6 +165,7 @@ export function TimelineGanttView({ items, projectId }: TimelineGanttViewProps) 
                           }}
                         >
                           <span className="truncate">{item.name}</span>
+                          {item.conflict?.isConflict && <AlertTriangle className="h-4 w-4 text-white shrink-0"/>}
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -144,6 +173,7 @@ export function TimelineGanttView({ items, projectId }: TimelineGanttViewProps) 
                         <p>Duration: {duration} day{duration > 1 && 's'}</p>
                         <p>Dates: {format(parseISO(item.startDate), 'MMM d')} - {format(parseISO(item.endDate), 'MMM d')}</p>
                         {item.isCritical && <p className="font-bold text-destructive">On Critical Path</p>}
+                        {item.conflict?.isConflict && <p className="font-bold text-destructive">Resource Conflict!</p>}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

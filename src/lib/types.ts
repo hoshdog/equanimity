@@ -1,4 +1,3 @@
-
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
@@ -203,6 +202,12 @@ export interface TimelineItem {
     startDate: string; // ISO string
     endDate: string; // ISO string
     dependencies: string[]; // Array of other timelineItem IDs
+    assignedResourceIds?: string[]; // New: Staff assigned
+    conflict?: { // New: Conflict info
+        isConflict: boolean;
+        conflictingItems: { itemId: string; projectId: string }[];
+    };
+    validationError?: string | null; // For date and dependency validation
     // Optional fields populated by the critical path calculation
     isCritical?: boolean;
     earlyStart?: string;

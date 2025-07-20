@@ -23,7 +23,7 @@ import { Loader2, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
-import { TimelineItem, OptionType } from '@/lib/types';
+import { TimelineItem, Employee, OptionType } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { format, parseISO } from 'date-fns';
 
@@ -34,6 +34,7 @@ const formSchema = z.object({
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
   endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
   dependencies: z.array(z.string()).default([]),
+  assignedResourceIds: z.array(z.string()).default([]), // New field
 }).refine(data => new Date(data.startDate) < new Date(data.endDate), {
   message: "End date must be after start date",
   path: ["endDate"],
@@ -46,9 +47,10 @@ interface ItemFormDialogProps {
   projectId: string;
   itemToEdit?: TimelineItem;
   allItems: TimelineItem[];
+  employees: Employee[];
 }
 
-export function ItemFormDialog({ children, projectId, itemToEdit, allItems }: ItemFormDialogProps) {
+export function ItemFormDialog({ children, projectId, itemToEdit, allItems, employees }: ItemFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
@@ -61,6 +63,7 @@ export function ItemFormDialog({ children, projectId, itemToEdit, allItems }: It
     startDate: itemToEdit ? format(parseISO(itemToEdit.startDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     endDate: itemToEdit ? format(parseISO(itemToEdit.endDate), 'yyyy-MM-dd') : format(new Date(new Date().setDate(new Date().getDate() + 1)), 'yyyy-MM-dd'),
     dependencies: itemToEdit?.dependencies || [],
+    assignedResourceIds: itemToEdit?.assignedResourceIds || [],
   };
 
   const form = useForm<FormValues>({
@@ -136,6 +139,9 @@ export function ItemFormDialog({ children, projectId, itemToEdit, allItems }: It
   const dependencyOptions: OptionType[] = allItems
     .filter(item => item.id !== itemToEdit?.id) // Can't depend on itself
     .map(item => ({ value: item.id, label: item.name }));
+    
+  const employeeOptions: OptionType[] = employees
+    .map(emp => ({ value: emp.id, label: emp.name }));
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -180,6 +186,24 @@ export function ItemFormDialog({ children, projectId, itemToEdit, allItems }: It
                   <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )}/>
             </div>
+             <FormField
+              control={form.control}
+              name="assignedResourceIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assigned Resources</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                        options={employeeOptions}
+                        selected={employeeOptions.filter(opt => field.value.includes(opt.value))}
+                        onChange={(selectedOptions) => field.onChange(selectedOptions.map(opt => opt.value))}
+                        placeholder="Select staff members..."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
              <FormField
               control={form.control}
               name="dependencies"
