@@ -19,40 +19,65 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart } from 'lucide-react';
+import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart, ChevronDown, ChevronRight, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { subscribeToStockItems } from '@/lib/inventory';
 import type { StockItem, QuoteLineItem } from '@/lib/types';
-import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef } from '@tanstack/react-table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 
 interface PartSelectorDialogProps {
   children: React.ReactNode;
   onPartSelected: (part: Omit<QuoteLineItem, 'id' | 'type'>) => void;
 }
 
-// Represents an item in a supplier's parts catalogue.
+// Represents a supplier-specific offering for a part.
+interface SupplierPartInfo {
+  supplier: string;
+  tradePrice: number;
+  isDefault?: boolean; // The preferred supplier for this part
+}
+
+// Represents a part that can be sourced from multiple suppliers.
 interface CataloguePart {
   partNumber: string;
   description: string;
-  tradePrice: number;
-  supplier: string;
+  suppliers: SupplierPartInfo[];
 }
 
-// This mock data simulates a comprehensive parts catalogue imported from suppliers.
-// Common items are moved to the top to simulate "most used".
+// Mock data simulates a comprehensive parts catalogue.
 const mockPartsCatalogue: CataloguePart[] = [
-    { partNumber: 'PDL615', description: 'Standard Single GPO, White', tradePrice: 8.50, supplier: 'Lawrence & Hanson' },
-    { partNumber: 'LED-DL-9W', description: '9W LED Downlight, Warm White, Dimmable', tradePrice: 22.00, supplier: 'Beacon Lighting' },
-    { partNumber: 'C6-BL-305M', description: 'Cat 6 UTP Cable, Blue, 305m Box', tradePrice: 150.00, supplier: 'Rexel' },
-    { partNumber: 'RCD-2P-40A', description: '2 Pole 40A 30mA RCD', tradePrice: 45.00, supplier: 'Rexel' },
-    { partNumber: 'SMK-AL-9V', description: '9V Photoelectric Smoke Alarm', tradePrice: 18.00, supplier: 'Lawrence & Hanson' },
-    { partNumber: 'HPM-XL777', description: 'Weatherproof Double GPO IP54', tradePrice: 38.50, supplier: 'Bunnings Warehouse' },
-    { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', tradePrice: 35.00, supplier: 'Bunnings Warehouse' },
+    { partNumber: 'PDL615', description: 'Standard Single GPO, White', suppliers: [
+        { supplier: 'Lawrence & Hanson', tradePrice: 8.50, isDefault: true },
+        { supplier: 'Rexel', tradePrice: 8.75 },
+    ]},
+    { partNumber: 'LED-DL-9W', description: '9W LED Downlight, Warm White, Dimmable', suppliers: [
+        { supplier: 'Beacon Lighting', tradePrice: 22.00, isDefault: true },
+        { supplier: 'Bunnings Warehouse', tradePrice: 21.50 },
+    ]},
+    { partNumber: 'C6-BL-305M', description: 'Cat 6 UTP Cable, Blue, 305m Box', suppliers: [
+        { supplier: 'Rexel', tradePrice: 150.00, isDefault: true },
+    ]},
+    { partNumber: 'RCD-2P-40A', description: '2 Pole 40A 30mA RCD', suppliers: [
+         { supplier: 'Rexel', tradePrice: 45.00 },
+         { supplier: 'Lawrence & Hanson', tradePrice: 44.50, isDefault: true },
+    ]},
+    { partNumber: 'SMK-AL-9V', description: '9V Photoelectric Smoke Alarm', suppliers: [
+        { supplier: 'Lawrence & Hanson', tradePrice: 18.00 },
+        { supplier: 'Bunnings Warehouse', tradePrice: 17.00, isDefault: true },
+    ]},
+    { partNumber: 'HPM-XL777', description: 'Weatherproof Double GPO IP54', suppliers: [
+        { supplier: 'Bunnings Warehouse', tradePrice: 38.50, isDefault: true },
+    ]},
+    { partNumber: 'PVC-C-25', description: '25mm PVC Corrugated Conduit, Grey, 25m roll', suppliers: [
+        { supplier: 'Bunnings Warehouse', tradePrice: 35.00 },
+        { supplier: 'Rexel', tradePrice: 38.00, isDefault: true },
+    ]},
 ];
 
 const oneOffItemSchema = z.object({
@@ -65,6 +90,7 @@ type OneOffItemValues = z.infer<typeof oneOffItemSchema>;
 
 interface SelectedPart {
   part: CataloguePart;
+  supplierInfo: SupplierPartInfo;
   quantity: number;
 }
 
@@ -90,7 +116,6 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   // Fetch live inventory data when the dialog opens
   React.useEffect(() => {
     if (!isOpen) {
-        // Reset state when dialog closes
         setGlobalFilter('');
         setSelectedParts(new Map());
         return;
@@ -110,34 +135,38 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     return () => unsubscribe();
   }, [isOpen, toast]);
 
-  // Create a map for quick inventory lookups by SKU
   const inventoryMap = React.useMemo(() => {
     return new Map(stockItems.map(item => [item.sku, item]));
   }, [stockItems]);
-  
-  const handleQuantityChange = (part: CataloguePart, quantity: number) => {
+
+  const handleSelectPart = (part: CataloguePart, supplierInfo: SupplierPartInfo, quantity: number) => {
+    if (quantity <= 0) return;
     const newSelectedParts = new Map(selectedParts);
-    if (quantity > 0) {
-      newSelectedParts.set(part.partNumber, { part, quantity });
-    } else {
-      newSelectedParts.delete(part.partNumber);
-    }
+    const uniqueKey = `${part.partNumber}-${supplierInfo.supplier}`;
+    newSelectedParts.set(uniqueKey, { part, supplierInfo, quantity });
     setSelectedParts(newSelectedParts);
+    toast({ title: "Part Added", description: `Added ${quantity} x ${part.description} from ${supplierInfo.supplier}.` });
   };
+  
+  const handleRemovePart = (key: string) => {
+    const newSelectedParts = new Map(selectedParts);
+    newSelectedParts.delete(key);
+    setSelectedParts(newSelectedParts);
+  }
 
   const handleAddSelectedParts = () => {
     if (selectedParts.size === 0) {
-        toast({ variant: "destructive", title: "No parts selected", description: "Please enter a quantity for the parts you want to add."});
+        toast({ variant: "destructive", title: "No parts selected", description: "Please select a part and quantity to add."});
         return;
     }
     
-    selectedParts.forEach(({ part, quantity }) => {
-        const sellPrice = part.tradePrice * 1.3; // Placeholder 30% markup
+    selectedParts.forEach(({ part, supplierInfo, quantity }) => {
+        const sellPrice = supplierInfo.tradePrice * 1.3; // Placeholder 30% markup
         onPartSelected({
-          description: `${part.description}`,
+          description: `${part.description} (${supplierInfo.supplier})`,
           quantity,
           unitPrice: parseFloat(sellPrice.toFixed(2)),
-          unitCost: part.tradePrice,
+          unitCost: supplierInfo.tradePrice,
           taxRate: 10,
         });
     });
@@ -149,81 +178,17 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     setIsOpen(false);
     oneOffForm.reset();
   };
-
-  const columns: ColumnDef<CataloguePart>[] = [
-    {
-      accessorKey: 'description',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
-      cell: ({ row }) => {
-        const part = row.original;
-        return (
-            <div>
-                <p className="font-medium">{part.description}</p>
-                <p className="text-xs text-muted-foreground">{part.partNumber} &bull; {part.supplier}</p>
-            </div>
-        )
-      }
-    },
-    {
-      accessorKey: 'tradePrice',
-      header: 'Cost',
-       cell: ({ row }) => `$${row.original.tradePrice.toFixed(2)}`,
-    },
-    {
-      id: 'markup',
-      header: 'Markup',
-      cell: () => '30%', // Placeholder markup
-    },
-    {
-      id: 'sellPrice',
-      header: 'Sell Price',
-      cell: ({ row }) => {
-        const sellPrice = row.original.tradePrice * 1.3;
-        return `$${sellPrice.toFixed(2)}`;
-      },
-    },
-    {
-      id: 'inStock',
-      header: 'In Stock',
-      cell: ({ row }) => {
-        const inventoryItem = inventoryMap.get(row.original.partNumber);
-        if (inventoryItem && inventoryItem.quantityOnHand > 0) {
-          return (
-            <div className="flex items-center gap-1.5 text-green-600">
-              <CheckCircle className="h-4 w-4" />
-              <span className="font-semibold">{inventoryItem.quantityOnHand}</span>
-            </div>
-          );
-        }
-        return (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Circle className="h-3 w-3" />
-            <span>No</span>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'quantity',
-      header: 'Qty',
-      cell: ({ row }) => {
-        const part = row.original;
-        return (
-          <Input
-            type="number"
-            min="0"
-            className="w-20"
-            placeholder="0"
-            value={selectedParts.get(part.partNumber)?.quantity || ''}
-            onChange={(e) => handleQuantityChange(part, parseInt(e.target.value, 10) || 0)}
-            onClick={(e) => e.stopPropagation()} // Prevent row click from triggering
-          />
-        );
-      },
-    },
-  ];
   
-  const selectedPartsArray = Array.from(selectedParts.values());
+  const filteredCatalogue = React.useMemo(() => {
+    if (!globalFilter) return mockPartsCatalogue;
+    const filterText = globalFilter.toLowerCase();
+    return mockPartsCatalogue.filter(part => 
+        part.description.toLowerCase().includes(filterText) ||
+        part.partNumber.toLowerCase().includes(filterText)
+    );
+  }, [globalFilter]);
+
+  const selectedPartsArray = Array.from(selectedParts.entries());
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -259,12 +224,26 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                             className="w-full"
                           />
                         </div>
-                        <DataTable
-                          columns={columns}
-                          data={mockPartsCatalogue}
-                          globalFilter={globalFilter}
-                          setGlobalFilter={setGlobalFilter}
-                        />
+                         <div className="rounded-md border">
+                            <Table>
+                               <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-12"></TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-center w-28">Qty in Stock</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredCatalogue.length > 0 ? filteredCatalogue.map((part) => (
+                                        <PartRow key={part.partNumber} part={part} inventoryMap={inventoryMap} onSelect={handleSelectPart} />
+                                    )) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="h-24 text-center">No parts found.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                         </div>
                       </>
                     )}
                   </CardContent>
@@ -284,8 +263,8 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                             <FormField control={oneOffForm.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Special order RCD" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             <div className="grid grid-cols-3 gap-4">
                                 <FormField control={oneOffForm.control} name="quantity" render={({ field }) => ( <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                <FormField control={oneOffForm.control} name="unitCost" render={({ field }) => ( <FormItem><FormLabel>Unit Cost</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                <FormField control={oneOffForm.control} name="unitPrice" render={({ field }) => ( <FormItem><FormLabel>Unit Price (Sell)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={oneOffForm.control} name="unitCost" render={({ field }) => ( <FormItem><FormLabel>Unit Cost</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={oneOffForm.control} name="unitPrice" render={({ field }) => ( <FormItem><FormLabel>Unit Price (Sell)</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                             </div>
                             <DialogFooter className="pt-4">
                                 <Button type="submit">Add Item to Quote</Button>
@@ -310,22 +289,22 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                 </CardHeader>
                 <CardContent className="space-y-2 max-h-[450px] overflow-y-auto">
                     {selectedPartsArray.length > 0 ? (
-                        selectedPartsArray.map(({part, quantity}) => (
-                           <div key={part.partNumber} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
+                        selectedPartsArray.map(([key, {part, supplierInfo, quantity}]) => (
+                           <div key={key} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
                                 <div>
                                     <p className="font-medium">{part.description}</p>
                                     <p className="text-xs text-muted-foreground">
-                                      Part #: {part.partNumber} &bull; Qty: {quantity}
+                                      {quantity} x {supplierInfo.supplier}
                                     </p>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(part, 0)}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemovePart(key)}>
                                     <Trash2 className="h-4 w-4 text-destructive"/>
                                 </Button>
                            </div>
                         ))
                     ) : (
                         <div className="text-center text-sm text-muted-foreground py-10">
-                            No parts selected. Enter a quantity in the catalogue to add items here.
+                            No parts selected. Select a part from the catalogue to add it here.
                         </div>
                     )}
                 </CardContent>
@@ -345,3 +324,81 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     </Dialog>
   );
 }
+
+
+function PartRow({ part, inventoryMap, onSelect }: { part: CataloguePart, inventoryMap: Map<string, StockItem>, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const inventoryItem = inventoryMap.get(part.partNumber);
+    const stockQty = inventoryItem?.quantityOnHand || 0;
+    
+    // Sort suppliers by price, cheapest first
+    const sortedSuppliers = [...part.suppliers].sort((a, b) => a.tradePrice - b.tradePrice);
+    
+    return (
+        <Collapsible asChild>
+            <>
+            <TableRow>
+                <TableCell className="w-12">
+                     <CollapsibleTrigger asChild>
+                         <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                         </Button>
+                     </CollapsibleTrigger>
+                </TableCell>
+                <TableCell>
+                    <p className="font-medium">{part.description}</p>
+                    <p className="text-xs text-muted-foreground">{part.partNumber}</p>
+                </TableCell>
+                <TableCell className="text-center">
+                    <Badge variant={stockQty > 0 ? 'default' : 'secondary'} className={cn(stockQty > 0 && "bg-green-600/20 text-green-600 border-green-600/30")}>
+                        {stockQty}
+                    </Badge>
+                </TableCell>
+            </TableRow>
+            <CollapsibleContent asChild>
+               <TableRow>
+                    <TableCell></TableCell>
+                    <TableCell colSpan={2} className="p-0">
+                       <div className="p-2 bg-secondary/50 space-y-1">
+                          {sortedSuppliers.map((supplier, index) => (
+                              <SupplierRow 
+                                key={supplier.supplier} 
+                                supplier={supplier} 
+                                part={part} 
+                                isCheapest={index === 0}
+                                onSelect={onSelect}
+                              />
+                          ))}
+                       </div>
+                    </TableCell>
+                </TableRow>
+            </CollapsibleContent>
+            </>
+        </Collapsible>
+    )
+}
+
+function SupplierRow({ part, supplier, isCheapest, onSelect }: { part: CataloguePart, supplier: SupplierPartInfo, isCheapest: boolean, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void }) {
+    const [quantity, setQuantity] = React.useState(1);
+    
+    const handleAddClick = () => {
+        onSelect(part, supplier, quantity);
+        setQuantity(1); // Reset for next time
+    }
+    
+    return (
+        <div className={cn("flex items-center justify-between gap-2 p-2 rounded-md", isCheapest ? "bg-primary/10" : "bg-background")}>
+            <div className="flex items-center gap-2">
+                 <div className="text-sm font-medium">{supplier.supplier}</div>
+                 {isCheapest && <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Cheapest</Badge>}
+                 {supplier.isDefault && <Badge><Star className="h-3 w-3 mr-1"/>Default</Badge>}
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="text-sm font-semibold">${supplier.tradePrice.toFixed(2)}</div>
+                <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-20 h-8" />
+                <Button size="sm" onClick={handleAddClick}>Add</Button>
+            </div>
+        </div>
+    )
+}
+
