@@ -2,87 +2,87 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // =================================
+
     // Helper Functions
-    // =================================
-
-    // Get the requesting user's roles from their profile in the 'users' collection.
-    function getUserRoles() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
-    }
-    
-    // Check if the user has the 'admin' role.
-    function isAdmin() {
-      return 'admin' in getUserRoles();
+    function isUserAuthenticated() {
+      return request.auth != null;
     }
 
-    // Check if the user has the 'client' role.
-    function isClient() {
-        return 'client' in getUserRoles();
+    function getRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[role];
     }
     
-    // Check if the user is the owner of a given document.
-    // Assumes the document has a 'customerId' field with the user's UID.
+    function isRole(role) {
+      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
+    }
+    
+    function isOneOfRoles(roles) {
+       return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(roles);
+    }
+
     function isOwner(doc) {
-        return request.auth.uid == doc.customerId;
+      return request.auth.uid == doc.uid;
     }
 
-    // =================================
-    // Collection Rules
-    // =================================
-
-    // Users can read their own profile. Admins can read anyone's.
-    // Users can create their own profile. Admins can update any profile.
+    // USERS
+    // Users can read their own profile.
+    // Users can update their own profile.
+    // Admins can read/write any user profile.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isAdmin();
-      allow write: if request.auth.uid == userId || isAdmin();
+      allow read, update: if isUserAuthenticated() && (isOwner(resource.data) || isRole('admin'));
+      allow create, delete: if isRole('admin');
     }
 
-    // Customers can only be read/written by admins.
-    // This is a secure default. If clients need to edit their own details,
-    // we would need a rule like: allow update: if request.auth.uid == resource.id;
-    match /customers/{customerId} {
-      allow read, write: if isAdmin();
+    // PROJECTS
+    // Anyone authenticated can read.
+    // Only admins or the project's customer can create/update/delete.
+    match /projects/{projectId} {
+      allow read: if isUserAuthenticated();
+      allow create: if isUserAuthenticated() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if isUserAuthenticated() && (isRole('admin') || resource.data.customerId == request.auth.uid);
       
-      // Clients can't directly access their own subcollections unless specified.
-      // This is a secure default.
-      match /{allSubcollections=**} {
-        allow read, write: if isAdmin();
+      // CHAT MESSAGES
+      // Only project members can read/write messages.
+      match /messages/{messageId} {
+        allow read, write: if isUserAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.assignedStaff;
       }
     }
-
-    // Projects:
-    // - Any authenticated user can read any project (e.g., for a public list).
-    // - Only clients can create projects, and they must set themselves as the owner.
-    // - Only the project owner (client) or an admin can update/delete it.
-    match /projects/{projectId} {
-      allow read: if request.auth.token != null;
-      allow create: if isClient() && request.resource.data.customerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
-    }
-
-    // Jobs:
-    // - Any authenticated user can read any job.
-    // - Only clients can create jobs.
-    // - Only the job owner (client, via project) or an admin can update/delete.
-    match /jobs/{jobId} {
-        allow read: if request.auth.token != null;
-        allow create: if isClient(); // Further checks inside app logic needed to assign to correct project
-        allow update, delete: if isOwner(resource.data) || isAdmin();
+    
+    // CUSTOMERS
+    // Only admins can manage customers.
+    match /customers/{customerId} {
+      allow read, write: if isRole('admin');
+      
+      // Customer sub-collections
+       match /{allSubcollections}/{docId} {
+         allow read, write: if isRole('admin');
+       }
     }
     
-    // Employees: Only readable/writable by admins.
+    // EMPLOYEES
     match /employees/{employeeId} {
-        allow read, write: if isAdmin();
+       allow read, write: if isUserAuthenticated();
+    }
+    
+     // JOBS, QUOTES, PURCHASE ORDERS (Root Collections)
+    match /{collection}/{docId} {
+        allow read: if isUserAuthenticated();
+        allow write: if isUserAuthenticated() && (isRole('admin') || request.resource.data.customerId == request.auth.uid);
+    }
+    
+    // For system-wide tokens like Xero
+    match /system_tokens/{tokenId} {
+       allow read, write: if isRole('admin');
     }
 
-    // Quotes, Purchase Orders, etc.
-    // - Anyone can read.
-    // - Only admins or the owner of the associated project can create/update/delete.
-    match /{document=**} {
-        allow read: if request.auth.token != null;
-        allow write: if isAdmin() || (exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) && isOwner(get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data));
+    match /stockItems/{itemId} {
+      allow read, write: if isUserAuthenticated();
+    }
+    
+    match /companies/{companyId} {
+       allow read: if isUserAuthenticated();
+       allow create: if isUserAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
+       allow update: if isUserAuthenticated() && resource.data.ownerUid == request.auth.uid;
     }
   }
 }
