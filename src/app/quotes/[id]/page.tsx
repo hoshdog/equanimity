@@ -30,7 +30,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -38,7 +38,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { jobStaffRoles } from '@/lib/types';
 import { PartSelectorDialog } from './part-selector-dialog';
-
+import { suggestQuoteLineItems, SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/ai/flows/suggest-quote-line-items';
+import { mockPartsCatalogue } from './part-selector-dialog'; // Reuse the catalogue for now
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const lineItemSchema = z.object({
     id: z.string(),
@@ -78,6 +88,152 @@ const formSchema = z.object({
 
 
 type QuoteFormValues = z.infer<typeof formSchema>;
+
+
+function AIAssistant({ quote, onApplySuggestions }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void }) {
+    const [prompt, setPrompt] = useState(quote.prompt || quote.description || '');
+    const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [suggestions, setSuggestions] = useState<SuggestQuoteLineItemsOutput | null>(null);
+    const [isReviewing, setIsReviewing] = useState(false);
+    const [isDisclaimerAccepted, setIsDisclaimerAccepted] = useState(false);
+    const { toast } = useToast();
+
+    const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
+    const laborRateOptions = useMemo(() => {
+        const defaultRates = [{ employeeType: "Technician", standardRate: 90, overtimeRate: 135, calculatedCostRate: 50 }];
+        return (quotingProfile.laborRates?.length > 0) ? quotingProfile.laborRates.map(r => ({ employeeType: r.employeeType, standardRate: r.standardRate, costRate: r.calculatedCostRate })) : defaultRates;
+    }, [quotingProfile.laborRates]);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files) {
+            const files = Array.from(event.target.files);
+            const filePromises = files.map(file => {
+                return new Promise<{ file: File, dataUri: string }>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve({ file, dataUri: e.target?.result as string });
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            });
+            Promise.all(filePromises).then(setUploadedFiles);
+        }
+    };
+
+    const handleGetSuggestions = async () => {
+        setLoading(true);
+        setSuggestions(null);
+        try {
+            const aiInput: SuggestQuoteLineItemsInput = {
+                userPrompt: prompt,
+                uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
+                partsCatalogue: mockPartsCatalogue, // Using mock data for now
+                laborRates: laborRateOptions,
+                previousQuotesContext: [], // Placeholder for future implementation
+            };
+            const result = await suggestQuoteLineItems(aiInput);
+            setSuggestions(result);
+            setIsReviewing(true); // Open the review dialog
+        } catch (error) {
+            console.error("AI suggestion failed:", error);
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to get suggestions.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleAcceptAndApply = () => {
+        if (!suggestions) return;
+        const newItems: QuoteLineItem[] = suggestions.suggestedLineItems.map((item, index) => ({
+            id: `ai-item-${Date.now()}-${index}`,
+            ...item
+        }));
+        onApplySuggestions(newItems);
+        setIsReviewing(false);
+        setSuggestions(null);
+        toast({ title: "Suggestions Applied", description: "The AI suggestions have been added to the quote." });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Wand2 className="h-5 w-5 text-primary" />
+                    AI Assistant
+                </CardTitle>
+                <CardDescription>Generate line items from a description or uploaded documents.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="ai-prompt">Job Description / Prompt</Label>
+                    <Textarea id="ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={5} />
+                </div>
+                 <div className="space-y-2">
+                    <Label>Upload RFQ, Plans, or other Documents</Label>
+                     <div className="flex items-center justify-center w-full">
+                        <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-border border-dashed rounded-lg cursor-pointer bg-card hover:bg-accent">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
+                                <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                            </div>
+                            <Input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
+                        </label>
+                    </div>
+                     {uploadedFiles.length > 0 && (
+                        <div className="space-y-1 text-sm">
+                            {uploadedFiles.map(f => (
+                                <div key={f.file.name} className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground"/>
+                                    <span>{f.file.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                     )}
+                </div>
+                 <Button onClick={handleGetSuggestions} disabled={loading || !prompt} className="w-full">
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                    Get Suggestions
+                </Button>
+            </CardContent>
+
+             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Review AI Suggestions</DialogTitle>
+                        <DialogDescription>{suggestions?.reasoning}</DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[50vh] overflow-y-auto space-y-2 p-1">
+                        {suggestions?.suggestedLineItems.map((item, index) => (
+                            <Card key={index} className="p-2 bg-secondary/30">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium">{item.description}</p>
+                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} &bull; Sell: ${item.unitPrice.toFixed(2)} &bull; Cost: ${item.unitCost.toFixed(2)}</p>
+                                    </div>
+                                    <Badge variant={item.type === 'Labour' ? 'outline' : 'secondary'}>{item.type}</Badge>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                     <div className="p-4 border-l-4 border-destructive bg-destructive/10 text-destructive-foreground">
+                        <p className="font-bold">Disclaimer</p>
+                        <p className="text-sm">{suggestions?.disclaimer}</p>
+                    </div>
+                     <div className="flex items-center space-x-2">
+                        <Checkbox id="accept-disclaimer" checked={isDisclaimerAccepted} onCheckedChange={(checked) => setIsDisclaimerAccepted(checked as boolean)} />
+                        <label htmlFor="accept-disclaimer" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        I have reviewed the suggestions and understand they may not be accurate.
+                        </label>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="secondary" onClick={() => setIsReviewing(false)}>Cancel</Button>
+                        <Button onClick={handleAcceptAndApply} disabled={!isDisclaimerAccepted}>Accept & Add to Quote</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </Card>
+    );
+}
 
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -211,7 +367,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setLoading(true);
         try {
             const quoteDataToUpdate = { ...values, subtotal, totalTax, totalAmount };
-            await updateQuote(quote.id, quoteDataToUpdate);
+            await updateQuote(quote.id, quoteDataToUpdate, "Manual quote update");
             toast({ title: "Quote Updated", description: "Your changes have been saved." });
             setIsEditingHeader(false);
         } catch (error) {
@@ -220,6 +376,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         } finally {
             setLoading(false);
         }
+    }
+    
+    const handleApplyAISuggestions = (items: QuoteLineItem[]) => {
+        // Append new items to the form state
+        items.forEach(item => appendLineItem(item));
+        toast({ title: "Suggestions Applied", description: "Line items have been added to the quote."});
     }
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
@@ -311,170 +473,174 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            <div className="space-y-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Parts & Materials</CardTitle>
-                        <PartSelectorDialog
-                            onPartSelected={(part) => {
-                                appendLineItem({
-                                    id: `item-${lineItemFields.length}`,
-                                    type: 'Part',
-                                    description: part.description,
-                                    quantity: part.quantity,
-                                    unitCost: part.unitCost,
-                                    unitPrice: part.unitPrice,
-                                    taxRate: 10,
-                                });
-                            }}
-                        >
-                             <Button type="button" variant="outline" size="sm">
-                                <PlusCircle className="mr-2 h-4 w-4"/>Add Part
-                            </Button>
-                        </PartSelectorDialog>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                         <div className="grid grid-cols-12 gap-2 px-2">
-                            <Label className="col-span-12 sm:col-span-5">Description</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
-                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
-                        </div>
-                        {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
-                             const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                             if (lineItemFields[originalIndex].type !== 'Part') return null;
-                             return (
-                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                                    <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-12 sm:col-span-5">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.taxRate`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <div className="relative flex items-center">
-                                                                <input type="hidden" {...field} />
-                                                                <span className="text-sm">{field.value}%</span>
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
-                                </div>
-                             )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Labour & Services</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
-                        </Button>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                         <div className="grid grid-cols-12 gap-2 px-2">
-                            <Label className="col-span-12 sm:col-span-5">Description</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
-                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
-                        </div>
-                        {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
-                              const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                             if (lineItemFields[originalIndex].type !== 'Labour') return null;
-                             return (
-                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
-                                    <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-12 sm:col-span-5">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.description`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <Select
-                                                            onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                const selectedRate = laborRateOptions.find(opt => opt.value === value);
-                                                                if (selectedRate) {
-                                                                    setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
-                                                                    setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
-                                                                }
-                                                            }}
-                                                            value={field.value}
-                                                        >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 <div className="lg:col-span-2 space-y-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Parts & Materials</CardTitle>
+                            <PartSelectorDialog
+                                onPartSelected={(part) => {
+                                    appendLineItem({
+                                        id: `item-${lineItemFields.length}`,
+                                        type: 'Part',
+                                        description: part.description,
+                                        quantity: part.quantity,
+                                        unitCost: part.unitCost,
+                                        unitPrice: part.unitPrice,
+                                        taxRate: 10,
+                                    });
+                                }}
+                            >
+                                <Button type="button" variant="outline" size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4"/>Add Part
+                                </Button>
+                            </PartSelectorDialog>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="grid grid-cols-12 gap-2 px-2">
+                                <Label className="col-span-12 sm:col-span-5">Description</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
+                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            </div>
+                            {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
+                                const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                                if (lineItemFields[originalIndex].type !== 'Part') return null;
+                                return (
+                                    <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                        <div className="grid grid-cols-12 gap-2 flex-grow">
+                                            <div className="col-span-12 sm:col-span-5">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.taxRate`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
                                                             <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a labor type" />
-                                                                </SelectTrigger>
+                                                                <div className="relative flex items-center">
+                                                                    <input type="hidden" {...field} />
+                                                                    <span className="text-sm">{field.value}%</span>
+                                                                </div>
                                                             </FormControl>
-                                                            <SelectContent>
-                                                                {laborRateOptions.map(option => (
-                                                                    <SelectItem key={option.value} value={option.value}>
-                                                                        {option.label}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                        </div>
-                                        <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
-                                            <FormField
-                                                control={form.control}
-                                                name={`lineItems.${originalIndex}.taxRate`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                             <div className="relative flex items-center">
-                                                                <input type="hidden" {...field} />
-                                                                <span className="text-sm">{field.value}%</span>
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
-                                </div>
-                             )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
-                    </CardContent>
-                </Card>
-            </div>
+                                )
+                            }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
+                        </CardContent>
+                    </Card>
 
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Labour & Services</CardTitle>
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
+                                <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="grid grid-cols-12 gap-2 px-2">
+                                <Label className="col-span-12 sm:col-span-5">Description</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
+                                <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
+                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            </div>
+                            {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
+                                const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
+                                if (lineItemFields[originalIndex].type !== 'Labour') return null;
+                                return (
+                                    <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                        <div className="grid grid-cols-12 gap-2 flex-grow">
+                                            <div className="col-span-12 sm:col-span-5">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.description`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select
+                                                                onValueChange={(value) => {
+                                                                    field.onChange(value);
+                                                                    const selectedRate = laborRateOptions.find(opt => opt.value === value);
+                                                                    if (selectedRate) {
+                                                                        setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
+                                                                        setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
+                                                                    }
+                                                                }}
+                                                                value={field.value}
+                                                            >
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select a labor type" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {laborRateOptions.map(option => (
+                                                                        <SelectItem key={option.value} value={option.value}>
+                                                                            {option.label}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`lineItems.${originalIndex}.taxRate`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <div className="relative flex items-center">
+                                                                    <input type="hidden" {...field} />
+                                                                    <span className="text-sm">{field.value}%</span>
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    </div>
+                                )
+                            }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
+                        </CardContent>
+                    </Card>
+                 </div>
+                 <div className="lg:col-span-1">
+                     <AIAssistant quote={quote} onApplySuggestions={handleApplyAISuggestions} />
+                 </div>
+            </div>
 
             <Card>
                 <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>

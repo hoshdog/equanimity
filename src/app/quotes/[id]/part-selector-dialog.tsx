@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 interface PartSelectorDialogProps {
@@ -44,14 +45,14 @@ interface SupplierPartInfo {
 }
 
 // Represents a part that can be sourced from multiple suppliers.
-interface CataloguePart {
+export interface CataloguePart {
   partNumber: string;
   description: string;
   suppliers: SupplierPartInfo[];
 }
 
 // Mock data simulates a comprehensive parts catalogue.
-const mockPartsCatalogue: CataloguePart[] = [
+export const mockPartsCatalogue: CataloguePart[] = [
     { partNumber: 'PDL615', description: 'Standard Single GPO, White', suppliers: [
         { supplier: 'Lawrence & Hanson', tradePrice: 8.50, isDefault: true },
         { supplier: 'Rexel', tradePrice: 8.75 },
@@ -378,12 +379,14 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
     };
 
     return (
-       <React.Fragment>
+        <React.Fragment>
             <TableRow>
                 <TableCell className="w-12">
-                     <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
-                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                     </Button>
+                     <CollapsibleTrigger asChild>
+                         <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                         </Button>
+                     </CollapsibleTrigger>
                 </TableCell>
                 <TableCell>
                     <p className="font-medium">{part.description}</p>
@@ -401,7 +404,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </div>
                 </TableCell>
             </TableRow>
-             {isOpen && (
+             <CollapsibleContent asChild>
                 <TableRow>
                     <TableCell colSpan={4} className="p-0">
                        <div className="p-2 bg-secondary/50 space-y-1">
@@ -417,7 +420,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                        </div>
                     </TableCell>
                 </TableRow>
-            )}
+            </CollapsibleContent>
        </React.Fragment>
     )
 }

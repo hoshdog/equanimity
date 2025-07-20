@@ -9,3 +9,4 @@ import '@/ai/flows/automate-payroll-calculations.ts';
 import '@/ai/flows/generate-quote-from-prompt.ts';
 import '@/ai/flows/automatically-follow-up-purchase-orders.ts';
 import '@/ai/flows/generate-compliance-health-check.ts';
+import '@/ai/flows/suggest-quote-line-items.ts';
