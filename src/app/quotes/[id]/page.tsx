@@ -1,3 +1,4 @@
+
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -303,8 +304,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     };
 
     const isItemLabor = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
-        if (item.type === 'Labour') return true;
-        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support'];
+        if ((item.type as string) === 'Labour') return true;
+        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout'];
         return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
     }
     
@@ -635,7 +636,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     <div className="space-y-2">
                                         {aiSuggestions.lineItems.filter(item => !isItemLabor(item)).map((item, index) => (
                                             <div key={`part-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
-                                                <span>{item.quantity} x {item.description}</span>
+                                                <span className="flex-1">{item.quantity} x {item.description}</span>
                                                 <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
                                             </div>
                                         ))}
@@ -646,7 +647,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     <div className="space-y-2">
                                          {aiSuggestions.lineItems.filter(item => isItemLabor(item)).map((item, index) => (
                                             <div key={`labour-${index}`} className="flex items-center justify-between p-2 rounded-md bg-secondary/30 text-sm">
-                                                <span>{item.quantity} hrs - {item.description}</span>
+                                                <span className="flex-1">{item.quantity} hrs - {item.description}</span>
                                                 <Button size="sm" variant="ghost" onClick={() => handleAddSuggestedItem(item)}>Add</Button>
                                             </div>
                                         ))}
