@@ -108,6 +108,15 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
         control: form.control,
         name: 'projectContacts'
     });
+    
+    const contactRoles = [
+        "Primary", 
+        "Site Contact", 
+        "Accounts", 
+        "Tenant", 
+        "Project Manager", 
+        "Client Representative"
+    ];
 
     const watchedProjectId = form.watch('projectId');
     const watchedCustomerId = form.watch('customerId');
@@ -170,11 +179,14 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                     setContacts(contactsData);
                     setSites(sitesData);
                     
-                    // Set default contact if customer has a primary contact
-                    if (selectedCustomer?.primaryContactId) {
-                        replaceContacts([{ contactId: selectedCustomer.primaryContactId, role: 'Primary' }]);
+                    const customer = customers.find(c => c.id === watchedCustomerId);
+                    
+                    if (customer?.primaryContactId) {
+                        replaceContacts([{ contactId: customer.primaryContactId, role: 'Primary' }]);
                     } else if (contactsData.length > 0) {
                         replaceContacts([{ contactId: contactsData[0].id, role: 'Primary' }]);
+                    } else {
+                        replaceContacts([]);
                     }
 
                 } catch (error) {
@@ -189,7 +201,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
         }
         fetchCustomerSubData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [watchedCustomerId, toast, selectedCustomer]);
+    }, [watchedCustomerId, toast, customers]);
     
 
     const customerOptions = useMemo(() => customers.map(c => ({ value: c.id, label: c.name })), [customers]);
@@ -327,7 +339,25 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                         <div key={field.id} className="flex items-center gap-2">
                                             <div className="grid grid-cols-2 gap-2 flex-1">
                                                 <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={contactOptions} {...field} placeholder="Select contact..." disabled={!watchedCustomerId} /></FormItem>)} />
-                                                <FormField control={form.control} name={`projectContacts.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Site Contact" {...field} /></FormItem>)} />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`projectContacts.${index}.role`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select a role" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {contactRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </div>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)} disabled={contactFields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </div>
