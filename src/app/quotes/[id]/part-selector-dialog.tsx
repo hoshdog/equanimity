@@ -382,8 +382,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
 
 
     return (
-        <Collapsible asChild>
-            <>
+        <Collapsible>
             <TableRow>
                 <TableCell className="w-12">
                      <CollapsibleTrigger asChild>
@@ -426,7 +425,6 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </TableCell>
                 </TableRow>
             </CollapsibleContent>
-            </>
         </Collapsible>
     )
 }
