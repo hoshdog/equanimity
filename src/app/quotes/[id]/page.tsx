@@ -201,20 +201,52 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }, [watchedCustomerId, isEditingHeader]);
 
 
-    const { subtotal, totalTax, totalAmount, totalCost, grossProfit, grossMargin } = React.useMemo(() => {
-        let sub = 0, tax = 0, cost = 0;
+    const { 
+        subtotal, 
+        totalTax, 
+        totalAmount, 
+        totalCost, 
+        grossProfit, 
+        grossMargin,
+        partsSubtotal,
+        partsMargin,
+        labourSubtotal,
+        labourMargin
+    } = React.useMemo(() => {
+        let partsSub = 0, partsCost = 0, labourSub = 0, labourCost = 0, totalTax = 0;
+
         if (lineItemsWatch) {
             lineItemsWatch.forEach((item: Partial<QuoteLineItem>) => {
                 const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
-                const lineCost = (item.quantity || 0) * (item.unitCost || 0); // Use 0 if unitCost is not present
-                sub += lineTotal;
-                tax += lineTotal * ((item.taxRate || 0) / 100);
-                cost += lineCost;
+                const lineCostTotal = (item.quantity || 0) * (item.unitCost || 0);
+                totalTax += lineTotal * ((item.taxRate || 0) / 100);
+
+                if (item.type === 'Part') {
+                    partsSub += lineTotal;
+                    partsCost += lineCostTotal;
+                } else if (item.type === 'Labour') {
+                    labourSub += lineTotal;
+                    labourCost += lineCostTotal;
+                }
             });
         }
-        const profit = sub - cost;
-        const margin = sub > 0 ? (profit / sub) * 100 : 0;
-        return { subtotal: sub, totalTax: tax, totalAmount: sub + tax, totalCost: cost, grossProfit: profit, grossMargin: margin };
+        
+        const totalSub = partsSub + labourSub;
+        const totalCostVal = partsCost + labourCost;
+        const totalProfit = totalSub - totalCostVal;
+
+        return { 
+            subtotal: totalSub, 
+            totalTax: totalTax, 
+            totalAmount: totalSub + totalTax, 
+            totalCost: totalCostVal, 
+            grossProfit: totalProfit, 
+            grossMargin: totalSub > 0 ? (totalProfit / totalSub) * 100 : 0,
+            partsSubtotal: partsSub,
+            partsMargin: partsSub > 0 ? ((partsSub - partsCost) / partsSub) * 100 : 0,
+            labourSubtotal: labourSub,
+            labourMargin: labourSub > 0 ? ((labourSub - labourCost) / labourSub) * 100 : 0
+        };
     }, [lineItemsWatch]);
 
     async function onSubmit(values: QuoteFormValues) {
@@ -506,12 +538,17 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             )
                         }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
                     </CardContent>
+                     {partsSubtotal > 0 && (
+                        <CardFooter className="justify-end font-semibold">
+                            Parts Total: ${partsSubtotal.toFixed(2)}
+                        </CardFooter>
+                    )}
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Labour & Services</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10, partNumber: '' })}>
                             <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
                         </Button>
                     </CardHeader>
@@ -588,6 +625,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             )
                         }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
                     </CardContent>
+                     {labourSubtotal > 0 && (
+                        <CardFooter className="justify-end font-semibold">
+                            Labour Total: ${labourSubtotal.toFixed(2)}
+                        </CardFooter>
+                    )}
                 </Card>
             </div>
 
@@ -638,11 +680,53 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
                         <CardContent>
                              <div className="w-full space-y-4">
-                                <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Parts Total</span>
+                                        <div className="flex gap-4 items-baseline">
+                                            <Badge variant="outline" className={cn(partsMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{partsMargin.toFixed(1)}%</Badge>
+                                            <span>${partsSubtotal.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                     <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Labour Total</span>
+                                        <div className="flex gap-4 items-baseline">
+                                            <Badge variant="outline" className={cn(labourMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{labourMargin.toFixed(1)}%</Badge>
+                                            <span>${labourSubtotal.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <Separator />
-                                <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
+                                <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span>Subtotal</span>
+                                        <span>${subtotal.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Tax (GST)</span>
+                                        <span>${totalTax.toFixed(2)}</span>
+                                    </div>
+                                </div>
                                 <Separator />
-                                <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
+                                <div className="flex justify-between font-bold text-lg">
+                                    <span>Total</span>
+                                    <span>${totalAmount.toFixed(2)}</span>
+                                </div>
+                                <Separator />
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                    <div className="flex justify-between">
+                                        <span>Total Cost</span>
+                                        <span>${totalCost.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Gross Profit</span>
+                                        <span>${grossProfit.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Overall Margin</span>
+                                        <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
