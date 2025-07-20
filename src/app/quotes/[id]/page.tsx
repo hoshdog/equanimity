@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState, useCallback } from 'react';
 import { useFieldArray, useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -29,7 +29,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -37,6 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteFromPrompt, GenerateQuoteFromPromptOutput } from '@/ai/flows/generate-quote-from-prompt';
+import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 
@@ -230,6 +231,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [loading, setLoading] = useState(true);
     const [isEditingHeader, setIsEditingHeader] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState<GenerateQuoteFromPromptOutput | null>(null);
+    const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
+    const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
     const { toast } = useToast();
 
     const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
@@ -259,7 +262,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
 
-    const resetFormToQuote = React.useCallback((quoteData: Quote) => {
+    const resetFormToQuote = useCallback((quoteData: Quote) => {
         reset({
             ...quoteData,
             quoteDate: quoteData.quoteDate instanceof Date ? quoteData.quoteDate : (quoteData.quoteDate as any)?.toDate() || new Date(),
@@ -351,6 +354,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             await updateQuote(quote.id, quoteDataToUpdate, "Manual quote update");
             toast({ title: "Quote Updated", description: "Your changes have been saved." });
             setIsEditingHeader(false);
+            setAiDescription(null);
         } catch (error) {
             console.error("Failed to update quote:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not update the quote.' });
@@ -380,6 +384,40 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             taxRate: 10,
         });
         toast({ title: "Item Added", description: `Added "${item.description}" to the quote.` });
+    };
+    
+    const handleImproveDescription = async () => {
+        setAiDescriptionLoading(true);
+        try {
+            const currentDescription = getValues('description') || quote?.description || '';
+            const result = await generateQuoteDescription({
+                currentDescription,
+                persona: quotingProfile.persona,
+                instructions: quotingProfile.instructions,
+            });
+            setAiDescription({
+                original: currentDescription,
+                suggestion: result.suggestedDescription,
+            });
+            setValue('description', result.suggestedDescription);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate description.' });
+        } finally {
+            setAiDescriptionLoading(false);
+        }
+    };
+
+    const handleAcceptAIDescription = () => {
+        setAiDescription(null);
+        toast({ title: 'Suggestion Accepted' });
+    };
+
+    const handleRevertAIDescription = () => {
+        if (aiDescription) {
+            setValue('description', aiDescription.original);
+        }
+        setAiDescription(null);
     };
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
@@ -470,11 +508,26 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Quote Description</CardTitle>
-                            <CardDescription>
-                                This is the customer-facing description of the work to be performed, including scope, inclusions, and exclusions.
-                            </CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                             <div>
+                                <CardTitle>Quote Description</CardTitle>
+                                <CardDescription>
+                                    This is the customer-facing description of the work to be performed, including scope, inclusions, and exclusions.
+                                </CardDescription>
+                            </div>
+                             <div className="flex items-center gap-2">
+                                {aiDescription ? (
+                                    <>
+                                        <Button type="button" variant="ghost" size="sm" onClick={handleRevertAIDescription}><RotateCcw className="mr-2 h-4 w-4" /> Revert</Button>
+                                        <Button type="button" size="sm" onClick={handleAcceptAIDescription}><Check className="mr-2 h-4 w-4" /> Accept</Button>
+                                    </>
+                                ) : (
+                                    <Button type="button" variant="outline" size="sm" onClick={handleImproveDescription} disabled={aiDescriptionLoading}>
+                                        {aiDescriptionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                        Improve with AI
+                                    </Button>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <FormField
