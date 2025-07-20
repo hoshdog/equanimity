@@ -1,4 +1,3 @@
-
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -30,14 +29,12 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
-import { SuggestQuoteLineItemsInputSchema } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
-import { jobStaffRoles } from '@/lib/types';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { suggestQuoteLineItems } from '@/ai/flows/suggest-quote-line-items';
 import { mockPartsCatalogue } from './part-selector-dialog'; // Reuse the catalogue for now
@@ -98,13 +95,13 @@ function AIAssistant({ quote, onApplySuggestions }: { quote: Quote, onApplySugge
     const [suggestions, setSuggestions] = useState<SuggestQuoteLineItemsOutput | null>(null);
     const [isReviewing, setIsReviewing] = useState(false);
     const [isDisclaimerAccepted, setIsDisclaimerAccepted] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
     const { toast } = useToast();
+    
+    const selectedProfile = useMemo(() => {
+        return initialQuotingProfiles.find(p => p.id === selectedProfileId) || initialQuotingProfiles[0];
+    }, [selectedProfileId]);
 
-    const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
-    const laborRateOptions = useMemo(() => {
-        const defaultRates = [{ employeeType: "Technician", standardRate: 90, overtimeRate: 135, calculatedCostRate: 50 }];
-        return (quotingProfile.laborRates?.length > 0) ? quotingProfile.laborRates.map(r => ({ employeeType: r.employeeType, standardRate: r.standardRate, costRate: r.calculatedCostRate })) : defaultRates;
-    }, [quotingProfile.laborRates]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -129,7 +126,7 @@ function AIAssistant({ quote, onApplySuggestions }: { quote: Quote, onApplySugge
                 userPrompt: prompt,
                 uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
                 partsCatalogue: mockPartsCatalogue, // Using mock data for now
-                laborRates: laborRateOptions,
+                quotingProfile: selectedProfile,
                 previousQuotesContext: [], // Placeholder for future implementation
             };
             const result = await suggestQuoteLineItems(aiInput);
@@ -165,6 +162,19 @@ function AIAssistant({ quote, onApplySuggestions }: { quote: Quote, onApplySugge
                 <CardDescription>Generate line items from a description or uploaded documents.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="quoting-profile">Quoting Profile</Label>
+                    <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                        <SelectTrigger id="quoting-profile">
+                            <SelectValue placeholder="Select a profile" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {initialQuotingProfiles.map(profile => (
+                                <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="ai-prompt">Job Description / Prompt</Label>
                     <Textarea id="ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={5} />
@@ -209,7 +219,7 @@ function AIAssistant({ quote, onApplySuggestions }: { quote: Quote, onApplySugge
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <p className="font-medium">{item.description}</p>
-                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} &bull; Sell: ${item.unitPrice.toFixed(2)} &bull; Cost: ${item.unitCost.toFixed(2)}</p>
+                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} &bull; Sell: ${item.unitPrice.toFixed(2)} &bull; Cost: ${item.unitCost?.toFixed(2) || 'N/A'}</p>
                                     </div>
                                     <Badge variant={item.type === 'Labour' ? 'outline' : 'secondary'}>{item.type}</Badge>
                                 </div>
@@ -282,9 +292,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const resetFormToQuote = React.useCallback((quoteData: Quote) => {
         reset({
             ...quoteData,
-            quoteDate: quoteData.quoteDate?.toDate() || new Date(),
-            dueDate: quoteData.dueDate?.toDate() || new Date(new Date().setDate(new Date().getDate() + 14)),
-            expiryDate: quoteData.expiryDate?.toDate() || new Date(new Date().setDate(new Date().getDate() + 30)),
+            quoteDate: quoteData.quoteDate instanceof Date ? quoteData.quoteDate : (quoteData.quoteDate as any)?.toDate() || new Date(),
+            dueDate: quoteData.dueDate instanceof Date ? quoteData.dueDate : (quoteData.dueDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 14)),
+            expiryDate: quoteData.expiryDate instanceof Date ? quoteData.expiryDate : (quoteData.expiryDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 30)),
         });
     }, [reset]);
 
@@ -466,7 +476,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <p className="text-muted-foreground">{quote.description}</p>
                             </div>
                              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                                <div><span className="text-muted-foreground">Due:</span> {format(quote.dueDate.toDate(), 'PPP')}</div>
+                                <div><span className="text-muted-foreground">Due:</span> {format((quote.dueDate as any).toDate(), 'PPP')}</div>
                                 <div><span className="text-muted-foreground">Status:</span> <span className="font-medium">{quote.status}</span></div>
                             </div>
                         </div>
@@ -652,7 +662,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Separator />
                             <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
                             <Separator />
-                            <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span></div></div>
+                            <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
                         </div>
                     </div>
                 </CardContent>

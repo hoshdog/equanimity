@@ -2,6 +2,7 @@
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
 import { z } from 'zod';
+import { QuotingProfile } from './quoting-profiles';
 
 
 // Schemas moved from suggest-quote-line-items.ts
@@ -10,7 +11,7 @@ const LineItemSchemaForAI = z.object({
   description: z.string().describe('Description of the line item (e.g., part name or labor type).'),
   quantity: z.number().describe('Quantity of the item or hours of labor.'),
   unitPrice: z.number().describe('The SELL price per unit or per hour.'),
-  unitCost: z.number().describe('The COST price per unit or per hour.'),
+  unitCost: z.number().optional().describe('The COST price per unit or per hour.'),
 });
 
 export const SuggestQuoteLineItemsInputSchema = z.object({
@@ -37,11 +38,7 @@ export const SuggestQuoteLineItemsInputSchema = z.object({
         ),
       })
     ).describe('The entire parts catalogue available for quoting.'),
-  laborRates: z.array(z.object({
-    employeeType: z.string(),
-    standardRate: z.number(),
-    costRate: z.number(),
-  })).describe('Available labor rates with their costs and sell prices.'),
+  quotingProfile: z.any().describe("The selected quoting profile containing rules, rates, and persona."),
 });
 export type SuggestQuoteLineItemsInput = z.infer<typeof SuggestQuoteLineItemsInputSchema>;
 
