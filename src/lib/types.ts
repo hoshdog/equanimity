@@ -74,6 +74,7 @@ export interface UserProfile {
     email: string;
     phone?: string;
     photoURL?: string;
+    companyId?: string; // New field to link to the companies collection
     roles: ('admin' | 'client' | 'contractor' | 'user')[];
     skills?: string[];
     certifications?: Array<{
@@ -81,6 +82,18 @@ export interface UserProfile {
         expiryDate: string; // ISO 8601 format (YYYY-MM-DD)
     }>;
     createdAt: string; // ISO 8601 format
+}
+
+export interface Company {
+    id: string;
+    name: string;
+    logoUrl?: string;
+    ownerUid: string;
+    preferences: {
+        themeColor: string;
+        // Add other preferences here
+    };
+    createdAt: Timestamp;
 }
 
 

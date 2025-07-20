@@ -32,9 +32,10 @@ export const createuserprofile = onUserCreate((event) => {
     photoURL: photoURL || '',
     createdAt: new Date().toISOString(),
     // Add any other default fields you want for a new user
-    roles: ['user', 'client', 'contractor'], // Default roles for a new user
+    roles: ['user', 'client'], // Default roles for a new user
     skills: [],
     certifications: [],
+    companyId: null, // Initialize companyId as null to trigger setup wizard
   };
   
   // Create a new document in the 'users' collection with the user's UID.
