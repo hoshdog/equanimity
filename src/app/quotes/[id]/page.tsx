@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardFooter
 } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -162,14 +162,13 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
     
     const handleAcceptAndApply = () => {
         if (!suggestions) return;
-        const newItems: QuoteLineItem[] = suggestions.suggestedLineItems.map((item, index) => ({
-            id: `ai-item-${Date.now()}-${index}`,
-            ...item
-        }));
-        onApplySuggestions(newItems);
+        // This is a simplified approach. A real app might parse the text
+        // and add items to the line item list. For now, we'll append the raw text
+        // to the description as an example.
+        onGenerateDescription(suggestions);
         setIsReviewing(false);
         setSuggestions(null);
-        toast({ title: "Suggestions Applied", description: "The AI suggestions have been added to the quote." });
+        toast({ title: "Suggestions Applied", description: "The AI suggestions have been added to the quote description." });
     }
 
     return (
@@ -238,26 +237,11 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quo
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Review AI Suggestions</DialogTitle>
-                        <DialogDescription>{suggestions?.reasoning}</DialogDescription>
                     </DialogHeader>
-                    <div className="max-h-[50vh] overflow-y-auto space-y-2 p-1">
-                        {suggestions?.suggestedLineItems.map((item, index) => (
-                            <Card key={index} className="p-2 bg-secondary/30">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-medium">{item.description}</p>
-                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} &bull; Sell: ${item.unitPrice.toFixed(2)} &bull; Cost: ${item.unitCost?.toFixed(2) || 'N/A'}</p>
-                                    </div>
-                                    <Badge variant={item.type === 'Labour' ? 'outline' : 'secondary'}>{item.type}</Badge>
-                                </div>
-                            </Card>
-                        ))}
+                    <div className="max-h-[50vh] overflow-y-auto space-y-2 p-1 prose prose-sm dark:prose-invert bg-secondary/30 rounded-md">
+                        <pre className="text-sm whitespace-pre-wrap font-sans p-4">{suggestions}</pre>
                     </div>
-                     <div className="p-4 border-l-4 border-destructive bg-destructive/10 text-destructive-foreground">
-                        <p className="font-bold">Disclaimer</p>
-                        <p className="text-sm">{suggestions?.disclaimer}</p>
-                    </div>
-                     <div className="flex items-center space-x-2">
+                     <div className="flex items-center space-x-2 pt-4">
                         <Checkbox id="accept-disclaimer" checked={isDisclaimerAccepted} onCheckedChange={(checked) => setIsDisclaimerAccepted(checked as boolean)} />
                         <label htmlFor="accept-disclaimer" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         I have reviewed the suggestions and understand they may not be accurate.
@@ -417,9 +401,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }
     
     const handleApplyAISuggestions = (items: QuoteLineItem[]) => {
-        // Append new items to the form state
-        items.forEach(item => appendLineItem(item));
-        toast({ title: "Suggestions Applied", description: "Line items have been added to the quote."});
+        // This is now handled inside the AIAssistant component
     }
 
     const handleGenerateDescription = (description: string) => {
