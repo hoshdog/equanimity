@@ -11,9 +11,9 @@ import { Loader2, PlusCircle, FileText, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { addQuote } from '@/lib/quotes';
 import { getProjects } from '@/lib/projects';
-import { getCustomerContacts } from '@/lib/customers';
+import { getCustomers, getCustomerSites, getCustomerContacts } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
-import type { Quote, Project, OptionType, Contact, Employee, AssignedStaff, ProjectContact } from '@/lib/types';
+import type { Quote, Project, OptionType, Contact, Employee, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { jobStaffRoles } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const assignedStaffSchema = z.object({
@@ -58,6 +59,17 @@ const createQuoteSchema = z.object({
     prompt: z.string().optional(),
     assignedStaff: z.array(assignedStaffSchema).optional(),
     projectContacts: z.array(projectContactSchema).optional(),
+    customerId: z.string().optional(),
+    siteId: z.string().optional(),
+}).refine(data => {
+    // If no project is selected, a customer must be selected.
+    if (!data.projectId) {
+        return !!data.customerId;
+    }
+    return true;
+}, {
+    message: "Customer is required when no project is selected.",
+    path: ["customerId"],
 });
 
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
@@ -67,6 +79,8 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [sites, setSites] = useState<Site[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
 
@@ -82,6 +96,8 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             prompt: "",
             assignedStaff: [{ employeeId: '', role: '' }],
             projectContacts: [{ contactId: '', role: '' }],
+            customerId: "",
+            siteId: "",
         },
     });
 
@@ -95,7 +111,11 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     });
 
     const watchedProjectId = form.watch('projectId');
+    const watchedCustomerId = form.watch('customerId');
+
     const selectedProject = useMemo(() => projects.find(p => p.id === watchedProjectId), [projects, watchedProjectId]);
+    const selectedCustomer = useMemo(() => customers.find(c => c.id === watchedCustomerId), [customers, watchedCustomerId]);
+
 
     useEffect(() => {
         if (!isOpen) return;
@@ -103,17 +123,20 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
         async function fetchInitialData() {
             setLoading(true);
             try {
-                const [projectsData, employeesData] = await Promise.all([
+                const [projectsData, employeesData, customersData] = await Promise.all([
                     getProjects(),
-                    getEmployees()
+                    getEmployees(),
+                    getCustomers()
                 ]);
                 setProjects(projectsData);
                 setEmployees(employeesData);
+                setCustomers(customersData);
+
                 if (initialProjectId) {
                     form.setValue('projectId', initialProjectId);
                 }
             } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Could not load projects and employees." });
+                toast({ variant: "destructive", title: "Error", description: "Could not load initial data." });
             } finally {
                 setLoading(false);
             }
@@ -122,36 +145,47 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     }, [isOpen, toast, initialProjectId, form]);
 
     useEffect(() => {
-        async function fetchContacts() {
-            if (selectedProject) {
+        async function fetchSubData() {
+            const customerId = selectedProject ? selectedProject.customerId : watchedCustomerId;
+            if (customerId) {
                 setLoading(true);
                 try {
-                    const contactsData = await getCustomerContacts(selectedProject.customerId);
+                    const [contactsData, sitesData] = await Promise.all([
+                        getCustomerContacts(customerId),
+                        getCustomerSites(customerId)
+                    ]);
                     setContacts(contactsData);
+                    setSites(sitesData);
                 } catch (error) {
-                    toast({ variant: 'destructive', title: "Error", description: "Could not load contacts for the selected project." });
+                     toast({ variant: 'destructive', title: "Error", description: "Could not load data for the selected customer." });
                 } finally {
                     setLoading(false);
                 }
             } else {
                 setContacts([]);
+                setSites([]);
             }
         }
-        fetchContacts();
-    }, [selectedProject, toast]);
+        fetchSubData();
+    }, [selectedProject, watchedCustomerId, toast]);
 
     const projectOptions = projects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})`}));
+    const customerOptions = customers.map(c => ({ value: c.id, label: c.name }));
+    const siteOptions = sites.map(s => ({ value: s.id, label: s.name }));
     const contactOptions = contacts.map(c => ({ value: c.id, label: c.name }));
     const employeeOptions = employees.map(e => ({ value: e.id, label: e.name }));
 
 
     async function onSubmit(values: CreateQuoteValues) {
         setLoading(true);
+        const finalCustomerId = selectedProject ? selectedProject.customerId : values.customerId;
+        
         try {
              const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
-                projectId: selectedProject?.id,
+                projectId: values.projectId,
                 projectName: selectedProject?.name,
-                customerId: selectedProject?.customerId,
+                customerId: finalCustomerId,
+                siteId: values.siteId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
                 name: values.name,
                 description: values.description || "",
@@ -211,6 +245,40 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                         </FormItem>
                                     )}
                                 />
+                                {!watchedProjectId && (
+                                    <>
+                                        <FormField
+                                            control={form.control}
+                                            name="customerId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Customer</FormLabel>
+                                                    <SearchableCombobox
+                                                        options={customerOptions}
+                                                        value={field.value || ''}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select a customer..."
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="siteId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Site</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || sites.length === 0}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                                        <SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </>
+                                )}
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -232,13 +300,13 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                     {contactFields.map((field, index) => (
                                         <div key={field.id} className="flex items-center gap-2">
                                              <div className="grid grid-cols-2 gap-2 flex-1">
-                                                <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={contactOptions} {...field} placeholder="Select contact..." disabled={!watchedProjectId} /></FormItem>)} />
+                                                <FormField control={form.control} name={`projectContacts.${index}.contactId`} render={({ field }) => (<FormItem><SearchableCombobox options={contactOptions} {...field} placeholder="Select contact..." disabled={!watchedProjectId && !watchedCustomerId} /></FormItem>)} />
                                                 <FormField control={form.control} name={`projectContacts.${index}.role`} render={({ field }) => (<FormItem><Input placeholder="Role, e.g., Site Contact" {...field} /></FormItem>)} />
                                             </div>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)} disabled={contactFields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </div>
                                     ))}
-                                    <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })} disabled={!watchedProjectId}>Add Contact</Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })} disabled={!watchedProjectId && !watchedCustomerId}>Add Contact</Button>
                                 </div>
                                  <div className="space-y-2">
                                     <FormLabel>Assigned Staff</FormLabel>

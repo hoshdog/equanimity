@@ -165,6 +165,7 @@ export interface Quote {
     projectId?: string;
     projectName?: string; // Denormalized for easier display
     customerId?: string;
+    siteId?: string;
     quoteDate: Timestamp | Date;
     dueDate: Timestamp | Date;
     expiryDate: Timestamp | Date;
