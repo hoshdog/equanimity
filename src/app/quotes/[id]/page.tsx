@@ -28,7 +28,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { updateQuote } from '@/lib/quotes';
-import { getCustomer, getCustomerContacts, getCustomerSites } from '@/lib/customers';
+import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
