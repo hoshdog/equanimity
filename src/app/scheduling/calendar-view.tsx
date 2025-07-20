@@ -130,10 +130,11 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
               caption: 'hidden',
             }}
             components={{
-              DayContent: ({ date }) => {
+              DayContent: ({ date, ...props }) => {
                 const dayEvents = events.filter(e => isSameDay(e.start, date));
                 return (
-                  <div className="flex flex-col h-full w-full justify-end p-1 space-y-0.5 overflow-hidden">
+                  <div className={cn("flex flex-col h-full w-full justify-end p-1 space-y-0.5 overflow-hidden", props.className)}>
+                     <span className="self-end pr-2">{date.getDate()}</span>
                     {dayEvents.map(event => (
                       <div key={event.id} className="w-full">
                         <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
