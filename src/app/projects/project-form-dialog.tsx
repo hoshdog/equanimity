@@ -506,14 +506,21 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
 
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
-                           <FormLabel>Site</FormLabel>
-                           <SearchableCombobox 
-                                options={siteOptions}
-                                value={field.value}
-                                onChange={field.onChange}
-                                placeholder="Select a site"
-                                disabled={!watchedCustomerId}
-                            />
+                            <FormLabel>Site</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a site" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {siteOptions.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}/>
