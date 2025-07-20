@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Project, Customer, Site, Contact, Employee, OptionType, AssignedStaff } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer, addContact as addDbContact } from '@/lib/customers';
+import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer, addContact as addDbContact, addSite as addDbSite } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { addProject } from '@/lib/projects';
 import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
@@ -35,6 +35,12 @@ const newContactSchema = z.object({
   emails: z.array(z.object({ value: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
   phones: z.array(z.object({ value: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
   jobTitle: z.string().optional(),
+});
+
+const newSiteSchema = z.object({
+  name: z.string().min(2, "Site name must be at least 2 characters."),
+  address: z.string().min(10, "Address must be at least 10 characters."),
+  primaryContactId: z.string().min(1, "You must select a primary contact."),
 });
 
 
@@ -266,6 +272,59 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
     )
 }
 
+function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, children }: { customerId: string, customerName: string, contacts: Contact[], onSiteAdded: (site: Site) => void, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof newSiteSchema>>({
+        resolver: zodResolver(newSiteSchema),
+        defaultValues: { name: "", address: "", primaryContactId: "" },
+    });
+
+    React.useEffect(() => {
+        if (!isOpen) form.reset();
+    }, [isOpen, form]);
+
+    async function onSubmit(values: z.infer<typeof newSiteSchema>) {
+        setLoading(true);
+        try {
+            const newSiteId = await addDbSite(customerId, values);
+            onSiteAdded({ id: newSiteId, ...values });
+            toast({ title: "Site Added", description: `"${values.name}" has been added to ${customerName}.` });
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Failed to add site", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add site.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const contactOptions = contacts.map(c => ({ value: c.id, label: c.name }));
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Site for {customerName}</DialogTitle>
+                    <DialogDescription>Create a new site or location for this customer.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Melbourne Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="primaryContactId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Primary Contact</FormLabel><SearchableCombobox options={contactOptions} {...field} placeholder="Select a contact" /><FormMessage /></FormItem>)} />
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Add Site'}</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -451,6 +510,11 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
           appendContact({ contactId: newContact.id, role: '' });
       }
   }
+  
+  const handleSiteAdded = (newSite: Site) => {
+      setSites(prev => [...prev, newSite]);
+      form.setValue('siteId', newSite.id, { shouldValidate: true });
+  }
 
   return (
     <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { form.reset(); } }}>
@@ -507,20 +571,32 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                     <FormField control={form.control} name="siteId" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Site</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a site" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {siteOptions.map(option => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
+                             <div className="flex gap-2">
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a site" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {siteOptions.map(option => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                        </SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                 <AddSiteDialog 
+                                    customerId={watchedCustomerId} 
+                                    customerName={selectedCustomer?.name || ''} 
+                                    contacts={contacts}
+                                    onSiteAdded={handleSiteAdded}
+                                >
+                                    <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={!watchedCustomerId}>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </AddSiteDialog>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}/>
