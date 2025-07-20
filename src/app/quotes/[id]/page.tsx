@@ -89,7 +89,7 @@ const formSchema = z.object({
 type QuoteFormValues = z.infer<typeof formSchema>;
 
 
-function AIAssistant({ quote, onApplySuggestions, onGenerateDescription, descriptionValue, onDescriptionChange }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void, onGenerateDescription: (description: string) => void, descriptionValue: string, onDescriptionChange: (value: string) => void }) {
+function AIAssistant({ quote, onApplySuggestions, onGenerateDescription }: { quote: Quote, onApplySuggestions: (items: QuoteLineItem[]) => void, onGenerateDescription: (description: string) => void }) {
     const [aiPrompt, setAiPrompt] = useState(quote.prompt || '');
     const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
     const [loading, setLoading] = useState(false);
@@ -199,11 +199,6 @@ function AIAssistant({ quote, onApplySuggestions, onGenerateDescription, descrip
                     <Label htmlFor="ai-prompt">AI Prompt</Label>
                     <Textarea id="ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={3} />
                     <FormDescription>Use this field to give instructions to the AI. This will not appear on the final quote.</FormDescription>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="quote-description">Quote Description</Label>
-                    <Textarea id="quote-description" value={descriptionValue} onChange={(e) => onDescriptionChange(e.target.value)} placeholder="A detailed description of the work to be performed..." rows={5} />
-                    <FormDescription>This is the customer-facing description. The AI can generate content for this field.</FormDescription>
                 </div>
                  <div className="space-y-2">
                     <Label>Upload RFQ, Plans, or other Documents</Label>
@@ -320,7 +315,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
-    const watchedDescription = watch('description');
 
     const resetFormToQuote = React.useCallback((quoteData: Quote) => {
         reset({
@@ -521,9 +515,34 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 quote={quote} 
                 onApplySuggestions={handleApplyAISuggestions} 
                 onGenerateDescription={handleGenerateDescription}
-                descriptionValue={watchedDescription || ''}
-                onDescriptionChange={(value) => setValue('description', value)}
             />
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Quote Description</CardTitle>
+                    <CardDescription>
+                        This is the customer-facing description of the work to be performed. It will appear on the final quote document.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <FormField
+                        control={control}
+                        name="description"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="e.g., Supply and install ten new 9W warm white LED downlights to the main kitchen area..."
+                                        rows={6}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </CardContent>
+            </Card>
 
             <div className="space-y-6">
                 <Card>
