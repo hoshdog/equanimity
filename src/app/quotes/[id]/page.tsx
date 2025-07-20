@@ -238,8 +238,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Quote Header</CardTitle>
-                        <CardDescription>Core details, dates, and links for this quote.</CardDescription>
+                        <CardTitle>
+                            {customer?.name || 'No Customer Selected'}
+                            {project && <span className="text-muted-foreground"> / {project.name}</span>}
+                        </CardTitle>
+                        <CardDescription>
+                           Review or edit the core details for this quote.
+                        </CardDescription>
                     </div>
                      <div className="flex gap-2">
                         {!isEditingHeader ? (
