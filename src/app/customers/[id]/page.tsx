@@ -2,7 +2,7 @@
 // src/app/customers/[id]/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, use } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,7 +25,7 @@ import type { Customer, Contact, Site, ProjectSummary, OptionType } from '@/lib/
 import { Combobox } from '@/components/ui/combobox';
 
 interface CustomerPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 const siteSchema = z.object({
@@ -57,7 +57,8 @@ const getStatusColor = (status: string) => {
     }
 }
 
-export default function CustomerDetailPage({ params: { id: customerId } }: CustomerPageProps) {
+export default function CustomerDetailPage({ params }: CustomerPageProps) {
+  const { id: customerId } = use(params);
   const { toast } = useToast();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);

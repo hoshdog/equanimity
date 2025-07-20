@@ -1,7 +1,7 @@
 // src/app/projects/[id]/page.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, use } from 'react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,8 +64,8 @@ const getQuoteStatusColor = (status: string) => {
 }
 
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const projectId = params.id;
+export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
