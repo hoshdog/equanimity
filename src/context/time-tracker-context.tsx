@@ -40,28 +40,27 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const pauseTimer = useCallback(() => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
-        setIsTimerActive(false);
-    }, []);
-
     const startTimer = useCallback(() => {
-        if (intervalRef.current) return; // Already running
+        if (intervalRef.current) return;
         setIsTimerActive(true);
         intervalRef.current = setInterval(() => {
             setTimeSpent(prev => prev + 1);
         }, 1000);
     }, []);
 
-    const resetInactivityTimer = useCallback(() => {
-        if (document.hidden) {
-            pauseTimer();
-            return;
+    const pauseTimer = useCallback(() => {
+        setIsTimerActive(false);
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
         }
+        if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+            inactivityTimerRef.current = null;
+        }
+    }, []);
 
+    const resetInactivityTimer = useCallback(() => {
         if (!isTimerActive) {
             startTimer();
         }
@@ -74,47 +73,51 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             pauseTimer();
             toast({
               title: "Timer Paused",
-              description: "Timer paused due to inactivity. Move your mouse to resume.",
+              description: "Timer paused due to inactivity.",
             });
         }, 60000); // 1 minute
     }, [isTimerActive, pauseTimer, startTimer, toast]);
 
+
     useEffect(() => {
+        // Stop everything if there's no context
+        if (!context) {
+            pauseTimer();
+            setTimeSpent(0);
+            return;
+        }
+
+        // --- Event handlers ---
+        const handleActivity = () => {
+            if (document.hidden) return; // Don't restart timer if tab is not visible
+            resetInactivityTimer();
+        };
+
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 pauseTimer();
-            } else if (context) { 
-                resetInactivityTimer();
+            } else {
+                handleActivity(); // Restart inactivity timer when tab becomes visible
             }
         };
 
-        const handleActivity = () => {
-            if (context) { 
-                resetInactivityTimer();
-            }
-        };
-
-        if (context) {
-            // Context is active, start tracking.
-            resetInactivityTimer();
-            window.addEventListener('mousemove', handleActivity);
-            window.addEventListener('keydown', handleActivity);
-            document.addEventListener('visibilitychange', handleVisibilityChange);
-        } else {
-            // Context is cleared, stop everything.
-            pauseTimer();
-            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-            setTimeSpent(0); 
-        }
-
+        // --- Setup and Teardown ---
+        handleActivity(); // Start timer immediately when context is set
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('mousemove', handleActivity);
+        window.addEventListener('keydown', handleActivity);
+        
+        // Cleanup function
         return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('mousemove', handleActivity);
             window.removeEventListener('keydown', handleActivity);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+            pauseTimer(); // Ensure timer is cleared on unmount/context change
         };
-    }, [context, resetInactivityTimer, pauseTimer, startTimer]);
+    // Re-run this entire effect ONLY when the context changes.
+    // The functions are wrapped in useCallback to be stable.
+    }, [context, pauseTimer, resetInactivityTimer]);
+
 
     const logTime = async (): Promise<number> => {
         const user = auth.currentUser;
@@ -140,6 +143,7 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             
             toast({ title: 'Time Logged', description: `${(billedSeconds/60).toFixed(0)} minutes logged to your timesheet.` });
             setTimeSpent(0);
+            pauseTimer(); // Explicitly pause after logging
             return timeInHours;
         } catch (error) {
             console.error("Failed to log time:", error);
