@@ -24,12 +24,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { updateQuote } from '@/lib/quotes';
+import { updateQuote, uploadAndAttachFileToQuote } from '@/lib/quotes';
 import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check } from 'lucide-react';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, Attachment } from '@/lib/types';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -60,6 +60,7 @@ const formSchema = z.object({
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
+  attachments: z.array(z.any()).optional(), // Keep it simple for the form
   paymentTerms: z.string().optional(),
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -92,6 +93,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditingHeader, setIsEditingHeader] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
     const { toast } = useToast();
@@ -258,6 +260,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setAiDescription(null);
     };
 
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files && event.target.files.length > 0 && quote) {
+            const file = event.target.files[0];
+            setIsUploading(true);
+            try {
+                await uploadAndAttachFileToQuote(quote.id, file);
+                toast({ title: "File Uploaded", description: `"${file.name}" has been attached.` });
+            } catch (error) {
+                console.error("File upload failed:", error);
+                toast({ variant: 'destructive', title: "Upload Failed", description: "Could not upload the file." });
+            } finally {
+                setIsUploading(false);
+            }
+        }
+    };
+
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
     const siteOptions = useMemo(() => customerSites.map(s => ({ value: s.id, label: s.name })), [customerSites]);
@@ -343,7 +361,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                              <div>
@@ -547,30 +566,61 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
                         </CardContent>
                     </Card>
-
+                </div>
+                <div className="lg:col-span-1 space-y-6">
                     <Card>
                         <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
                         <CardContent>
-                             <div className="flex justify-end">
-                                <div className="w-full max-w-sm space-y-4">
-                                    <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
-                                    <Separator />
-                                    <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
-                                    <Separator />
-                                    <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
-                                </div>
+                             <div className="w-full space-y-4">
+                                <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
+                                <Separator />
+                                <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
+                                <Separator />
+                                <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span></div></div>
                             </div>
                         </CardContent>
                     </Card>
-
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Attachments</CardTitle>
+                            <CardDescription>Upload relevant documents, plans, or photos.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                           <Button asChild variant="outline" className="w-full" disabled={isUploading}>
+                               <label htmlFor="file-upload">
+                                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                                   {isUploading ? 'Uploading...' : 'Upload File'}
+                               </label>
+                           </Button>
+                           <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} disabled={isUploading} />
+                           {quote.attachments && quote.attachments.length > 0 ? (
+                            <div className="space-y-2">
+                                {quote.attachments.map((file, index) => (
+                                    <div key={index} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Paperclip className="h-4 w-4" />
+                                            <span className="truncate">{file.name}</span>
+                                        </div>
+                                        <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                           <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                           ) : (
+                            <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
+                           )}
+                        </CardContent>
+                    </Card>
                     <Card>
                         <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <CardContent className="grid grid-cols-1 gap-4">
                             <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
                             <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
                         </CardContent>
                     </Card>
                 </div>
+            </div>
         </form>
         </FormProvider>
     </div>

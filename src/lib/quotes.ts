@@ -1,6 +1,6 @@
 
 // src/lib/quotes.ts
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import {
   collection,
   query,
@@ -17,7 +17,8 @@ import {
   increment,
   arrayUnion,
 } from 'firebase/firestore';
-import type { Quote } from './types';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import type { Quote, Attachment } from './types';
 import { auth } from './auth';
 
 
@@ -72,6 +73,7 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
     lineItems: quoteData.lineItems.map(item => ({ ...item, type: item.type || 'Part' })), // Ensure type is set
     version: 1,
     revisions: [],
+    attachments: [],
     // Audit fields
     createdBy: user.uid,
     createdAt: serverTimestamp(),
@@ -119,4 +121,31 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
     updatedAt: serverTimestamp(),
     updatedBy: user?.uid || 'system', // Use user ID or fallback to 'system'
   });
+}
+
+// Upload a file and attach it to a quote
+export async function uploadAndAttachFileToQuote(quoteId: string, file: File) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User must be authenticated to upload files.");
+
+    // 1. Upload file to Firebase Storage
+    const storageRef = ref(storage, `quotes/${quoteId}/${file.name}`);
+    const uploadResult = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+
+    // 2. Create attachment metadata
+    const newAttachment: Attachment = {
+        name: file.name,
+        url: downloadURL,
+        uploadedAt: Timestamp.now(),
+        uploadedBy: user.uid,
+    };
+
+    // 3. Update the quote document in Firestore
+    const quoteRef = doc(db, 'quotes', quoteId);
+    await updateDoc(quoteRef, {
+        attachments: arrayUnion(newAttachment)
+    });
+
+    return newAttachment;
 }

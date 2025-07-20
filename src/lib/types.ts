@@ -1,6 +1,5 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
-import type { GenerateQuoteFromPromptOutput } from '@/ai/flows/generate-quote-from-prompt';
 
 export interface OptionType {
   value: string;
@@ -12,6 +11,13 @@ export interface Revision {
     changedBy: string;
     changedAt: Timestamp;
     changeSummary: string;
+}
+
+export interface Attachment {
+    name: string;
+    url: string; // URL to the file in Firebase Storage
+    uploadedAt: Timestamp;
+    uploadedBy: string;
 }
 
 export interface Contact {
@@ -218,9 +224,7 @@ export interface Quote {
     projectContacts?: ProjectContact[];
     assignedStaff?: AssignedStaff[];
     prompt?: string; // The AI prompt that may have generated it
-    // From AI Flow
-    lineItemsFromAI?: GenerateQuoteFromPromptOutput['lineItems'];
-    quoteText?: string;
+    attachments?: Attachment[];
     paymentTerms?: string;
     validityTerms?: string;
     internalNotes?: string;
