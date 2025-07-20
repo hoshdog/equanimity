@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Home, Timer } from 'lucide-react';
+import { ChevronRight, Home, Timer, Play, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTimeTracker } from '@/context/time-tracker-context';
 import { cn } from '@/lib/utils';
@@ -62,50 +62,87 @@ function Breadcrumbs() {
 }
 
 function GlobalTimeTracker() {
-  const { timeSpent, isTimerActive, context, logTime } = useTimeTracker();
+    const {
+        timeSpent,
+        isTimerActive,
+        context,
+        startTracking,
+        stopTracking,
+        logTime,
+    } = useTimeTracker();
 
-  const formatTime = (totalSeconds: number) => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
+    const formatTime = (totalSeconds: number) => {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
 
-  const handleLogTime = () => {
-    // The logTime function now primarily handles logging to timesheets.
-    // Specific pages can decide what to do with the returned duration.
-    logTime();
-  }
+    const handleLogTime = () => {
+        logTime();
+    };
 
-  return (
-     <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-3">
-              <Badge variant={isTimerActive ? "default" : "secondary"} className={cn(
-                  "transition-colors",
-                  isTimerActive && "bg-primary/20 text-primary border-primary/30"
-              )}>
-                  <Timer className="h-4 w-4 mr-1.5" />
-                  {formatTime(timeSpent)}
-              </Badge>
-              <Button onClick={handleLogTime} size="sm" disabled={!context || timeSpent < 1}>
-                  Log Time
-              </Button>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-            {context ? (
-                <div>
-                    <p>Tracking time for: <span className="font-semibold">{context.name}</span></p>
-                    <p className="text-xs text-muted-foreground">Clicking "Log Time" will add an entry to your timesheet.</p>
-                </div>
-            ) : (
-                <p>Navigate to a project, job, or quote to start tracking time.</p>
-            )}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                        {context && (
+                             <div className="text-right">
+                                <p className="text-sm font-medium leading-none">{context.name}</p>
+                                <p className="text-xs text-muted-foreground">Tracking time</p>
+                            </div>
+                        )}
+                        <Badge
+                            variant={isTimerActive ? 'default' : 'secondary'}
+                            className={cn(
+                                'transition-colors w-28 justify-center',
+                                isTimerActive && 'bg-primary/20 text-primary border-primary/30'
+                            )}
+                        >
+                            <Timer className="h-4 w-4 mr-1.5" />
+                            {formatTime(timeSpent)}
+                        </Badge>
+                        
+                        {context && (
+                            <>
+                                {isTimerActive ? (
+                                    <Button size="icon" variant="destructive" onClick={stopTracking}>
+                                        <Square className="h-4 w-4" />
+                                    </Button>
+                                ) : (
+                                    <Button size="icon" variant="outline" onClick={startTracking}>
+                                        <Play className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                <Button onClick={handleLogTime} size="sm" disabled={isTimerActive || timeSpent < 1}>
+                                    Log Time
+                                </Button>
+                            </>
+                        )}
+                        
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    {context ? (
+                        <div>
+                            <p>
+                                Tracking time for: <span className="font-semibold">{context.name}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {isTimerActive 
+                                    ? "Click the red square to stop tracking."
+                                    : "Click the play button to start tracking."
+                                }
+                            </p>
+                        </div>
+                    ) : (
+                        <p>Navigate to a project, job, or quote to start tracking time.</p>
+                    )}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
 }
 
 export function AppHeader() {
