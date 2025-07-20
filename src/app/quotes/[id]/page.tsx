@@ -633,7 +633,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     )}
                 </Card>
             </div>
-
+            
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
@@ -682,18 +682,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         <CardContent>
                              <div className="w-full space-y-4">
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between items-baseline">
                                         <span className="text-muted-foreground">Parts Total</span>
                                         <div className="flex gap-4 items-baseline">
                                             <Badge variant="outline" className={cn(partsMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{partsMargin.toFixed(1)}%</Badge>
-                                            <span>${partsSubtotal.toFixed(2)}</span>
+                                            <span className="font-medium">${partsSubtotal.toFixed(2)}</span>
                                         </div>
                                     </div>
-                                     <div className="flex justify-between">
+                                     <div className="flex justify-between items-baseline">
                                         <span className="text-muted-foreground">Labour Total</span>
                                         <div className="flex gap-4 items-baseline">
                                             <Badge variant="outline" className={cn(labourMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{labourMargin.toFixed(1)}%</Badge>
-                                            <span>${labourSubtotal.toFixed(2)}</span>
+                                            <span className="font-medium">${labourSubtotal.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -725,7 +725,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Overall Margin</span>
-                                        <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span>
+                                        <span className={cn('font-semibold', grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span>
                                     </div>
                                 </div>
                             </div>
