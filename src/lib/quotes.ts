@@ -61,10 +61,26 @@ export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
   } as Quote));
 }
 
+// Helper function to reliably get the current user, waiting if necessary.
+async function getCurrentUser(): Promise<User> {
+    const user = auth.currentUser;
+    if (user) return user;
+
+    return new Promise((resolve, reject) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            if (user) {
+                resolve(user);
+            } else {
+                reject(new Error("User is not authenticated."));
+            }
+        });
+    });
+}
+
 // Add a new quote
 export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'>): Promise<string> {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User must be authenticated to create a quote.");
+  const user = await getCurrentUser();
 
   const quotesCollectionRef = collection(db, 'quotes');
   
@@ -83,23 +99,6 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
 
   const newQuoteRef = await addDoc(quotesCollectionRef, dataToSave);
   return newQuoteRef.id;
-}
-
-// Helper function to reliably get the current user, waiting if necessary.
-async function getCurrentUser(): Promise<User> {
-    const user = auth.currentUser;
-    if (user) return user;
-
-    return new Promise((resolve, reject) => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            unsubscribe();
-            if (user) {
-                resolve(user);
-            } else {
-                reject(new Error("User is not authenticated."));
-            }
-        });
-    });
 }
 
 // Update an existing quote
