@@ -6,9 +6,8 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'zod';
-import type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
 import { SuggestQuoteLineItemsInputSchema, SuggestQuoteLineItemsOutputSchema } from '@/lib/types';
+import type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
 
 
 export async function suggestQuoteLineItems(
