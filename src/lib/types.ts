@@ -157,3 +157,12 @@ export interface LaborRate {
     calculatedCostRate: number; // This is the calculated COST rate
     overtimeRate: number;
 }
+
+export interface StockItem {
+    id: string;
+    name: string;
+    sku: string;
+    quantityOnHand: number;
+    reorderThreshold: number;
+    createdAt: Timestamp;
+}
