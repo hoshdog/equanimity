@@ -96,7 +96,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     });
 
     // Listeners for related collections
-    const jobsQuery = query(collection(db, 'jobs'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const jobsQuery = query(collection(db, 'jobs'), where('projectId', '==', projectId));
     const unsubJobs = onSnapshot(jobsQuery, (snapshot) => {
         setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job)));
     });
