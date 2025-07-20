@@ -56,7 +56,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         }
         if (inactivityTimerRef.current) {
             clearTimeout(inactivityTimerRef.current);
-            inactivityTimerRef.current = null;
         }
     }, []);
 
@@ -76,7 +75,7 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
               description: "Timer paused due to inactivity.",
             });
         }, 60000); // 1 minute
-    }, [isTimerActive, pauseTimer, startTimer, toast]);
+    }, [isTimerActive, startTimer, pauseTimer, toast]);
 
 
     useEffect(() => {
@@ -114,8 +113,7 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             window.removeEventListener('keydown', handleActivity);
             pauseTimer(); // Ensure timer is cleared on unmount/context change
         };
-    // Re-run this entire effect ONLY when the context changes.
-    // The functions are wrapped in useCallback to be stable.
+    // Re-run this entire effect ONLY when the context or the memoized functions change.
     }, [context, pauseTimer, resetInactivityTimer]);
 
 
