@@ -382,8 +382,8 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
 
 
     return (
-       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <React.Fragment>
+       <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+        <>
             <TableRow>
                 <TableCell className="w-12">
                      <CollapsibleTrigger asChild>
@@ -425,7 +425,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </TableCell>
                 </TableRow>
             </CollapsibleContent>
-        </React.Fragment>
+        </>
        </Collapsible>
     )
 }
