@@ -1,11 +1,6 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
-import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
-import type { SuggestQuoteLineItemsInput as AIInput, SuggestQuoteLineItemsOutput as AIOutput } from '@/ai/flows/suggest-quote-line-items';
-
-// Re-export the imported types for use in the client components
-export type SuggestQuoteLineItemsInput = AIInput;
-export type SuggestQuoteLineItemsOutput = AIOutput;
+import type { GenerateQuoteFromPromptOutput } from '@/ai/flows/generate-quote-from-prompt';
 
 export interface OptionType {
   value: string;

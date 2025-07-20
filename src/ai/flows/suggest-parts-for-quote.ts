@@ -1,4 +1,3 @@
-// src/ai/flows/suggest-parts-for-quote.ts
 'use server';
 /**
  * @fileOverview An AI agent that suggests parts for a quote based on a job description.
@@ -84,7 +83,7 @@ const prompt = ai.definePrompt({
 3.  Identify the most relevant parts from the catalogue needed to complete the job.
 4.  Estimate a reasonable quantity for each required part.
 5.  Provide a brief reasoning for your selections.
-6.  Format the output as a valid JSON object matching the defined schema, including `suggestedParts` and `reasoning`.
+6.  Format the output as a valid JSON object matching the defined schema, including \`suggestedParts\` and \`reasoning\`.
 
 Only suggest parts that are present in the provided catalogue.
 `,

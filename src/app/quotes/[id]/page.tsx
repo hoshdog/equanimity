@@ -1,4 +1,3 @@
-
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -365,10 +364,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setAiSuggestions(output);
     };
 
-    const isItemLabor = (item: { description: string, type?: 'Part' | 'Labour' }) => {
-        if (item.type) {
-            return item.type === 'Labour';
-        }
+    const isItemLabor = (item: { description: string }) => {
         const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout', 'safety check'];
         return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
     }
