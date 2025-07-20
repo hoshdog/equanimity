@@ -302,11 +302,16 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setAiSuggestions(output);
     };
 
+    const isItemLabor = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
+        if (item.type === 'Labour') return true;
+        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support'];
+        return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
+    }
+    
     const handleAddSuggestedItem = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
-        const isPart = !laborRateOptions.some(l => l.label === item.description);
         appendLineItem({
             id: `item-${Date.now()}`,
-            type: isPart ? 'Part' : 'Labour',
+            type: isItemLabor(item) ? 'Labour' : 'Part',
             description: item.description,
             quantity: item.quantity,
             unitPrice: parseFloat((item.totalCost / item.quantity).toFixed(2)),
@@ -315,13 +320,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         });
         toast({ title: "Item Added", description: `Added "${item.description}" to the quote.` });
     };
-
-    const isItemLabor = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
-        if (item.type === 'Labour') return true;
-        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs'];
-        return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
-    }
-
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
@@ -414,7 +412,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                         <CardHeader>
                             <CardTitle>Quote Description</CardTitle>
                             <CardDescription>
-                                This is the customer-facing description of the work to be performed. It will appear on the final quote document.
+                                This is the customer-facing description of the work to be performed, including scope, inclusions, and exclusions.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -425,8 +423,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     <FormItem>
                                         <FormControl>
                                             <Textarea
-                                                placeholder="e.g., Supply and install ten new 9W warm white LED downlights to the main kitchen area..."
-                                                rows={8}
+                                                placeholder="e.g., ### Inclusions..."
+                                                rows={12}
                                                 {...field}
                                             />
                                         </FormControl>
