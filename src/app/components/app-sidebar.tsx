@@ -38,9 +38,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { signOut } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
 
 
 const navItems = [
@@ -65,8 +62,6 @@ const navItems = [
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
-  const router = useRouter();
-  const { toast } = useToast();
 
 
   const handleLinkClick = () => {
@@ -75,16 +70,6 @@ export function AppSidebar() {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-        await signOut();
-        router.push('/auth');
-        toast({ title: 'Signed Out', description: 'You have been successfully signed out.' });
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to sign out.' });
-    }
-  }
-  
   return (
     <Sidebar>
       <SidebarHeader>
@@ -122,23 +107,19 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
          <div className="flex flex-col items-center text-center gap-2">
-            <Link href="/profile" className={cn("w-full", state === 'expanded' ? "text-center" : "flex justify-center")}>
+            <div className={cn("w-full", state === 'expanded' ? "text-center" : "flex justify-center")}>
                 <Avatar className="h-9 w-9">
                   <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person" />
                   <AvatarFallback>JD</AvatarFallback>
                 </Avatar>
-            </Link>
+            </div>
             <div className={cn(
               "flex flex-col",
               "group-data-[state=collapsed]:hidden"
             )}>
-                <span className="text-sm font-semibold">Jane Doe</span>
-                <span className="text-xs text-muted-foreground">jane.doe@example.com</span>
+                <span className="text-sm font-semibold">Dev User</span>
+                <span className="text-xs text-muted-foreground">dev@example.com</span>
             </div>
-            <Button variant="ghost" size="sm" className={cn("w-full", state === 'collapsed' && 'hidden')} onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-            </Button>
          </div>
       </SidebarFooter>
     </Sidebar>
