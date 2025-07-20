@@ -353,6 +353,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
 
 function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { part: CataloguePart, inventoryMap: Map<string, StockItem>, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void, defaultSupplierPreference: string }) {
     const [quickAddQty, setQuickAddQty] = React.useState(1);
+    const [isOpen, setIsOpen] = React.useState(false);
     const inventoryItem = inventoryMap.get(part.partNumber);
     const stockQty = inventoryItem?.quantityOnHand || 0;
     const sortedSuppliers = [...part.suppliers].sort((a, b) => a.tradePrice - b.tradePrice);
@@ -376,12 +377,12 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
     };
 
     return (
-        <Collapsible>
-            <TableRow>
+        <React.Fragment>
+            <TableRow data-state={isOpen ? 'open' : 'closed'}>
                 <TableCell className="w-12">
                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
-                            <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                        <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
+                            <ChevronRight className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-90" />
                         </Button>
                     </CollapsibleTrigger>
                 </TableCell>
@@ -401,24 +402,24 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </div>
                 </TableCell>
             </TableRow>
-            <CollapsibleContent asChild>
+             {isOpen && (
                 <TableRow>
-                    <TableCell colSpan={4} className="p-0">
-                    <div className="p-2 bg-secondary/50 space-y-1">
-                        {sortedSuppliers.map((supplier, index) => (
-                            <SupplierRow 
-                                key={supplier.supplier} 
-                                supplier={supplier} 
-                                part={part} 
-                                isCheapest={index === 0}
-                                onSelect={onSelect}
-                            />
-                        ))}
-                    </div>
+                     <TableCell colSpan={4} className="p-0">
+                        <CollapsibleContent className="p-2 bg-secondary/50 space-y-1">
+                            {sortedSuppliers.map((supplier, index) => (
+                                <SupplierRow 
+                                    key={supplier.supplier} 
+                                    supplier={supplier} 
+                                    part={part} 
+                                    isCheapest={index === 0}
+                                    onSelect={onSelect}
+                                />
+                            ))}
+                        </CollapsibleContent>
                     </TableCell>
                 </TableRow>
-            </CollapsibleContent>
-        </Collapsible>
+            )}
+        </React.Fragment>
     )
 }
 
