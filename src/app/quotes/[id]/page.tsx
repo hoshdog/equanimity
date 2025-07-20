@@ -28,16 +28,17 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { updateQuote } from '@/lib/quotes';
-import { getCustomerContacts } from '@/lib/customers';
+import { getCustomer, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
-import { getProject } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil } from 'lucide-react';
+import { getProject, getProjects } from '@/lib/projects';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
+import { jobStaffRoles } from '@/lib/types';
 
 
 const lineItemSchema = z.object({
@@ -65,6 +66,9 @@ const formSchema = z.object({
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
   clientNotes: z.string().optional(),
+  projectId: z.string().optional(),
+  customerId: z.string().optional(),
+  siteId: z.string().optional(),
 }).refine(data => data.expiryDate >= data.quoteDate, {
     message: "Expiry date must be on or after the quote date.",
     path: ["expiryDate"],
@@ -81,60 +85,73 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const { id: quoteId } = use(params);
     const [quote, setQuote] = useState<Quote | null>(null);
     const [project, setProject] = useState<Project | null>(null);
+    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [site, setSite] = useState<Site | null>(null);
+    const [allProjects, setAllProjects] = useState<Project[]>([]);
+    const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+    const [customerSites, setCustomerSites] = useState<Site[]>([]);
     const [projectContacts, setProjectContacts] = useState<Contact[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isEditingHeader, setIsEditingHeader] = useState(false);
     const { toast } = useToast();
 
-    // For now, we'll just use the first quoting profile as the source of truth for labor rates.
     const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
     const laborRateOptions = useMemo(() => {
         return quotingProfile.laborRates.map(rate => ({
             label: rate.employeeType,
-            value: rate.employeeType, // Use the type name as the value
-            ...rate, // Include the full rate object
+            value: rate.employeeType,
+            ...rate,
         }));
     }, [quotingProfile.laborRates]);
 
-
-    const form = useForm<QuoteFormValues>({
-        resolver: zodResolver(formSchema),
-    });
-
-    const { control, setValue } = form;
-
+    const form = useForm<QuoteFormValues>({ resolver: zodResolver(formSchema) });
+    const { control, setValue, watch, trigger, getValues } = form;
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
-    
+
+    const watchedProjectId = watch('projectId');
+    const watchedCustomerId = watch('customerId');
+
     useEffect(() => {
-        if (!quoteId) return;
-        setLoading(true);
+        const fetchRelatedData = async (quoteData: Quote) => {
+            if (quoteData.projectId) {
+                const proj = await getProject(quoteData.projectId);
+                setProject(proj);
+                if (proj?.customerId) {
+                    const cust = await getCustomer(proj.customerId);
+                    setCustomer(cust);
+                    const sites = await getCustomerSites(proj.customerId);
+                    setCustomerSites(sites);
+                    const projSite = sites.find(s => s.id === proj.siteId);
+                    setSite(projSite || null);
+                }
+            } else if (quoteData.customerId) {
+                 const cust = await getCustomer(quoteData.customerId);
+                 setCustomer(cust);
+                 const sites = await getCustomerSites(quoteData.customerId);
+                 setCustomerSites(sites);
+                 const projSite = sites.find(s => s.id === quoteData.siteId);
+                 setSite(projSite || null);
+            }
+             if (quoteData.customerId) {
+                const contacts = await getCustomerContacts(quoteData.customerId);
+                setProjectContacts(contacts);
+            }
+        };
+
         const unsub = onSnapshot(doc(db, "quotes", quoteId), async (doc) => {
             if (doc.exists()) {
+                setLoading(true);
                 const quoteData = { id: doc.id, ...doc.data() } as Quote;
                 setQuote(quoteData);
-
-                if (quoteData.projectId) {
-                    const proj = await getProject(quoteData.projectId);
-                    setProject(proj);
-                    if (proj) {
-                        const contacts = await getCustomerContacts(proj.customerId);
-                        setProjectContacts(contacts);
-                    }
-                }
-                const emps = await getEmployees();
-                setEmployees(emps);
+                await fetchRelatedData(quoteData);
 
                 form.reset({
                     ...quoteData,
                     quoteDate: quoteData.quoteDate?.toDate() || new Date(),
                     dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
                     expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
-                    projectContacts: quoteData.projectContacts || [],
-                    assignedStaff: quoteData.assignedStaff || [],
                 });
-                if (quoteData.lineItems) {
-                    replaceLineItems(quoteData.lineItems);
-                }
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Quote not found.' });
             }
@@ -144,12 +161,25 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quoteId, toast]);
 
+    // Fetch lists for dropdowns when editing
+    useEffect(() => {
+        if (isEditingHeader) {
+            getProjects().then(setAllProjects);
+            getCustomers().then(setAllCustomers);
+        }
+    }, [isEditingHeader]);
+    
+    // When customer changes, fetch their sites
+    useEffect(() => {
+        if (watchedCustomerId && isEditingHeader) {
+            getCustomerSites(watchedCustomerId).then(setCustomerSites);
+        }
+    }, [watchedCustomerId, isEditingHeader]);
+
 
     const lineItemsWatch = form.watch('lineItems');
     const { subtotal, totalTax, totalAmount, totalCost, grossProfit, grossMargin } = React.useMemo(() => {
-        let sub = 0;
-        let tax = 0;
-        let cost = 0;
+        let sub = 0, tax = 0, cost = 0;
         if (lineItemsWatch) {
             lineItemsWatch.forEach((item: Partial<QuoteLineItem>) => {
                 const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
@@ -168,16 +198,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         if (!quote) return;
         setLoading(true);
         try {
-            const quoteDataToUpdate = {
-                ...values,
-                projectContacts: values.projectContacts,
-                assignedStaff: values.assignedStaff,
-                subtotal,
-                totalTax,
-                totalAmount,
-            };
+            const quoteDataToUpdate = { ...values, subtotal, totalTax, totalAmount };
             await updateQuote(quote.id, quoteDataToUpdate);
             toast({ title: "Quote Updated", description: "Your changes have been saved." });
+            setIsEditingHeader(false);
         } catch (error) {
             console.error("Failed to update quote:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not update the quote.' });
@@ -186,27 +210,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         }
     }
 
-    const employeeOptions = useMemo(() => employees.map(e => ({ value: e.id, label: e.name })), [employees]);
-    const projectContactOptions = useMemo(() => projectContacts.map(c => ({ value: c.id, label: c.name })), [projectContacts]);
+    const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
+    const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
+    const siteOptions = useMemo(() => customerSites.map(s => ({ value: s.id, label: s.name })), [customerSites]);
     
-    if (loading) {
-        return (
-            <div className="flex-1 p-8 pt-6 flex items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-        );
-    }
-    
-    if (!quote) {
-        return (
-             <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-                <h2 className="text-3xl font-bold tracking-tight">Quote Not Found</h2>
-                <Button asChild>
-                    <Link href="/quotes"><ArrowLeft className="mr-2 h-4 w-4"/>Back to Quotes</Link>
-                </Button>
-            </div>
-        );
-    }
+    if (loading) return <div className="flex-1 p-8 pt-6 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+    if (!quote) return <div className="flex-1 p-8 pt-6"><h2>Quote not found</h2></div>;
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -216,18 +225,41 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                  <div className="flex items-center space-x-4">
                      <Button asChild variant="outline" size="icon">
                         <Link href={quote.projectId ? `/projects/${quote.projectId}` : '/quotes'}>
-                            <ArrowLeft className="h-4 w-4"/>
-                            <span className="sr-only">Back</span>
+                            <ArrowLeft className="h-4 w-4"/><span className="sr-only">Back</span>
                         </Link>
                     </Button>
                     <h2 className="text-3xl font-bold tracking-tight">Quote: {quote.quoteNumber}</h2>
                  </div>
                  <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Save Changes'}</Button>
             </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Quote Details</CardTitle>
+            
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Project & Customer Information</CardTitle>
+                        <CardDescription>The core details this quote is linked to.</CardDescription>
+                    </div>
+                     {!isEditingHeader && <Button variant="outline" onClick={() => setIsEditingHeader(true)}><Pencil className="mr-2 h-4 w-4" /> Edit</Button>}
                 </CardHeader>
+                <CardContent className="space-y-4">
+                    {isEditingHeader ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="projectId" render={({ field }) => ( <FormItem><FormLabel>Project</FormLabel><SearchableCombobox options={projectOptions} {...field} placeholder="Select a project..." /></FormItem> )}/>
+                            <FormField control={form.control} name="customerId" render={({ field }) => ( <FormItem><FormLabel>Customer</FormLabel><SearchableCombobox options={customerOptions} {...field} placeholder="Select a customer..." /></FormItem> )}/>
+                            <FormField control={form.control} name="siteId" render={({ field }) => ( <FormItem><FormLabel>Site</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground"/><strong>Project:</strong> {project?.name || 'N/A'}</div>
+                            <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/><strong>Customer:</strong> {customer?.name || 'N/A'}</div>
+                            <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/><strong>Site:</strong> {site?.name || 'N/A'}</div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader><CardTitle>Quote Details</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Quote Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
@@ -235,78 +267,15 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <FormField control={form.control} name="quoteNumber" render={({ field }) => ( <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField
-                            control={form.control}
-                            name="quoteDate"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Quote Date</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            readOnly
-                                            value={field.value ? format(field.value, 'PPP') : 'N/A'}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <FormField control={form.control} name="quoteDate" render={({ field }) => ( <FormItem><FormLabel>Quote Date</FormLabel><FormControl><Input readOnly value={field.value ? format(field.value, 'PPP') : 'N/A'} /></FormControl><FormMessage /></FormItem> )}/>
                         <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
-                        <FormField control={form.control} name="expiryDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Expiry Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
                     </div>
                 </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                 <div className="space-y-2 rounded-lg border p-4">
-                    <h3 className="font-semibold leading-none tracking-tight">Customer Contacts</h3>
-                     <FormField
-                        control={control}
-                        name="projectContacts"
-                        render={({ field }) => (
-                            <FormItem>
-                            <Select onValueChange={field.onChange} value={(field.value as any)?.[0]?.contactId}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select contacts" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {projectContactOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                </div>
-                <div className="space-y-2 rounded-lg border p-4">
-                    <h3 className="font-semibold leading-none tracking-tight">Assigned Staff</h3>
-                     <FormField
-                        control={control}
-                        name="assignedStaff"
-                        render={({ field }) => (
-                            <FormItem>
-                            <Select onValueChange={field.onChange} value={(field.value as any)?.[0]?.employeeId}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select staff" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {employeeOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                </div>
-            </div>
-            
+            {/* ... Other cards remain the same ... */}
             <div className="space-y-4">
-                {/* Parts Card */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Parts & Materials</CardTitle>
@@ -350,7 +319,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </CardContent>
                 </Card>
 
-                 {/* Labour Card */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Labour & Services</CardTitle>
@@ -429,35 +397,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Totals & Summary</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
                 <CardContent>
                      <div className="flex justify-end">
                         <div className="w-full max-w-sm space-y-4">
-                            <div className="space-y-1 text-sm">
-                                <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-                                <div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div>
-                            </div>
+                            <div className="space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div></div>
                             <Separator />
                             <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
                             <Separator />
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                                <div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div>
-                                <div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div>
-                                <div className="flex justify-between"><span>Gross Margin</span>
-                                    <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span>
-                                </div>
-                            </div>
+                            <div className="space-y-1 text-xs text-muted-foreground"><div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div><div className="flex justify-between"><span>Gross Margin</span><span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span></div></div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Terms & Notes</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
                     <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage/></FormItem>)}/>
