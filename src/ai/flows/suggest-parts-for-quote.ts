@@ -65,7 +65,7 @@ export async function suggestPartsForQuote(
 
 const prompt = ai.definePrompt({
   name: 'suggestPartsForQuotePrompt',
-  input: { schema: SuggestPartsForQuoteInputSchema },
+  input: { schema: z.object({ prompt: z.string(), catalogue: z.string() }) },
   output: { schema: SuggestPartsForQuoteOutputSchema },
   prompt: `You are an expert parts estimator for a services business. Your task is to analyze a job description and suggest the required parts and quantities from a provided catalogue.
 
@@ -74,7 +74,7 @@ const prompt = ai.definePrompt({
 
 **Parts Catalogue:**
 \`\`\`json
-{{{json stringify=catalogue}}}
+{{{catalogue}}}
 \`\`\`
 
 **Instructions:**
@@ -96,7 +96,10 @@ const suggestPartsForQuoteFlow = ai.defineFlow(
     outputSchema: SuggestPartsForQuoteOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    const { output } = await prompt({
+        prompt: input.prompt,
+        catalogue: JSON.stringify(input.catalogue, null, 2),
+    });
     return output!;
   }
 );
