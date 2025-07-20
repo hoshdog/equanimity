@@ -1,3 +1,4 @@
+
 // src/app/projects/[id]/page.tsx
 'use client'
 
@@ -10,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare, GanttChartSquare, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getProject } from '@/lib/projects';
+import { getProject, getProjects } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
 import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -127,7 +128,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Project (Optional)</FormLabel>
+                                    <FormLabel>Project or Job</FormLabel>
                                     <SearchableCombobox
                                         options={projectOptions}
                                         value={field.value || ''}

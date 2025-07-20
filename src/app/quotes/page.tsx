@@ -1,3 +1,4 @@
+
 // src/app/quotes/page.tsx
 'use client';
 
@@ -110,7 +111,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create New Quote</DialogTitle>
-                    <DialogDescription>Select a project to link this quote to (optional). You can add details on the next screen.</DialogDescription>
+                    <DialogDescription>Select the project or job this quote is for. You can add details on the next screen.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -119,12 +120,13 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                             name="projectId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Project (Optional)</FormLabel>
+                                    <FormLabel>Project or Job</FormLabel>
                                     <SearchableCombobox
                                         options={projectOptions}
                                         value={field.value || ''}
                                         onChange={field.onChange}
-                                        placeholder="Select a project"
+                                        placeholder="Select a project or job"
+                                        disabled={!!initialProjectId}
                                     />
                                     <FormMessage />
                                 </FormItem>
