@@ -30,7 +30,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, Attachment } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download, Percent } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download, Percent, Clock, Timer } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -39,6 +39,7 @@ import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const lineItemSchema = z.object({
@@ -99,7 +100,42 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
+    const [timeSpent, setTimeSpent] = useState(0); // in seconds
+
     const { toast } = useToast();
+
+    // Time tracking effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                clearInterval(interval);
+            } else {
+                interval = setInterval(() => {
+                    setTimeSpent(prevTime => prevTime + 1);
+                }, 1000);
+            }
+        };
+
+        if (!loading) {
+            interval = setInterval(() => {
+                setTimeSpent(prevTime => prevTime + 1);
+            }, 1000);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [loading]);
+
+    const formatTime = (totalSeconds: number) => {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}m ${seconds}s`;
+    };
 
     const quotingProfile = useMemo(() => {
         return initialQuotingProfiles.find(p => p.id === quote?.quotingProfileId) || initialQuotingProfiles[0];
@@ -321,6 +357,64 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
     const siteOptions = useMemo(() => customerSites.map(s => ({ value: s.id, label: s.name })), [customerSites]);
+
+    const handleAddTime = (distribution: 'labour' | 'parts' | 'both') => {
+        if (timeSpent === 0) {
+            toast({ variant: 'destructive', title: 'No time to add' });
+            return;
+        }
+
+        const firstLaborRate = laborRateOptions[0];
+        if (!firstLaborRate) {
+            toast({ variant: 'destructive', title: 'No labor rates found', description: 'Please configure a labor rate in the quoting profile.' });
+            return;
+        }
+
+        const timeInHours = timeSpent / 3600;
+        const totalCostToAdd = timeInHours * firstLaborRate.calculatedCostRate;
+        const totalSellToAdd = timeInHours * firstLaborRate.standardRate;
+
+        if (distribution === 'labour') {
+            appendLineItem({
+                id: `item-${Date.now()}`,
+                type: 'Labour',
+                description: 'Quoting / Administration Time',
+                quantity: parseFloat(timeInHours.toFixed(2)),
+                unitCost: firstLaborRate.calculatedCostRate,
+                unitPrice: firstLaborRate.standardRate,
+                taxRate: 10,
+            });
+        } else {
+            let itemsToUpdate = lineItemsWatch;
+            if (distribution === 'parts') {
+                itemsToUpdate = lineItemsWatch.filter(item => item.type === 'Part');
+            }
+            if (itemsToUpdate.length === 0) {
+                toast({ variant: 'destructive', title: 'No items to distribute cost to' });
+                return;
+            }
+
+            const currentTotalCost = itemsToUpdate.reduce((sum, item) => sum + (item.unitCost || 0) * item.quantity, 0);
+            
+            itemsToUpdate.forEach((item, index) => {
+                const originalIndex = lineItemsWatch.findIndex(li => li.id === item.id);
+                const itemCost = (item.unitCost || 0) * item.quantity;
+                const proportion = itemCost / currentTotalCost;
+                const costToAdd = totalCostToAdd * proportion;
+                const newUnitCost = (item.unitCost || 0) + (costToAdd / item.quantity);
+                setValue(`lineItems.${originalIndex}.unitCost`, parseFloat(newUnitCost.toFixed(2)));
+
+                // Also update the sell price to maintain margin
+                const sellToAdd = totalSellToAdd * proportion;
+                const newUnitPrice = item.unitPrice + (sellToAdd / item.quantity);
+                setValue(`lineItems.${originalIndex}.unitPrice`, parseFloat(newUnitPrice.toFixed(2)));
+            });
+        }
+        
+        toast({ title: 'Time Added', description: `${formatTime(timeSpent)} has been added to the quote.` });
+        setTimeSpent(0); // Reset timer
+    };
+
     
     if (loading) return <div className="flex-1 p-8 pt-6 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
     if (!quote) return <div className="flex-1 p-8 pt-6"><h2>Quote not found</h2></div>;
@@ -478,36 +572,37 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-1 text-center">Markup</Label>
                             <Label className="col-span-1 text-center">Margin</Label>
                             <Label className="col-span-1 text-center">Sell</Label>
-                            <Label className="col-span-1 text-center">Total</Label>
+                            <Label className="col-span-1 text-center">Line Total</Label>
                         </div>
-                        {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
-                            const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                            if (lineItemFields[originalIndex].type !== 'Part') return null;
-                            const item = lineItemsWatch[originalIndex];
+                         {(!lineItemFields || lineItemFields.filter(item => item.type === 'Part').length === 0) ? (
+                            <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>
+                        ) : lineItemFields.map((field, index) => {
+                            if (field.type !== 'Part') return null;
+                            const item = lineItemsWatch[index];
                             const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
                             const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
                             return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.partNumber`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part #" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.partNumber`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part #" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                             <div className="col-span-1">
                                             <FormField
                                                 control={form.control}
-                                                name={`lineItems.${originalIndex}.markup`}
+                                                name={`lineItems.${index}.markup`}
                                                 render={({ field: markupField }) => {
-                                                    const unitCost = watch(`lineItems.${originalIndex}.unitCost`) || 0;
-                                                    const markupValue = unitCost > 0 ? ((watch(`lineItems.${originalIndex}.unitPrice`) - unitCost) / unitCost) * 100 : 0;
+                                                    const unitCost = watch(`lineItems.${index}.unitCost`) || 0;
+                                                    const markupValue = unitCost > 0 ? ((watch(`lineItems.${index}.unitPrice`) - unitCost) / unitCost) * 100 : 0;
                                                     return (
                                                             <FormItem><FormControl><div className="relative">
                                                             <Percent className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -518,7 +613,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                                 onChange={(e) => {
                                                                     const newMarkup = parseFloat(e.target.value);
                                                                     const newPrice = unitCost * (1 + newMarkup / 100);
-                                                                    setValue(`lineItems.${originalIndex}.unitPrice`, parseFloat(newPrice.toFixed(2)));
+                                                                    setValue(`lineItems.${index}.unitPrice`, parseFloat(newPrice.toFixed(2)));
                                                                 }}
                                                             />
                                                         </div></FormControl><FormMessage /></FormItem>
@@ -530,16 +625,16 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
                                         </div>
                                         <div className="col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-1 flex items-center justify-center font-semibold text-sm">
                                             <span>${lineTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
                             )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
+                        })}
                     </CardContent>
                      {partsSubtotal > 0 && (
                         <CardFooter className="justify-end font-semibold">
@@ -564,10 +659,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             <Label className="col-span-1 text-center">Margin</Label>
                             <Label className="col-span-2 text-center">Line Total</Label>
                         </div>
-                        {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
-                            const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
-                            if (lineItemFields[originalIndex].type !== 'Labour') return null;
-                            const item = lineItemsWatch[originalIndex];
+                        {(!lineItemFields || lineItemFields.filter(item => item.type === 'Labour').length === 0) ? (
+                            <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>
+                        ) : lineItemFields.map((field, index) => {
+                            if (field.type !== 'Labour') return null;
+                            const item = lineItemsWatch[index];
                             const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
                             const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
                             return (
@@ -576,7 +672,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <div className="col-span-4">
                                             <FormField
                                                 control={form.control}
-                                                name={`lineItems.${originalIndex}.description`}
+                                                name={`lineItems.${index}.description`}
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <Select
@@ -584,8 +680,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                                 field.onChange(value);
                                                                 const selectedRate = laborRateOptions.find(opt => opt.value === value);
                                                                 if (selectedRate) {
-                                                                    setValue(`lineItems.${originalIndex}.unitCost`, selectedRate.calculatedCostRate);
-                                                                    setValue(`lineItems.${originalIndex}.unitPrice`, selectedRate.standardRate);
+                                                                    setValue(`lineItems.${index}.unitCost`, selectedRate.calculatedCostRate);
+                                                                    setValue(`lineItems.${index}.unitPrice`, selectedRate.standardRate);
                                                                 }
                                                             }}
                                                             value={field.value}
@@ -609,13 +705,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             />
                                         </div>
                                         <div className="col-span-1">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-1 flex items-center justify-center text-xs p-2 rounded-md bg-background/50">
                                             <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
@@ -624,16 +720,44 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <span>${lineTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
                             )
-                        }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
+                        })}
                     </CardContent>
                      {labourSubtotal > 0 && (
                         <CardFooter className="justify-end font-semibold">
                             Labour Total: ${labourSubtotal.toFixed(2)}
                         </CardFooter>
                     )}
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" /> Time Tracker</CardTitle>
+                            <CardDescription>Bill for the time spent preparing this quote.</CardDescription>
+                        </div>
+                        <div className="text-2xl font-mono font-bold text-primary">{formatTime(timeSpent)}</div>
+                    </CardHeader>
+                    <CardContent>
+                        <RadioGroup defaultValue="labour" onValueChange={(value: 'labour' | 'parts' | 'both') => handleAddTime(value)}>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Label htmlFor="dist-labour" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <RadioGroupItem value="labour" id="dist-labour" className="sr-only"/>
+                                    Add as "Quoting" Labour
+                                </Label>
+                                <Label htmlFor="dist-parts" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <RadioGroupItem value="parts" id="dist-parts" className="sr-only"/>
+                                    Distribute to Parts
+                                </Label>
+                                <Label htmlFor="dist-both" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <RadioGroupItem value="both" id="dist-both" className="sr-only"/>
+                                    Distribute to Both
+                                </Label>
+                            </div>
+                        </RadioGroup>
+                    </CardContent>
                 </Card>
 
                 <Card>
@@ -761,3 +885,4 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+
