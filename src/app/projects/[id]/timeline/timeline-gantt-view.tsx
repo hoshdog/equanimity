@@ -6,7 +6,7 @@ import { TimelineItem } from '@/lib/types';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowRight, Circle, CheckCircle, Package } from 'lucide-react';
+import { ArrowRight, Circle, CheckCircle, Package, GanttChartSquare } from 'lucide-react';
 import { ItemFormDialog } from './item-form-dialog';
 
 interface TimelineGanttViewProps {
