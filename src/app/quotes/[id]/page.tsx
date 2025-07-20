@@ -36,6 +36,8 @@ import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Perc
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
+import { MultiSelect } from '@/components/ui/multi-select';
+
 
 const lineItemSchema = z.object({
     id: z.string(),
@@ -47,16 +49,6 @@ const lineItemSchema = z.object({
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
 
-const contactAssignmentSchema = z.object({
-    contactId: z.string().min(1, "Please select a contact."),
-    role: z.string().min(2, "Role is required."),
-});
-
-const staffAssignmentSchema = z.object({
-    employeeId: z.string().min(1, "Please select a staff member."),
-    role: z.string().min(2, "Role is required."),
-});
-
 const formSchema = z.object({
   quoteNumber: z.string().min(1, "Quote number is required."),
   name: z.string().min(3, "Quote name is required."),
@@ -66,8 +58,8 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required."),
-  projectContacts: z.array(contactAssignmentSchema).optional(),
-  assignedStaff: z.array(staffAssignmentSchema).optional(),
+  projectContactIds: z.array(z.string()).optional(),
+  assignedStaffIds: z.array(z.string()).optional(),
   paymentTerms: z.string().optional(),
   validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -100,8 +92,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const { control } = form;
 
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
-    const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({ control, name: "projectContacts" });
-    const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({ control, name: "assignedStaff" });
     
     useEffect(() => {
         if (!quoteId) return;
@@ -127,6 +117,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     quoteDate: quoteData.quoteDate?.toDate() || new Date(),
                     dueDate: quoteData.dueDate?.toDate() || new Date(),
                     expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
+                    projectContactIds: quoteData.projectContactIds || [],
+                    assignedStaffIds: quoteData.assignedStaffIds || [],
                 });
                 if (quoteData.lineItems) {
                     replaceLineItems(quoteData.lineItems);
@@ -241,39 +233,41 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Customer Contacts</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
-                        {contactFields.map((field, index) => (
-                          <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
-                            <div className="grid grid-cols-2 gap-2 flex-1">
-                                <FormField control={control} name={`projectContacts.${index}.contactId`} render={({ field: contactField }) => (
-                                    <FormItem><SearchableCombobox options={projectContactOptions} value={contactField.value} onChange={contactField.onChange} placeholder="Select Contact..." /></FormItem>
-                                )}/>
-                                 <FormField control={control} name={`projectContacts.${index}.role`} render={({ field: roleField }) => (
-                                    <FormItem><Input placeholder="Role on quote" {...roleField} /></FormItem>
-                                )}/>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </div>
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Contact</Button>
+                       <FormField
+                          control={form.control}
+                          name="projectContactIds"
+                          render={({ field }) => (
+                            <FormItem>
+                                <MultiSelect
+                                    options={projectContactOptions}
+                                    selected={projectContactOptions.filter(opt => field.value?.includes(opt.value))}
+                                    onChange={(selected) => field.onChange(selected.map(s => s.value))}
+                                    placeholder="Select contacts for this quote..."
+                                />
+                                <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                     </CardContent>
                 </Card>
                  <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Assigned Staff</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
-                        {staffFields.map((field, index) => (
-                          <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
-                            <div className="grid grid-cols-2 gap-2 flex-1">
-                                <FormField control={control} name={`assignedStaff.${index}.employeeId`} render={({ field: staffField }) => (
-                                    <FormItem><SearchableCombobox options={employeeOptions} value={staffField.value} onChange={staffField.onChange} placeholder="Select Staff..." /></FormItem>
-                                )}/>
-                                 <FormField control={control} name={`assignedStaff.${index}.role`} render={({ field: roleField }) => (
-                                    <FormItem><Input placeholder="Role on quote" {...roleField} /></FormItem>
-                                )}/>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </div>
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Staff</Button>
+                         <FormField
+                          control={form.control}
+                          name="assignedStaffIds"
+                          render={({ field }) => (
+                            <FormItem>
+                                <MultiSelect
+                                    options={employeeOptions}
+                                    selected={employeeOptions.filter(opt => field.value?.includes(opt.value))}
+                                    onChange={(selected) => field.onChange(selected.map(s => s.value))}
+                                    placeholder="Select staff for this quote..."
+                                />
+                                <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                     </CardContent>
                 </Card>
             </div>
