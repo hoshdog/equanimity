@@ -46,7 +46,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     const isTimerActiveRef = useRef(isTimerActive);
     isTimerActiveRef.current = isTimerActive;
 
-
     const pauseTimer = useCallback(() => {
         setIsTimerActive(false);
         if (intervalRef.current) {
@@ -72,7 +71,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
 
     const handleActivity = useCallback(() => {
         if (document.visibilityState === 'visible') {
-            // Use the ref to get the current state without adding it as a dependency
             if (!isTimerActiveRef.current) {
                 startTimer();
             }
@@ -81,49 +79,70 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     }, [startTimer, resetInactivityTimer]);
 
 
+    // This effect runs when the context changes.
+    // It's responsible for saving the time from the *previous* context
+    // and setting up the timer for the *new* context.
+    useEffect(() => {
+        const previousContextKey = context ? `${context.type}-${context.id}` : null;
+        
+        // This function will be called on cleanup, which happens just before
+        // the effect runs for the next context, or when the component unmounts.
+        return () => {
+            // If there was a previous context and time was tracked, log it.
+            if (previousContextKey && timeStore.current[previousContextKey] > 0) {
+                 logTime(timeStore.current[previousContextKey], context!);
+                 // Clear the stored time after logging.
+                 timeStore.current[previousContextKey] = 0;
+            }
+
+            // Cleanup for the current context
+            pauseTimer();
+            window.removeEventListener('mousemove', handleActivity);
+            window.removeEventListener('keydown', handleActivity);
+            document.removeEventListener('visibilitychange', handleActivity);
+            if (inactivityTimerRef.current) {
+                clearTimeout(inactivityTimerRef.current);
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [context]); // This effect now ONLY runs when the context itself changes.
+
+    // This effect manages the current time being tracked in the local state and ref store.
     useEffect(() => {
         if (context) {
             const contextKey = `${context.type}-${context.id}`;
+            // Load saved time for this context or default to 0
             setTimeSpent(timeStore.current[contextKey] || 0);
-            
-            handleActivity();
 
+             // Set up activity listeners for the new context
+            handleActivity();
             window.addEventListener('mousemove', handleActivity);
             window.addEventListener('keydown', handleActivity);
             document.addEventListener('visibilitychange', handleActivity);
-
-            return () => {
-                timeStore.current[contextKey] = timeSpent;
-                pauseTimer();
-                window.removeEventListener('mousemove', handleActivity);
-                window.removeEventListener('keydown', handleActivity);
-                document.removeEventListener('visibilitychange', handleActivity);
-                 if (inactivityTimerRef.current) {
-                    clearTimeout(inactivityTimerRef.current);
-                }
-            };
         } else {
-            pauseTimer();
-            setTimeSpent(0);
+             setTimeSpent(0);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [context]); // This effect should ONLY run when the context changes.
+
+    }, [context, handleActivity]);
+
+    // Update the time store ref whenever timeSpent changes
+    useEffect(() => {
+        if (context) {
+            const contextKey = `${context.type}-${context.id}`;
+            timeStore.current[contextKey] = timeSpent;
+        }
+    }, [timeSpent, context]);
 
 
-    const logTime = async (): Promise<number> => {
+    const logTime = async (durationInSeconds: number, contextToLog: TrackableContext): Promise<number> => {
         const user = auth.currentUser;
-        if (timeSpent < 1 || !user || !context) {
-            toast({ variant: 'destructive', title: 'Cannot log time', description: 'No time has been tracked.' });
+        if (durationInSeconds < 1 || !user || !contextToLog) {
             return 0;
-        }
-
-        if (isTimerActive) {
-            pauseTimer();
         }
 
         const MINUTE_BLOCK = 5;
         const totalSecondsInBlock = MINUTE_BLOCK * 60;
-        const billedSeconds = Math.ceil(timeSpent / totalSecondsInBlock) * totalSecondsInBlock;
+        const billedSeconds = Math.ceil(durationInSeconds / totalSecondsInBlock) * totalSecondsInBlock;
         const timeInHours = billedSeconds / 3600;
 
         try {
@@ -131,18 +150,13 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
                 userId: user.uid,
                 date: new Date(),
                 durationHours: timeInHours,
-                notes: `Work on ${context.type}: ${context.name}`,
-                jobId: `${context.type.toUpperCase()}-${context.id}`,
+                notes: `Work on ${contextToLog.type}: ${contextToLog.name}`,
+                jobId: `${contextToLog.type.toUpperCase()}-${contextToLog.id}`,
                 isBillable: true,
             });
             
-            toast({ title: 'Time Logged', description: `${(billedSeconds/60).toFixed(0)} minutes logged to your timesheet.` });
+            toast({ title: 'Time Logged Automatically', description: `${(billedSeconds/60).toFixed(0)} minutes logged to your timesheet for ${contextToLog.name}.` });
             
-            // Reset time for this context
-            const contextKey = `${context.type}-${context.id}`;
-            timeStore.current[contextKey] = 0;
-            setTimeSpent(0);
-
             return timeInHours;
         } catch (error) {
             console.error("Failed to log time:", error);
@@ -151,12 +165,21 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         }
     };
     
+    // A function to manually trigger logging, though it won't be used if the button is removed.
+    // Kept for potential future use or for other parts of the app.
+    const manualLogTime = async (): Promise<number> => {
+        if (isTimerActive) {
+            pauseTimer();
+        }
+        return logTime(timeSpent, context);
+    }
+    
     const value = {
         timeSpent,
         isTimerActive,
         context,
         setContext,
-        logTime,
+        logTime: manualLogTime,
     };
 
     return (

@@ -111,7 +111,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
-    const { setContext, logTime } = useTimeTracker();
+    const { setContext } = useTimeTracker();
     const { setDynamicTitle } = useBreadcrumb();
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
@@ -366,28 +366,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             }
         }
     };
-    
-    const handleAddLoggedTimeToQuote = async () => {
-        const loggedHours = await logTime(); // This now returns the duration in hours
-        if (loggedHours && loggedHours > 0) {
-            const firstLaborRate = laborRateOptions[0];
-            if (!firstLaborRate) {
-                toast({ variant: 'destructive', title: 'No Labor Rate', description: 'Cannot add time, no labor rates defined in profile.' });
-                return;
-            }
-            appendLineItem({
-                id: `labor-${Date.now()}`,
-                type: 'Labour',
-                description: 'Quoting & Administration',
-                quantity: loggedHours,
-                unitCost: firstLaborRate.calculatedCostRate,
-                unitPrice: firstLaborRate.standardRate,
-                taxRate: 10,
-            });
-            toast({ title: "Time Added", description: `Added ${loggedHours.toFixed(2)} hours to the quote.` });
-        }
-    };
-
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
@@ -717,14 +695,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 )
                             })}
                         </CardContent>
-                         <CardFooter className="justify-between items-center">
-                            <Button type="button" variant="outline" size="sm" onClick={handleAddLoggedTimeToQuote}><PlusCircle className="mr-2 h-4 w-4" /> Add Logged Time</Button>
-                            {labourSubtotal > 0 && (
-                                <div className="font-semibold">
-                                    Labour Total: ${labourSubtotal.toFixed(2)}
-                                </div>
-                            )}
-                        </CardFooter>
+                         {labourSubtotal > 0 && (
+                            <CardFooter className="justify-end font-semibold">
+                                Labour Total: ${labourSubtotal.toFixed(2)}
+                            </CardFooter>
+                        )}
                     </Card>
 
                     <Card>

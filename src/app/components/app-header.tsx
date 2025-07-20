@@ -66,7 +66,6 @@ function GlobalTimeTracker() {
         timeSpent,
         isTimerActive,
         context,
-        logTime,
     } = useTimeTracker();
 
     const formatTime = (totalSeconds: number) => {
@@ -76,21 +75,19 @@ function GlobalTimeTracker() {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    const handleLogTime = () => {
-        logTime();
-    };
+    if (!context) {
+        return null;
+    }
 
     return (
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div className="flex items-center gap-3">
-                        {context && (
-                             <div className="text-right">
-                                <p className="text-sm font-medium leading-none">{context.name}</p>
-                                <p className="text-xs text-muted-foreground">Tracking time</p>
-                            </div>
-                        )}
+                        <div className="text-right">
+                           <p className="text-sm font-medium leading-none">{context.name}</p>
+                           <p className="text-xs text-muted-foreground">Tracking time</p>
+                        </div>
                         <Badge
                             variant={isTimerActive ? 'default' : 'secondary'}
                             className={cn(
@@ -101,31 +98,20 @@ function GlobalTimeTracker() {
                             <Timer className="h-4 w-4 mr-1.5" />
                             {formatTime(timeSpent)}
                         </Badge>
-                        
-                        {context && (
-                           <Button onClick={handleLogTime} size="sm" disabled={timeSpent < 1}>
-                                Log Time
-                            </Button>
-                        )}
-                        
                     </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                    {context ? (
-                        <div>
-                            <p>
-                                Automatically tracking time for: <span className="font-semibold">{context.name}</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {isTimerActive 
-                                    ? "Timer is active. It will pause after 5 mins of inactivity."
-                                    : "Timer is paused. Move your mouse or type to resume."
-                                }
-                            </p>
-                        </div>
-                    ) : (
-                        <p>Navigate to a project, job, or quote to start tracking time.</p>
-                    )}
+                    <div>
+                        <p>
+                            Automatically tracking time for: <span className="font-semibold">{context.name}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {isTimerActive 
+                                ? "Timer is active. It will pause after 5 mins of inactivity."
+                                : "Timer is paused. Move your mouse or type to resume."
+                            }
+                        </p>
+                    </div>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
