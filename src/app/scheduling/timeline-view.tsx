@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScheduleEvent, Resource, Project } from './data';
-import { format, differenceInDays, startOfWeek, addDays, eachDayOfInterval, startOfMonth, endOfMonth, addMonths } from 'date-fns';
+import { format, differenceInDays, startOfWeek, addDays, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -21,6 +21,7 @@ interface TimelineViewProps {
   events: ScheduleEvent[];
   resources: Resource[];
   projects: Project[];
+  onEventUpdate: (event: ScheduleEvent) => void;
 }
 
 type TimelineViewMode = 'week' | 'month';
@@ -35,7 +36,7 @@ const getEventTypeClass = (event: ScheduleEvent) => {
   return 'bg-primary/80 hover:bg-primary';
 };
 
-export function TimelineView({ events, resources, projects }: TimelineViewProps) {
+export function TimelineView({ events, resources, projects, onEventUpdate }: TimelineViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<TimelineViewMode>('week');
 
@@ -66,6 +67,34 @@ export function TimelineView({ events, resources, projects }: TimelineViewProps)
       return { intervalStart: start, dateHeaders: headers };
     }
   }, [currentDate, viewMode]);
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, event: ScheduleEvent) => {
+      e.dataTransfer.setData('application/json', JSON.stringify(event));
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, resourceId: string, dayIndex: number) => {
+      e.preventDefault();
+      const eventData = e.dataTransfer.getData('application/json');
+      if (!eventData) return;
+      const droppedEvent: ScheduleEvent = JSON.parse(eventData);
+
+      const durationDays = differenceInDays(droppedEvent.end, droppedEvent.start);
+      const newStartDate = addDays(intervalStart, dayIndex);
+      const newEndDate = addDays(newStartDate, durationDays);
+
+      onEventUpdate({
+        ...droppedEvent,
+        resourceId,
+        start: newStartDate,
+        end: newEndDate
+      });
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+  };
 
   return (
     <Card>
@@ -120,8 +149,17 @@ export function TimelineView({ events, resources, projects }: TimelineViewProps)
                                     <div className="p-2 border-r text-sm text-muted-foreground pl-6 sticky left-0 z-10 bg-background group-hover:bg-accent/20">
                                         {resource?.title}
                                     </div>
-                                    <div className="relative col-span-1 h-10" style={{ gridColumn: `span ${dateHeaders.length}`}}>
-                                        {resourceEvents.map(event => {
+                                    <div 
+                                      className="relative col-span-1 h-10 grid" 
+                                      style={{ gridColumn: `span ${dateHeaders.length}`, gridTemplateColumns: `repeat(${dateHeaders.length}, 1fr)`}}
+                                    >
+                                      {/* Drop targets */}
+                                      {dateHeaders.map((_, index) => (
+                                          <div key={index} onDrop={(e) => handleDrop(e, resourceId, index)} onDragOver={handleDragOver} className="h-full"></div>
+                                      ))}
+
+                                      {/* Events */}
+                                      {resourceEvents.map(event => {
                                             const offset = differenceInDays(event.start, intervalStart);
                                             const duration = differenceInDays(event.end, event.start) + 1;
                                             
@@ -140,6 +178,8 @@ export function TimelineView({ events, resources, projects }: TimelineViewProps)
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <div 
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, event)}
                                                                 className={cn("absolute my-2 rounded-sm text-white text-xs p-1 cursor-pointer truncate", getEventTypeClass(event))}
                                                                 style={{
                                                                     left: `calc(${(100 / dateHeaders.length) * displayOffset}% + 2px)`,

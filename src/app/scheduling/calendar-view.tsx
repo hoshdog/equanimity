@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronLeft, ChevronRight, Briefcase, Plane } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, setHours, setMinutes, differenceInMinutes, getHours } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, setHours, setMinutes, differenceInMinutes, getHours, differenceInDays } from 'date-fns';
 import { ScheduleEvent, Resource } from './data';
 import { cn } from '@/lib/utils';
 import {
@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/tooltip"
 import { Calendar } from '@/components/ui/calendar';
 
-
 interface CalendarViewProps {
   events: ScheduleEvent[];
   resources: Resource[];
+  onEventUpdate: (event: ScheduleEvent) => void;
 }
 
 const getEventColor = (event: ScheduleEvent) => {
@@ -33,11 +33,20 @@ const getEventColor = (event: ScheduleEvent) => {
 }
 
 function EventCard({ event, resource }: { event: ScheduleEvent, resource?: Resource }) {
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+      e.dataTransfer.setData('application/json', JSON.stringify(event));
+      e.dataTransfer.effectAllowed = 'move';
+    };
+
     return (
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <div className={cn("rounded-md p-2 text-xs border w-full overflow-hidden truncate", getEventColor(event))}>
+                    <div 
+                        draggable 
+                        onDragStart={handleDragStart}
+                        className={cn("rounded-md p-2 text-xs border w-full overflow-hidden truncate cursor-grab", getEventColor(event))}
+                    >
                        <div className="flex items-center gap-1.5 font-semibold">
                             {event.type === 'leave' ? <Plane className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
                             <span>{event.title}</span>
@@ -56,11 +65,30 @@ function EventCard({ event, resource }: { event: ScheduleEvent, resource?: Resou
     )
 }
 
-function DayView({ currentDate, events, resources }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[] }) {
+function DayView({ currentDate, events, resources, onEventUpdate }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[], onEventUpdate: (event: ScheduleEvent) => void }) {
     const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
     const ROW_HEIGHT = 60;
 
     const dayEvents = events.filter(event => isSameDay(event.start, currentDate));
+    
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, hour: number) => {
+        e.preventDefault();
+        const eventData = e.dataTransfer.getData('application/json');
+        if (!eventData) return;
+        const droppedEvent: ScheduleEvent = JSON.parse(eventData);
+        
+        const durationMinutes = differenceInMinutes(droppedEvent.end, droppedEvent.start);
+        const newStart = setMinutes(setHours(currentDate, hour), 0);
+        const newEnd = addDays(newStart, durationMinutes / (60 * 24));
+
+        onEventUpdate({ ...droppedEvent, start: newStart, end: newEnd });
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
 
     return (
       <div className="grid grid-cols-[auto_1fr] border-t border-l">
@@ -86,7 +114,12 @@ function DayView({ currentDate, events, resources }: { currentDate: Date, events
           <div className="border-r relative">
             {/* Background hour lines */}
             {hours.map(hour => (
-              <div key={`line-${currentDate.toString()}-${hour}`} className="h-[60px] border-b"></div>
+              <div 
+                key={`line-${currentDate.toString()}-${hour}`} 
+                className="h-[60px] border-b"
+                onDrop={(e) => handleDrop(e, hour)}
+                onDragOver={handleDragOver}
+              ></div>
             ))}
             
             {/* Events */}
@@ -118,19 +151,34 @@ function DayView({ currentDate, events, resources }: { currentDate: Date, events
     );
 }
 
-function WeekView({ currentDate, events, resources }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[] }) {
+function WeekView({ currentDate, events, resources, onEventUpdate }: { currentDate: Date, events: ScheduleEvent[], resources: Resource[], onEventUpdate: (event: ScheduleEvent) => void }) {
     const weekDays = eachDayOfInterval({
         start: startOfWeek(currentDate, { weekStartsOn: 1 }),
         end: endOfWeek(currentDate, { weekStartsOn: 1 }),
     });
 
     const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
-
-    const getEventsForDay = (day: Date) => {
-        return events.filter(event => isSameDay(event.start, day));
-    };
     
     const ROW_HEIGHT = 60; 
+
+     const handleDrop = (e: React.DragEvent<HTMLDivElement>, day: Date, hour: number) => {
+        e.preventDefault();
+        const eventData = e.dataTransfer.getData('application/json');
+        if (!eventData) return;
+        const droppedEvent: ScheduleEvent = JSON.parse(eventData);
+
+        const durationMinutes = differenceInMinutes(droppedEvent.end, droppedEvent.start);
+        const newStart = setMinutes(setHours(day, hour), 0);
+        const newEnd = addDays(newStart, durationMinutes / (60 * 24));
+        
+        onEventUpdate({ ...droppedEvent, start: newStart, end: newEnd });
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
 
     return (
       <div className="grid grid-cols-[auto_1fr] border-t border-l">
@@ -156,12 +204,17 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
 
           {/* Day Cells */}
           {weekDays.map(day => {
-            const dayEvents = getEventsForDay(day);
+            const dayEvents = events.filter(event => isSameDay(event.start, day));
             return (
               <div key={day.toString()} className="border-r relative">
                 {/* Background hour lines */}
                 {hours.map(hour => (
-                  <div key={`line-${day.toString()}-${hour}`} className="h-[60px] border-b"></div>
+                  <div 
+                    key={`line-${day.toString()}-${hour}`} 
+                    className="h-[60px] border-b"
+                    onDrop={(e) => handleDrop(e, day, hour)}
+                    onDragOver={handleDragOver}
+                    ></div>
                 ))}
                 
                 {/* Events */}
@@ -196,7 +249,7 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
 }
 
 
-export function CalendarView({ events, resources }: CalendarViewProps) {
+export function CalendarView({ events, resources, onEventUpdate }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
 
@@ -209,6 +262,24 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
     } else {
       setCurrentDate(addMonths(currentDate, amount));
     }
+  };
+
+  const handleDropOnMonthDay = (e: React.DragEvent<HTMLDivElement>, date: Date) => {
+    e.preventDefault();
+    const eventData = e.dataTransfer.getData('application/json');
+    if (!eventData) return;
+    const droppedEvent: ScheduleEvent = JSON.parse(eventData);
+
+    const durationDays = differenceInDays(droppedEvent.end, droppedEvent.start);
+    const newStart = date;
+    const newEnd = addDays(newStart, durationDays);
+
+    onEventUpdate({ ...droppedEvent, start: newStart, end: newEnd });
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   return (
@@ -232,9 +303,9 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
       </CardHeader>
       <CardContent>
         {viewMode === 'week' ? (
-          <WeekView currentDate={currentDate} events={events} resources={resources} />
+          <WeekView currentDate={currentDate} events={events} resources={resources} onEventUpdate={onEventUpdate} />
         ) : viewMode === 'day' ? (
-           <DayView currentDate={currentDate} events={events} resources={resources} />
+           <DayView currentDate={currentDate} events={events} resources={resources} onEventUpdate={onEventUpdate} />
         ) : (
           <Calendar
             mode="single"
@@ -247,12 +318,17 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
               months: 'flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 p-3',
               month: 'space-y-4 w-full',
               caption: 'hidden',
+              head_cell: "w-full text-muted-foreground rounded-md font-normal text-[0.8rem]",
             }}
             components={{
               DayContent: ({ date, ...props }) => {
                 const dayEvents = events.filter(e => isSameDay(e.start, date));
                 return (
-                  <div className={cn("flex flex-col h-full w-full justify-start items-stretch p-1 space-y-0.5 overflow-hidden", props.className)}>
+                  <div 
+                    onDrop={(e) => handleDropOnMonthDay(e, date)}
+                    onDragOver={handleDragOver}
+                    className={cn("flex flex-col h-full w-full justify-start items-stretch p-1 space-y-0.5 overflow-hidden", props.className)}
+                  >
                      <span className="self-end pr-2 text-sm">{date.getDate()}</span>
                     <div className="flex flex-col gap-1 overflow-y-auto">
                         {dayEvents.map(event => (
