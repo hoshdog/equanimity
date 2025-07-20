@@ -16,7 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { EmployeeFormDialog } from '../employee-form-dialog';
 
 
-export default function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function EmployeeProfilePage({ params }: { params: { id: string } }) {
     const { id } = use(params);
     const [employee, setEmployee] = useState<Employee | null>(null);
     const [loading, setLoading] = useState(true);
