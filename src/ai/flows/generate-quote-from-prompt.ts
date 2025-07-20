@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-quote-from-prompt.ts
 'use server';
 /**
@@ -15,6 +16,19 @@ const GenerateQuoteFromPromptInputSchema = z.object({
   prompt: z
     .string()
     .describe('A prompt describing the job for which to generate a quote.'),
+  uploadedDocuments: z
+    .array(
+      z.object({
+        dataUri: z
+          .string()
+          .describe(
+            "A document (plan, RFQ, etc.) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+          ),
+        fileName: z.string(),
+      })
+    )
+    .optional()
+    .describe('An array of uploaded documents for context.'),
   desiredMargin: z
     .number()
     .min(0)
@@ -100,6 +114,15 @@ Your task is to generate a detailed and professional quote based on a job descri
 
 Job Description:
 "{{{prompt}}}"
+
+{{#if uploadedDocuments}}
+**Reference Documents:**
+Analyze the following documents for additional context:
+{{#each uploadedDocuments}}
+- Document: {{{this.fileName}}}
+  {{media url=this.dataUri}}
+{{/each}}
+{{/if}}
 
 Business Rules:
 - Desired Profit Margin: {{{desiredMargin}}}%

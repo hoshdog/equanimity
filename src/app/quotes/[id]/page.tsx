@@ -30,7 +30,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -79,6 +79,10 @@ const formSchema = z.object({
 
 type QuoteFormValues = z.infer<typeof formSchema>;
 
+interface UploadedFile {
+    fileName: string;
+    dataUri: string;
+}
 
 function AIAssistant({
     onGenerationComplete,
@@ -88,17 +92,47 @@ function AIAssistant({
     const [aiPrompt, setAiPrompt] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
     const { toast } = useToast();
     
     const selectedProfile = useMemo(() => {
         return initialQuotingProfiles.find(p => p.id === selectedProfileId) || initialQuotingProfiles[0];
     }, [selectedProfileId]);
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files) return;
+
+        const filePromises = Array.from(files).map(file => {
+            return new Promise<UploadedFile>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    resolve({ fileName: file.name, dataUri: e.target?.result as string });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        });
+        
+        Promise.all(filePromises).then(newFiles => {
+            setUploadedFiles(prev => [...prev, ...newFiles]);
+        }).catch(err => {
+            console.error(err);
+            toast({ variant: 'destructive', title: 'Error reading file' });
+        });
+    };
+    
+    const removeFile = (fileName: string) => {
+        setUploadedFiles(prev => prev.filter(f => f.fileName !== fileName));
+    };
+
 
     const handleGenerateQuote = async () => {
         setLoading(true);
         try {
             const result = await generateQuoteFromPrompt({
                 prompt: aiPrompt,
+                uploadedDocuments: uploadedFiles,
                 desiredMargin: selectedProfile.defaults.desiredMargin,
                 overheadCost: 50, // This could be a configurable value
                 callOutFee: selectedProfile.defaults.callOutFee,
@@ -124,7 +158,7 @@ function AIAssistant({
                     <Wand2 className="h-5 w-5 text-primary" />
                     AI Assistant
                 </CardTitle>
-                <CardDescription>Generate the entire quote from a single prompt.</CardDescription>
+                <CardDescription>Generate the entire quote from a single prompt and supporting documents.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="space-y-2">
@@ -145,7 +179,34 @@ function AIAssistant({
                     <Textarea id="ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g., Supply and install 10 new downlights in the kitchen..." rows={5} />
                     <FormDescription>The more detail you provide, the more accurate the generated quote will be.</FormDescription>
                 </div>
-                <Button type="button" onClick={handleGenerateQuote} disabled={loading || !aiPrompt} className="w-full">
+                <div className="space-y-2">
+                    <Label>Attach Documents (Optional)</Label>
+                    <div className="flex items-center gap-2">
+                        <Button asChild variant="outline" className="w-full">
+                            <label htmlFor="file-upload" className="cursor-pointer">
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload RFQ, Plans, etc.
+                            </label>
+                        </Button>
+                        <Input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
+                    </div>
+                     {uploadedFiles.length > 0 && (
+                        <div className="space-y-1 pt-2">
+                            {uploadedFiles.map(file => (
+                                <div key={file.fileName} className="flex items-center justify-between text-xs p-1 rounded-md bg-secondary/50">
+                                    <span className="flex items-center gap-2 truncate">
+                                        <Paperclip className="h-3 w-3" />
+                                        {file.fileName}
+                                    </span>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(file.fileName)}>
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <Button type="button" onClick={handleGenerateQuote} disabled={loading || (!aiPrompt && uploadedFiles.length === 0)} className="w-full">
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                     Generate Quote
                 </Button>
@@ -303,9 +364,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         setAiSuggestions(output);
     };
 
-    const isItemLabor = (item: GenerateQuoteFromPromptOutput['lineItems'][number]) => {
-        if ((item.type as string) === 'Labour') return true;
-        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout'];
+    const isItemLabor = (item: { description: string }) => {
+        const laborKeywords = ['labor', 'labour', 'technician', 'engineer', 'developer', 'consultant', 'hours', 'hrs', 'service', 'installation', 'support', 'call-out', 'callout', 'safety check'];
         return laborKeywords.some(keyword => item.description.toLowerCase().includes(keyword));
     }
     
