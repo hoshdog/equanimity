@@ -22,8 +22,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ProjectFormDialog } from './project-form-dialog';
 import type { Project, Customer } from '@/lib/types';
-import { getProjects } from '@/lib/projects';
+import { getProjects, subscribeToProjects } from '@/lib/projects';
 import { getCustomers } from '@/lib/customers';
+import { onSnapshot, query, collection, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
@@ -38,28 +40,36 @@ export default function ProjectsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const [projectsData, customersData] = await Promise.all([
-          getProjects(),
-          getCustomers(),
-        ]);
+    // Subscribe to real-time project updates
+    const q = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
         setProjects(projectsData);
-        setCustomers(customersData);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-        // Handle error toast if needed
-      } finally {
         setLoading(false);
-      }
+    }, (error) => {
+        console.error("Failed to subscribe to projects:", error);
+        setLoading(false);
+    });
+
+    // Fetch customers once
+    async function fetchCustomers() {
+        try {
+            const customersData = await getCustomers();
+            setCustomers(customersData);
+        } catch (error) {
+            console.error("Failed to fetch customers:", error);
+        }
     }
-    fetchData();
+    fetchCustomers();
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
 
   const handleProjectCreated = (newProject: Project) => {
-    setProjects(prev => [newProject, ...prev]);
+    // Real-time listener will handle this automatically
+    // setProjects(prev => [newProject, ...prev]);
   };
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
@@ -164,13 +174,13 @@ export default function ProjectsPage() {
                          <div className="flex items-center -space-x-2">
                             <TooltipProvider>
                             {project.assignedStaff?.map(staff => (
-                                <Tooltip key={staff.value}>
+                                <Tooltip key={staff.employeeId}>
                                     <TooltipTrigger asChild>
                                         <Avatar className="h-8 w-8 border-2 border-background">
-                                            <AvatarFallback>{staff.label.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback>{staff.role.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                     </TooltipTrigger>
-                                    <TooltipContent>{staff.label}</TooltipContent>
+                                    <TooltipContent>{staff.role}</TooltipContent>
                                 </Tooltip>
                             ))}
                             </TooltipProvider>
@@ -201,13 +211,13 @@ export default function ProjectsPage() {
                              <div className="flex items-center -space-x-2">
                                 <TooltipProvider>
                                 {project.assignedStaff?.map(staff => (
-                                    <Tooltip key={staff.value}>
+                                    <Tooltip key={staff.employeeId}>
                                         <TooltipTrigger asChild>
                                             <Avatar className="h-8 w-8 border-2 border-background">
-                                                <AvatarFallback>{staff.label.charAt(0)}</AvatarFallback>
+                                                <AvatarFallback>{staff.role.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                         </TooltipTrigger>
-                                        <TooltipContent>{staff.label}</TooltipContent>
+                                        <TooltipContent>{staff.role}</TooltipContent>
                                     </Tooltip>
                                 ))}
                                 </TooltipProvider>
@@ -229,5 +239,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-
-    

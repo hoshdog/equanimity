@@ -1,4 +1,4 @@
-
+// src/app/customers/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -45,9 +45,10 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
-import { getCustomers, updateCustomer, deleteCustomer, addCustomer } from '@/lib/customers';
+import { updateCustomer, deleteCustomer, addCustomer } from '@/lib/customers';
 import type { Customer } from '@/lib/types';
-
+import { onSnapshot, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const customerFormSchema = z.object({
     id: z.string().optional(),
@@ -84,19 +85,17 @@ export default function CustomersPage() {
     });
 
     useEffect(() => {
-        async function fetchCustomers() {
-            setLoading(true);
-            try {
-                const customersData = await getCustomers();
-                setCustomers(customersData);
-            } catch (error) {
-                console.error("Failed to fetch customers:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load customers.' });
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchCustomers();
+      const unsubscribe = onSnapshot(collection(db, 'customers'), (snapshot) => {
+        const customersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+        setCustomers(customersData);
+        setLoading(false);
+      }, (error) => {
+        console.error("Failed to fetch customers:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load customers.' });
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
     }, [toast]);
     
     useEffect(() => {
@@ -112,7 +111,7 @@ export default function CustomersPage() {
         try {
             if (editingCustomer) { // Editing existing customer
                 await updateCustomer(editingCustomer.id, values);
-                setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...c, ...values } : c));
+                // No need to update state manually, listener will do it.
                 toast({ title: "Customer Updated", description: `${values.name} has been updated.` });
             } else { // Adding new customer
                 const newCustomerData = {
@@ -126,8 +125,7 @@ export default function CustomersPage() {
                 const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone] };
                 const initialSite = { name: 'Main Site', address: values.address };
                 
-                const { customerId } = await addCustomer(newCustomerData, initialContact, initialSite);
-                setCustomers([...customers, { id: customerId, ...newCustomerData }]);
+                await addCustomer(newCustomerData, initialContact, initialSite);
                 toast({ title: "Customer Added", description: `${values.name} has been added.` });
             }
         } catch (error) {
@@ -163,7 +161,6 @@ export default function CustomersPage() {
         setLoading(true);
         try {
             await deleteCustomer(customerId);
-            setCustomers(customers.filter(c => c.id !== customerId));
             toast({ title: "Customer Deleted", variant: "destructive", description: "The customer has been deleted."})
         } catch (error) {
             console.error("Failed to delete customer", error);
@@ -353,5 +350,3 @@ export default function CustomersPage() {
     </div>
   );
 }
-
-    

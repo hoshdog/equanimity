@@ -11,10 +11,6 @@ import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2
 import { Badge } from "@/components/ui/badge";
 import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
-import { getJobsForProject } from '@/lib/jobs';
-import { getQuotesForProject } from '@/lib/quotes';
-import { getPurchaseOrdersForProject } from '@/lib/purchase-orders';
-import { getEmployees } from '@/lib/employees';
 import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
@@ -22,6 +18,9 @@ import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
 import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getEmployees } from '@/lib/employees';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -76,36 +75,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchData() {
-        if (!projectId) return;
-        setLoading(true);
-        try {
-            const [projectData, employeesData, jobsData, quotesData, poData] = await Promise.all([
-                getProject(projectId),
-                getEmployees(),
-                getJobsForProject(projectId),
-                getQuotesForProject(projectId),
-                getPurchaseOrdersForProject(projectId),
-            ]);
+    if (!projectId) return;
 
-            setProject(projectData);
-            setEmployees(employeesData);
-            setJobs(jobsData);
-            setQuotes(quotesData);
-            setPurchaseOrders(poData);
-            
-            if (projectData) {
-                const customerData = await getCustomer(projectData.customerId);
-                setCustomer(customerData);
-            }
-        } catch(error) {
-            console.error("Failed to fetch project details:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load project details.' });
-        } finally {
-            setLoading(false);
+    // Listener for project document
+    const unsubProject = onSnapshot(doc(db, 'projects', projectId), async (doc) => {
+      if (doc.exists()) {
+        const projectData = { id: doc.id, ...doc.data() } as Project;
+        setProject(projectData);
+        if (projectData.customerId) {
+          const customerData = await getCustomer(projectData.customerId);
+          setCustomer(customerData);
         }
-    }
-    fetchData();
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Project not found.' });
+      }
+      setLoading(false);
+    }, (error) => {
+        console.error("Error fetching project:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load project details.' });
+    });
+
+    // Listeners for subcollections
+    const jobsQuery = query(collection(db, 'projects', projectId, 'jobs'), orderBy('createdAt', 'desc'));
+    const unsubJobs = onSnapshot(jobsQuery, (snapshot) => {
+        setJobs(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as Job)));
+    });
+    
+    // Quotes are in a root collection, so we query them
+    const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
+    const unsubQuotes = onSnapshot(quotesQuery, (snapshot) => {
+        setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
+    });
+
+    const poQuery = query(collection(db, 'projects', projectId, 'purchaseOrders'), orderBy('createdAt', 'desc'));
+    const unsubPOs = onSnapshot(poQuery, (snapshot) => {
+        setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as PurchaseOrder)));
+    });
+    
+    // Fetch employees once
+    getEmployees().then(setEmployees);
+
+    // Cleanup listeners
+    return () => {
+        unsubProject();
+        unsubJobs();
+        unsubQuotes();
+        unsubPOs();
+    };
   }, [projectId, toast]);
 
   const employeeMap = useMemo(() => {
@@ -113,15 +129,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }, [employees]);
 
   const handleJobCreated = (newJob: Job) => {
-    setJobs(prev => [newJob, ...prev]);
+    // Handled by listener
   };
   
   const handleQuoteCreated = (newQuote: Quote) => {
-    setQuotes(prev => [newQuote, ...prev]);
+    // Handled by listener
   };
 
   const handlePOCreated = (newPO: PurchaseOrder) => {
-    setPurchaseOrders(prev => [newPO, ...prev]);
+    // Handled by listener
   };
 
   if (loading) {

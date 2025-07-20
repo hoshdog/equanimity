@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { getEmployees, deleteCustomer } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { EmployeeFormDialog } from './employee-form-dialog';
@@ -21,6 +20,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { onSnapshot, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { deleteEmployee } from '@/lib/employees';
 
 export default function EmployeesPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -28,36 +30,26 @@ export default function EmployeesPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const fetchEmployees = useCallback(async () => {
-        setLoading(true);
-        try {
-            const employeesData = await getEmployees();
+    useEffect(() => {
+        const unsubscribe = onSnapshot(collection(db, 'employees'), (snapshot) => {
+            const employeesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
             setEmployees(employeesData);
-        } catch (error) {
-            console.error("Failed to fetch employees:", error);
+            setLoading(false);
+        }, (error) => {
+            console.error("Failed to subscribe to employees:", error);
             toast({
                 variant: 'destructive',
                 title: 'Error',
                 description: 'Could not load employees.',
             });
-        } finally {
             setLoading(false);
-        }
-    }, [toast]);
+        });
 
-    useEffect(() => {
-        fetchEmployees();
-    }, [fetchEmployees]);
+        return () => unsubscribe();
+    }, [toast]);
     
     const handleEmployeeSaved = (savedEmployee: Employee) => {
-        const existingIndex = employees.findIndex(e => e.id === savedEmployee.id);
-        if (existingIndex > -1) {
-            const updatedEmployees = [...employees];
-            updatedEmployees[existingIndex] = savedEmployee;
-            setEmployees(updatedEmployees);
-        } else {
-            setEmployees([savedEmployee, ...employees]);
-        }
+        // No need to manually update state, the listener will handle it.
     };
 
     const handleRowClick = (id: string) => {
@@ -68,9 +60,7 @@ export default function EmployeesPage() {
         if (!window.confirm(`Are you sure you want to delete ${employeeName}? This action cannot be undone.`)) return;
         setLoading(true);
         try {
-            // This needs to be implemented in `lib/employees` if it's a real feature
-            // await deleteEmployee(employeeId);
-            setEmployees(employees.filter(c => c.id !== employeeId));
+            await deleteEmployee(employeeId);
             toast({ title: "Employee Deleted", variant: "destructive", description: `${employeeName} has been deleted.`})
         } catch (error) {
             console.error("Failed to delete employee", error);

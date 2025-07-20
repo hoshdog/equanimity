@@ -13,17 +13,28 @@ import {
   orderBy,
   where,
   writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import type { Project, ProjectSummary } from './types';
 
 const projectsCollection = collection(db, 'projects');
 
-// Get all projects
+// Get all projects once
 export async function getProjects(): Promise<Project[]> {
   const q = query(projectsCollection, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
 }
+
+// Subscribe to real-time updates for projects
+export function subscribeToProjects(callback: (projects: Project[]) => void) {
+    const q = query(projectsCollection, orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+        callback(projects);
+    });
+}
+
 
 // Get a single project
 export async function getProject(id: string): Promise<Project | null> {

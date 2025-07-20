@@ -8,6 +8,7 @@ import {
   addDoc,
   updateDoc,
   serverTimestamp,
+  deleteDoc,
 } from 'firebase/firestore';
 import type { Employee } from './types';
 
@@ -39,6 +40,11 @@ export async function addEmployee(employeeData: Omit<Employee, 'id'>): Promise<s
 export async function updateEmployee(id: string, employeeData: Partial<Omit<Employee, 'id' | 'createdAt'>>) {
     const employeeDocRef = doc(db, 'employees', id);
     await updateDoc(employeeDocRef, employeeData);
+}
+
+export async function deleteEmployee(id: string) {
+    const employeeDocRef = doc(db, 'employees', id);
+    await deleteDoc(employeeDocRef);
 }
 
 

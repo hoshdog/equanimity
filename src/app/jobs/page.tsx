@@ -1,7 +1,7 @@
 // src/app/jobs/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getJobs } from '@/lib/jobs';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import type { Job, Project, Employee } from '@/lib/types';
 import { JobFormDialog } from './job-form-dialog';
+import { onSnapshot, collectionGroup, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -34,34 +35,48 @@ export default function JobsPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
+        // Subscribe to all jobs in real-time
+        const jobsQuery = query(collectionGroup(db, 'jobs'));
+        const unsubscribe = onSnapshot(jobsQuery, (snapshot) => {
+            const jobsData: Job[] = [];
+            snapshot.forEach(doc => {
+                const path = doc.ref.path;
+                const pathSegments = path.split('/');
+                const projectId = pathSegments[pathSegments.length - 3];
+                jobsData.push({ id: doc.id, projectId, ...doc.data() } as Job);
+            });
+            setJobs(jobsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Failed to subscribe to jobs:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load jobs.' });
+            setLoading(false);
+        });
+
+        // Fetch projects and employees once
+        async function fetchSupportingData() {
             try {
-                const [jobsData, projectsData, employeesData] = await Promise.all([
-                    getJobs(),
+                const [projectsData, employeesData] = await Promise.all([
                     getProjects(),
                     getEmployees(),
                 ]);
-                setJobs(jobsData);
                 setProjects(projectsData);
                 setEmployees(employeesData);
             } catch (error) {
-                console.error("Failed to fetch jobs data:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load jobs.' });
-            } finally {
-                setLoading(false);
+                console.error("Failed to fetch projects/employees:", error);
             }
         }
-        fetchData();
+        fetchSupportingData();
+
+        return () => unsubscribe();
     }, [toast]);
 
     const handleJobCreated = (newJob: Job) => {
-        setJobs(prev => [newJob, ...prev]);
+        // State is handled by the real-time listener
     }
     
     const handleRowClick = (job: Job) => {
         router.push(`/projects/${job.projectId}`);
-        console.log(`Navigate to job ${job.id}`);
     };
 
     const getProjectName = (projectId: string) => {

@@ -8,7 +8,8 @@ import {
   serverTimestamp,
   orderBy,
   doc,
-  collectionGroup
+  collectionGroup,
+  where,
 } from 'firebase/firestore';
 import type { Quote } from './types';
 
@@ -20,14 +21,14 @@ export async function getQuotes(): Promise<Quote[]> {
     const q = query(quotesRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => doc.data() as Quote);
+    return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Quote));
 }
 
 
 // Get all quotes for a specific project
 export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
-  const quotesRef = collection(db, 'projects', projectId, 'quotes');
-  const q = query(quotesRef, orderBy('createdAt', 'desc'));
+  const quotesRef = collection(db, 'quotes');
+  const q = query(quotesRef, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
       id: doc.id,

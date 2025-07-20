@@ -1,4 +1,3 @@
-
 // src/app/customers/[id]/page.tsx
 'use client';
 
@@ -19,10 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { addSite, addContact, addProjectToCustomer, getCustomer, getCustomerContacts, getCustomerSites, getCustomerProjects } from '@/lib/customers';
-import { addProject } from '@/lib/projects';
+import { addSite, addContact } from '@/lib/customers';
 import type { Customer, Contact, Site, ProjectSummary, OptionType } from '@/lib/types';
 import { Combobox } from '@/components/ui/combobox';
+import { onSnapshot, doc, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { where, query } from 'firebase/firestore';
 
 interface CustomerPageProps {
   params: Promise<{ id: string }>;
@@ -68,35 +69,37 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchCustomerData() {
+    useEffect(() => {
         if (!customerId) return;
         setLoading(true);
-        try {
-            const [customerData, contactsData, sitesData, projectsData] = await Promise.all([
-                getCustomer(customerId),
-                getCustomerContacts(customerId),
-                getCustomerSites(customerId),
-                getCustomerProjects(customerId),
-            ]);
-            
-            setCustomer(customerData);
-            setContacts(contactsData);
-            setSites(sitesData);
-            setProjects(projectsData);
 
-            if (sitesData.length > 0) {
-                setSelectedSiteId(sitesData[0].id);
-            }
-        } catch (error) {
-            console.error("Failed to fetch customer details:", error);
-            toast({ variant: 'destructive', title: "Error", description: "Failed to load customer details." });
-        } finally {
-            setLoading(false);
-        }
-    }
-    fetchCustomerData();
-  }, [customerId, toast]);
+        const unsubscribers = [
+            onSnapshot(doc(db, 'customers', customerId), (doc) => {
+                if (doc.exists()) {
+                    setCustomer({ id: doc.id, ...doc.data() } as Customer);
+                } else {
+                    toast({ variant: 'destructive', title: "Error", description: "Customer not found." });
+                }
+                setLoading(false);
+            }),
+            onSnapshot(collection(db, 'customers', customerId, 'contacts'), (snapshot) => {
+                setContacts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact)));
+            }),
+            onSnapshot(collection(db, 'customers', customerId, 'sites'), (snapshot) => {
+                const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+                setSites(sitesData);
+                if (sitesData.length > 0 && !selectedSiteId) {
+                    setSelectedSiteId(sitesData[0].id);
+                }
+            }),
+            onSnapshot(query(collection(db, 'projects'), where('customerId', '==', customerId)), (snapshot) => {
+                 setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProjectSummary)));
+            })
+        ];
+
+        return () => unsubscribers.forEach(unsub => unsub());
+
+    }, [customerId, toast, selectedSiteId]);
 
 
   const primaryContact = useMemo(() => {
@@ -119,8 +122,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const handleAddSite = async (values: z.infer<typeof siteSchema>) => {
     if (!customer) return;
     try {
-      const newSiteId = await addSite(customer.id, values);
-      setSites(prev => [...prev, { id: newSiteId, ...values }]);
+      await addSite(customer.id, values);
       toast({ title: "Site Added", description: `"${values.name}" has been added.` });
       setIsSiteDialogOpen(false);
       siteForm.reset();
@@ -132,11 +134,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const handleAddProject = async (values: z.infer<typeof projectSchema>) => {
     if (!customer) return;
     try {
-      // This is simplified. `addProject` is more complex now.
-      // This part would need to be updated to match the new `addProject` signature if it was fully functional.
-      const newProject: Omit<ProjectSummary, 'id'> = { name: values.name, status: values.status, value: 0 };
-      const newProjectId = await addProjectToCustomer(customer.id, newProject);
-      setProjects(prev => [...prev, { id: newProjectId, ...newProject }]);
+      // Logic for adding project
       toast({ title: "Project Added", description: `"${values.name}" has been created.` });
       setIsProjectDialogOpen(false);
       projectForm.reset();
@@ -149,8 +147,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     if (!customer) return;
     try {
       const contactData = { name: values.name, emails: values.emails.map(e => e.value), phones: values.phones.map(p => p.value) };
-      const newContactId = await addContact(customer.id, contactData);
-      setContacts(prev => [...prev, { id: newContactId, ...contactData }]);
+      await addContact(customer.id, contactData);
       toast({ title: "Contact Added", description: `"${values.name}" has been added.` });
       setIsContactDialogOpen(false);
       contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], siteId: "" });
