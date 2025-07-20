@@ -1,4 +1,3 @@
-
 // src/app/quotes/[id]/page.tsx
 'use client';
 
@@ -101,7 +100,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
     const { toast } = useToast();
 
-    const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
+    const quotingProfile = useMemo(() => {
+        return initialQuotingProfiles.find(p => p.id === quote?.quotingProfileId) || initialQuotingProfiles[0];
+    }, [quote]);
+
     const laborRateOptions = useMemo(() => {
         const defaultRates = [
             { label: "Standard Labor", value: "Standard Labor", calculatedCostRate: 50, standardRate: 90 },

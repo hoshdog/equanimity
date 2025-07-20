@@ -1,4 +1,3 @@
-
 // src/lib/quotes.ts
 import { db, storage } from './firebase';
 import {
@@ -89,8 +88,7 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
 // Update an existing quote
 export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>, changeSummary: string) {
   const user = auth.currentUser;
-  // The line below is causing the error in the dev environment. Removing it for now.
-  // if (!user) throw new Error("User must be authenticated to update a quote.");
+  if (!user) throw new Error("User must be authenticated to update a quote.");
 
   const quoteRef = doc(db, 'quotes', id);
   const dataToUpdate = { ...quoteData };
@@ -109,7 +107,7 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   // Handle revision history
   const newRevision = {
       version: quoteData.version || 1, // Use existing version from form
-      changedBy: user?.uid || 'system', // Use user ID or fallback to 'system'
+      changedBy: user.uid,
       changedAt: serverTimestamp(),
       changeSummary: changeSummary,
   };
@@ -119,7 +117,7 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
     version: increment(1),
     revisions: arrayUnion(newRevision),
     updatedAt: serverTimestamp(),
-    updatedBy: user?.uid || 'system', // Use user ID or fallback to 'system'
+    updatedBy: user.uid,
   });
 }
 

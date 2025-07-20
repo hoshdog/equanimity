@@ -40,6 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { jobStaffRoles } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-input';
+import { initialQuotingProfiles } from '@/lib/quoting-profiles';
 
 
 const assignedStaffSchema = z.object({
@@ -56,6 +57,7 @@ const createQuoteSchema = z.object({
     projectId: z.string().optional(),
     name: z.string().min(3, "Quote name must be at least 3 characters."),
     description: z.string().optional(),
+    quotingProfileId: z.string({ required_error: "Please select a quoting profile."}),
     prompt: z.string().optional(),
     assignedStaff: z.array(assignedStaffSchema).optional(),
     projectContacts: z.array(projectContactSchema).optional(),
@@ -368,6 +370,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             projectId: initialProjectId || "",
             name: "",
             description: "",
+            quotingProfileId: initialQuotingProfiles[0]?.id || "",
             prompt: "",
             assignedStaff: [],
             projectContacts: [],
@@ -517,11 +520,12 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
         setLoading(true);
         
         try {
-             const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
+             const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'> = {
                 projectId: values.projectId,
                 projectName: projects.find(p => p.id === values.projectId)?.name || null,
                 customerId: values.customerId,
                 siteId: values.siteId,
+                quotingProfileId: values.quotingProfileId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
                 name: values.name,
                 description: values.description || "",
@@ -564,6 +568,23 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                 <TabsTrigger value="ai">AI Generation</TabsTrigger>
                             </TabsList>
                             <TabsContent value="core" className="pt-4 space-y-4">
+                               <FormField
+                                    control={form.control}
+                                    name="quotingProfileId"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Quoting Profile</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Select a profile..." /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {initialQuotingProfiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>This profile determines the AI persona, rules, and default rates.</FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
                                <FormField
                                     control={form.control}
                                     name="customerId"

@@ -1,4 +1,3 @@
-
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 
@@ -215,6 +214,7 @@ export interface Quote {
     projectName?: string | null; // Denormalized for easier display
     customerId?: string;
     siteId?: string;
+    quotingProfileId?: string; // The ID of the QuotingProfile used
     quoteDate: Timestamp | Date;
     dueDate: Timestamp | Date;
     expiryDate: Timestamp | Date;
