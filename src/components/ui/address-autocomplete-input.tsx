@@ -71,7 +71,7 @@ function AutocompleteInput({ onPlaceSelect, searchType = 'address', ...props }: 
   );
 }
 
-export function AddressAutocompleteInput({ ...rest }: AddressAutocompleteInputProps) {
+export function AddressAutocompleteInput({ searchType, ...rest }: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [apiError, setApiError] = React.useState<string | null>(null);
 
@@ -117,7 +117,7 @@ export function AddressAutocompleteInput({ ...rest }: AddressAutocompleteInputPr
 
   return (
     <APIProvider apiKey={apiKey} libraries={['places']}>
-      <AutocompleteInput {...rest} />
+      <AutocompleteInput onPlaceSelect={rest.onPlaceSelect} searchType={searchType} {...rest} />
     </APIProvider>
   );
 }
