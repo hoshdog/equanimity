@@ -1,17 +1,13 @@
 // src/app/settings/integrations/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Power, PowerOff, CheckCircle, AlertTriangle, Settings, TestTube2, ChevronsRight } from "lucide-react";
+import { Loader2, Power, PowerOff, CheckCircle, Settings } from "lucide-react";
 import Image from 'next/image';
-import { getProjects } from '@/lib/projects';
-import type { Project } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
+import Link from 'next/link';
 
 function XeroIntegrationCard() {
     const [loading, setLoading] = useState(false);
@@ -100,131 +96,7 @@ function XeroIntegrationCard() {
 }
 
 function TeamsIntegrationCard() {
-    const { toast } = useToast();
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [teams, setTeams] = useState<{ id: string, displayName: string }[]>([]);
-    const [channels, setChannels] = useState<{ id: string, displayName: string }[]>([]);
-    const [selectedTeamId, setSelectedTeamId] = useState('');
-    const [selectedChannelId, setSelectedChannelId] = useState('');
-    const [isEnabled, setIsEnabled] = useState(false);
-    const [loading, setLoading] = useState({ projects: false, teams: false, channels: false, save: false, test: false });
-
-    // Fetch all projects on mount
-    useEffect(() => {
-        async function fetchProjects() {
-            setLoading(p => ({ ...p, projects: true }));
-            try {
-                const projectsData = await getProjects();
-                setProjects(projectsData);
-            } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Could not load projects." });
-            } finally {
-                setLoading(p => ({ ...p, projects: false }));
-            }
-        }
-        fetchProjects();
-    }, [toast]);
-
-    // Fetch teams when a project is selected
-    useEffect(() => {
-        if (selectedProject) {
-            async function fetchTeams() {
-                setLoading(p => ({ ...p, teams: true }));
-                try {
-                    const res = await fetch('/api/teams/list');
-                    if (!res.ok) throw new Error('Failed to fetch teams');
-                    const teamsData = await res.json();
-                    setTeams(teamsData);
-                } catch (error: any) {
-                    toast({ variant: "destructive", title: "Error fetching Teams", description: error.message });
-                } finally {
-                    setLoading(p => ({ ...p, teams: false }));
-                }
-            }
-            fetchTeams();
-        }
-    }, [selectedProject, toast]);
-
-    // Fetch channels when a team is selected
-    useEffect(() => {
-        if (selectedTeamId) {
-            async function fetchChannels() {
-                setLoading(p => ({ ...p, channels: true }));
-                try {
-                    const res = await fetch(`/api/teams/channels?teamId=${selectedTeamId}`);
-                    if (!res.ok) throw new Error('Failed to fetch channels');
-                    const channelsData = await res.json();
-                    setChannels(channelsData);
-                } catch (error: any) {
-                    toast({ variant: "destructive", title: "Error fetching Channels", description: error.message });
-                } finally {
-                    setLoading(p => ({ ...p, channels: false }));
-                }
-            }
-            fetchChannels();
-        }
-    }, [selectedTeamId, toast]);
-
-    const handleProjectSelect = (projectId: string) => {
-        const project = projects.find(p => p.id === projectId);
-        if (project) {
-            setSelectedProject(project);
-            // @ts-ignore - settings might not exist
-            const settings = project.settings?.teamsIntegration;
-            setIsEnabled(settings?.enabled || false);
-            setSelectedTeamId(settings?.teamId || '');
-            setSelectedChannelId(settings?.channelId || '');
-        }
-    }
-    
-    const handleSave = async () => {
-        if (!selectedProject) return;
-        setLoading(p => ({ ...p, save: true }));
-        try {
-            const res = await fetch('/api/teams/save-settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: selectedProject.id,
-                    enabled: isEnabled,
-                    teamId: selectedTeamId,
-                    channelId: selectedChannelId,
-                }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Failed to save settings');
-            toast({ title: "Settings Saved", description: "Your Teams integration settings have been saved.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-        } catch (error: any) {
-            toast({ variant: "destructive", title: "Error Saving", description: error.message });
-        } finally {
-            setLoading(p => ({ ...p, save: false }));
-        }
-    }
-    
-    const handleTest = async () => {
-        if (!selectedProject || !selectedTeamId || !selectedChannelId) return;
-        setLoading(p => ({ ...p, test: true }));
-        try {
-            const res = await fetch('/api/teams/test-folder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectName: selectedProject.name,
-                    teamId: selectedTeamId,
-                    channelId: selectedChannelId,
-                }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Test failed');
-            toast({ title: "Test Successful!", description: `Test folder created successfully.`, icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-        } catch (error: any) {
-             toast({ variant: "destructive", title: "Test Failed", description: error.message, icon: <AlertTriangle className="h-5 w-5" /> });
-        } finally {
-            setLoading(p => ({ ...p, test: false }));
-        }
-    }
-    
+    const isConfigured = process.env.NEXT_PUBLIC_TEAMS_INTEGRATION_CONFIGURED === 'true';
 
     return (
         <Card>
@@ -241,70 +113,22 @@ function TeamsIntegrationCard() {
                         <CardDescription>Automatically create a folder in a Teams channel for each project.</CardDescription>
                     </div>
                 </div>
+                 <Link href="https://console.cloud.google.com/gen-ai/studio/agents" target="_blank">
+                    <Button variant="outline" size="sm">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configure
+                    </Button>
+                </Link>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Select a Project to Configure</label>
-                    <Select onValueChange={handleProjectSelect} disabled={loading.projects}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={loading.projects ? "Loading projects..." : "Select a project"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+             <CardContent>
+                 <div className="flex items-center gap-2 text-sm text-green-600 border-t pt-4 mt-4">
+                    <CheckCircle className="h-4 w-4"/>
+                    <p className="font-semibold">Teams Integration is configured globally. Folder creation is triggered from the project/job files section.</p>
                 </div>
-                {selectedProject && (
-                    <>
-                        <Separator />
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-semibold">{selectedProject.name}</h3>
-                                <div className="flex items-center space-x-2">
-                                    <Switch id="teams-enabled" checked={isEnabled} onCheckedChange={setIsEnabled}/>
-                                    <label htmlFor="teams-enabled">{isEnabled ? 'Enabled' : 'Disabled'}</label>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Team</label>
-                                    <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!isEnabled || loading.teams}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={loading.teams ? "Loading teams..." : "Select a Team"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.displayName}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Channel</label>
-                                    <Select value={selectedChannelId} onValueChange={setSelectedChannelId} disabled={!selectedTeamId || loading.channels}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={loading.channels ? "Loading channels..." : "Select a Channel"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.displayName}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={handleTest} disabled={!isEnabled || !selectedTeamId || !selectedChannelId || loading.test}>
-                                    {loading.test ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TestTube2 className="mr-2 h-4 w-4" />} Test
-                                </Button>
-                                <Button onClick={handleSave} disabled={loading.save}>
-                                    {loading.save ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Save Settings
-                                </Button>
-                            </div>
-                        </div>
-                    </>
-                )}
             </CardContent>
         </Card>
     );
 }
-
 
 export default function IntegrationsPage() {
     return (

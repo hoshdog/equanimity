@@ -23,8 +23,6 @@ To enable the OneDrive and/or Microsoft Teams integrations, you must configure a
 5.  Search for and add the following permissions:
     *   `Files.ReadWrite.All` (Required for both OneDrive and Teams file operations)
     *   `Sites.ReadWrite.All` (Required for Teams Channel integration to write files)
-    *   `Channel.ReadBasic.All` (Required to list channels in a Team)
-    *   `Group.Read.All` (Required to list Teams your app has access to)
 6.  **CRUCIAL STEP:** Click **Grant admin consent for [Your Tenant]**. This is required for application permissions (client credentials flow) to work. A global administrator for your Azure tenant must perform this step.
 
 ### 3. Create a Client Secret
@@ -44,14 +42,22 @@ firebase functions:config:set azure.client_id="YOUR_APPLICATION_CLIENT_ID"
 firebase functions:config:set azure.tenant_id="YOUR_DIRECTORY_TENANT_ID"
 firebase functions:config:set azure.client_secret="YOUR_CLIENT_SECRET_VALUE"
 
-# Optional: For OneDrive Integration (User-delegated, less common)
-firebase functions:config:set onedrive.user_id="USER_ID_OF_ONEDRIVE_ACCOUNT"
+# For Global Teams Integration
+firebase functions:config:set teams.team_id="YOUR_TARGET_TEAM_ID"
+firebase functions:config:g:set teams.channel_id="YOUR_TARGET_CHANNEL_ID"
 
-# Note: For Teams, the teamId and channelId are now stored per-project in Firestore,
-# not in environment variables, allowing for more flexible configurations.
+# Optional: For user-delegated OneDrive Integration
+firebase functions:config:set onedrive.user_id="USER_ID_OF_ONEDRIVE_ACCOUNT"
 ```
 
 *   `AZURE_CLIENT_ID` (Application (client) ID) and `AZURE_TENANT_ID` (Directory (tenant) ID) can be found on the **Overview** page of your App registration.
+*   To find the `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID`:
+    1.  Open Microsoft Teams.
+    2.  Navigate to the desired channel.
+    3.  Click the three dots (...) next to the channel name and select "Get link to channel".
+    4.  The link will look like: `https://teams.microsoft.com/l/channel/19%3a...%40thread.tacv2/General?groupId=TEAM_ID&tenantId=...`
+    5.  The `groupId` is your `TEAMS_TEAM_ID`.
+    6.  The URL-decoded string after `19%3a` and before the next `/` is your `TEAMS_CHANNEL_ID`.
 
 After setting the config, deploy your functions for the changes to take effect:
 
@@ -61,7 +67,7 @@ firebase deploy --only functions
 
 ### 5. Define OneDrive Folder Templates (Optional)
 
-If using the OneDrive integration, you must define templates in your Firestore database.
+If using the user-delegated OneDrive integration, you must define templates in your Firestore database.
 
 1.  Go to your Firestore database in the Firebase Console.
 2.  Create a top-level collection named `oneDriveTemplates`.
