@@ -66,8 +66,6 @@ function GlobalTimeTracker() {
         timeSpent,
         isTimerActive,
         context,
-        startTracking,
-        stopTracking,
         logTime,
     } = useTimeTracker();
 
@@ -86,7 +84,7 @@ function GlobalTimeTracker() {
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                         {context && (
                              <div className="text-right">
                                 <p className="text-sm font-medium leading-none">{context.name}</p>
@@ -105,20 +103,9 @@ function GlobalTimeTracker() {
                         </Badge>
                         
                         {context && (
-                            <>
-                                {isTimerActive ? (
-                                    <Button size="icon" variant="destructive" onClick={stopTracking}>
-                                        <Square className="h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <Button size="icon" variant="outline" onClick={startTracking}>
-                                        <Play className="h-4 w-4" />
-                                    </Button>
-                                )}
-                                <Button onClick={handleLogTime} size="sm" disabled={isTimerActive || timeSpent < 1}>
-                                    Log Time
-                                </Button>
-                            </>
+                           <Button onClick={handleLogTime} size="sm" disabled={timeSpent < 1}>
+                                Log Time
+                            </Button>
                         )}
                         
                     </div>
@@ -127,12 +114,12 @@ function GlobalTimeTracker() {
                     {context ? (
                         <div>
                             <p>
-                                Tracking time for: <span className="font-semibold">{context.name}</span>
+                                Automatically tracking time for: <span className="font-semibold">{context.name}</span>
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {isTimerActive 
-                                    ? "Click the red square to stop tracking."
-                                    : "Click the play button to start tracking."
+                                    ? "Timer is active. It will pause after 5 mins of inactivity."
+                                    : "Timer is paused. Move your mouse or type to resume."
                                 }
                             </p>
                         </div>

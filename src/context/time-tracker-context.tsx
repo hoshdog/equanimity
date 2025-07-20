@@ -3,9 +3,8 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { addTimesheetEntry, startTrackingSession, stopTrackingSession, getActiveTrackingSession } from '@/lib/timesheets';
+import { addTimesheetEntry } from '@/lib/timesheets';
 import { auth } from '@/lib/auth';
-import { onAuthStateChanged, User } from 'firebase/auth';
 
 type TrackableContext = {
     type: 'project' | 'quote' | 'job';
@@ -18,8 +17,6 @@ interface TimeTrackerContextType {
     isTimerActive: boolean;
     context: TrackableContext;
     setContext: (context: TrackableContext) => void;
-    startTracking: () => void;
-    stopTracking: () => void;
     logTime: () => Promise<number>; // Returns the duration in hours
 }
 
@@ -33,96 +30,95 @@ export function useTimeTracker() {
     return context;
 }
 
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
 export function TimeTrackerProvider({ children }: { children: React.ReactNode }) {
     const [timeSpent, setTimeSpent] = useState(0);
     const [isTimerActive, setIsTimerActive] = useState(false);
     const [context, setContext] = useState<TrackableContext>(null);
-    const [user, setUser] = useState<User | null>(null);
-    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     
     const { toast } = useToast();
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const timeStore = useRef<Record<string, number>>({});
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const clearTimer = useCallback(() => {
+    const pauseTimer = useCallback(() => {
+        setIsTimerActive(false);
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
     }, []);
 
-    // Effect to check for an active session when user or context changes
+    const startTimer = useCallback(() => {
+        if (intervalRef.current) return; // Already running
+        setIsTimerActive(true);
+        intervalRef.current = setInterval(() => {
+            setTimeSpent(prev => prev + 1);
+        }, 1000);
+    }, []);
+    
+    const resetInactivityTimer = useCallback(() => {
+        if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+        }
+        inactivityTimerRef.current = setTimeout(() => {
+            pauseTimer();
+        }, INACTIVITY_TIMEOUT);
+    }, [pauseTimer]);
+
+
+    // Effect to manage the automatic timer based on user activity
     useEffect(() => {
-        if (!user) return;
-        
-        const checkSession = async () => {
-            const session = await getActiveTrackingSession(user.uid);
-            if (session) {
-                setActiveSessionId(session.id);
-                setContext(session.context);
-                setIsTimerActive(true);
-                const elapsed = Math.floor((new Date().getTime() - session.startTime.toDate().getTime()) / 1000);
-                setTimeSpent(elapsed);
-            } else {
-                setActiveSessionId(null);
-                setIsTimerActive(false);
-                setTimeSpent(0);
-                // Do not clear context here, as it might be set by a page navigation
+        const handleActivity = () => {
+            if (document.visibilityState === 'visible') {
+                if (!isTimerActive) {
+                    startTimer();
+                }
+                resetInactivityTimer();
             }
         };
 
-        checkSession();
-    }, [user, context?.id]); // Re-check when context ID changes specifically
+        const handleVisibilityChange = () => {
+            if (document.visibilityState !== 'visible') {
+                pauseTimer();
+            } else {
+                // When tab becomes visible again, reset inactivity timer
+                resetInactivityTimer();
+            }
+        };
 
+        if (context) {
+            // Restore time for the current context
+            const contextKey = `${context.type}-${context.id}`;
+            setTimeSpent(timeStore.current[contextKey] || 0);
+            
+            // Start tracking
+            handleActivity();
 
-     // Effect to manage the timer interval
-    useEffect(() => {
-        if (isTimerActive) {
-            intervalRef.current = setInterval(() => {
-                setTimeSpent(prev => prev + 1);
-            }, 1000);
+            window.addEventListener('mousemove', handleActivity);
+            window.addEventListener('keydown', handleActivity);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            return () => {
+                // Store current time before cleanup
+                timeStore.current[contextKey] = timeSpent;
+                pauseTimer();
+                window.removeEventListener('mousemove', handleActivity);
+                window.removeEventListener('keydown', handleActivity);
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                 if (inactivityTimerRef.current) {
+                    clearTimeout(inactivityTimerRef.current);
+                }
+            };
         } else {
-            clearTimer();
-        }
-        return () => clearTimer();
-    }, [isTimerActive, clearTimer]);
-
-
-    const startTracking = useCallback(async () => {
-        if (!user || !context || isTimerActive) return;
-
-        try {
-            const sessionId = await startTrackingSession(user.uid, context);
-            setActiveSessionId(sessionId);
-            setIsTimerActive(true);
+            // When there's no context, ensure everything is stopped
+            pauseTimer();
             setTimeSpent(0);
-            toast({ title: 'Timer Started', description: `Tracking time for ${context.name}.` });
-        } catch (error) {
-            console.error("Failed to start tracking:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not start the timer.' });
         }
-    }, [user, context, isTimerActive, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [context, resetInactivityTimer, pauseTimer, startTimer, isTimerActive]); // isTimerActive is needed here
 
-    const stopTracking = useCallback(async () => {
-        if (!user || !activeSessionId) return;
-
-        try {
-            const finalDuration = await stopTrackingSession(activeSessionId);
-            setIsTimerActive(false);
-            setTimeSpent(finalDuration); // Show final duration
-            setActiveSessionId(null);
-            toast({ title: 'Timer Stopped', description: `Total time tracked: ${(finalDuration / 60).toFixed(0)} minutes.` });
-        } catch (error) {
-            console.error("Failed to stop tracking:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not stop the timer.' });
-        }
-    }, [user, activeSessionId, toast]);
 
     const logTime = async (): Promise<number> => {
         const user = auth.currentUser;
@@ -132,8 +128,7 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         }
 
         if (isTimerActive) {
-            toast({ variant: 'destructive', title: 'Timer Active', description: 'Please stop the timer before logging time.' });
-            return 0;
+            pauseTimer();
         }
 
         const MINUTE_BLOCK = 5;
@@ -152,7 +147,12 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
             });
             
             toast({ title: 'Time Logged', description: `${(billedSeconds/60).toFixed(0)} minutes logged to your timesheet.` });
+            
+            // Reset time for this context
+            const contextKey = `${context.type}-${context.id}`;
+            timeStore.current[contextKey] = 0;
             setTimeSpent(0);
+
             return timeInHours;
         } catch (error) {
             console.error("Failed to log time:", error);
@@ -166,8 +166,6 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
         isTimerActive,
         context,
         setContext,
-        startTracking,
-        stopTracking,
         logTime,
     };
 
