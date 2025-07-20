@@ -16,6 +16,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -30,16 +31,18 @@ import { updateQuote } from '@/lib/quotes';
 import { getCustomerContacts } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType } from '@/lib/types';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem } from '@/lib/types';
 import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
+import { Separator } from '@/components/ui/separator';
 
 const lineItemSchema = z.object({
     id: z.string(),
     description: z.string().min(3, "Description is required."),
     quantity: z.coerce.number().min(0.1, "Qty must be > 0."),
     unitPrice: z.coerce.number().min(0.01, "Price must be > 0."),
+    unitCost: z.coerce.number().min(0).optional(), // Cost to you
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
 
@@ -138,17 +141,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
 
     const lineItemsWatch = form.watch('lineItems');
-    const { subtotal, totalTax, totalAmount } = React.useMemo(() => {
+    const { subtotal, totalTax, totalAmount, totalCost, grossProfit, grossMargin } = React.useMemo(() => {
         let sub = 0;
         let tax = 0;
+        let cost = 0;
         if (lineItemsWatch) {
-            lineItemsWatch.forEach(item => {
+            lineItemsWatch.forEach((item: Partial<QuoteLineItem>) => {
                 const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
+                const lineCost = (item.quantity || 0) * (item.unitCost || item.unitPrice || 0);
                 sub += lineTotal;
                 tax += lineTotal * ((item.taxRate || 0) / 100);
+                cost += lineCost;
             });
         }
-        return { subtotal: sub, totalTax: tax, totalAmount: sub + tax };
+        const profit = sub - cost;
+        const margin = sub > 0 ? (profit / sub) * 100 : 0;
+        return { subtotal: sub, totalTax: tax, totalAmount: sub + tax, totalCost: cost, grossProfit: profit, grossMargin: margin };
     }, [lineItemsWatch]);
 
     async function onSubmit(values: QuoteFormValues) {
@@ -276,25 +284,29 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 <CardContent>
                      <div className="space-y-2">
                         <div className="grid grid-cols-12 gap-2 px-2">
-                            <Label className="col-span-12 sm:col-span-6">Description</Label>
+                            <Label className="col-span-12 sm:col-span-5">Description</Label>
                             <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
                             <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
-                            <Label className="col-span-4 sm:col-span-2 text-center">Tax %</Label>
+                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
                         </div>
                         <div className="space-y-2">
                             {lineItemFields.map((field, index) => (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
-                                        <div className="col-span-12 sm:col-span-6">
+                                        <div className="col-span-12 sm:col-span-5">
                                             <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Item description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
                                             <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
-                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-1">
                                             <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                     </div>
@@ -302,17 +314,27 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 </div>
                             ))}
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, description: "", quantity: 1, unitPrice: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
-                    </div>
-
-                    <div className="flex justify-end mt-4">
-                        <div className="w-full max-w-sm space-y-2 text-sm">
-                             <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-                             <div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div>
-                             <div className="flex justify-between font-bold text-base border-t pt-2"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
-                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, description: "", quantity: 1, unitPrice: 0, unitCost: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
                     </div>
                 </CardContent>
+                <CardFooter className="flex justify-end">
+                    <div className="w-full max-w-sm space-y-4">
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
+                        <Separator />
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                            <div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span>Gross Margin</span>
+                                <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </CardFooter>
             </Card>
 
             <Card>

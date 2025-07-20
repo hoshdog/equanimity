@@ -150,7 +150,8 @@ export interface QuoteLineItem {
     id: string; // For React key
     description: string;
     quantity: number;
-    unitPrice: number;
+    unitPrice: number; // This is the SELL price
+    unitCost?: number; // This is the COST price
     taxRate?: number; // Optional, defaults can be applied
     discount?: number; // Optional
 }
