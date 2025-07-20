@@ -20,7 +20,7 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Input } from "@/components/ui/input";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +66,6 @@ const formSchema = z.object({
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
   paymentTerms: z.string().optional(),
-  validityTerms: z.string().optional(),
   internalNotes: z.string().optional(),
   clientNotes: z.string().optional(),
   projectId: z.string().optional(),
@@ -324,7 +323,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     if (loading) return <div className="flex-1 p-8 pt-6 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
     if (!quote) return <div className="flex-1 p-8 pt-6"><h2>Quote not found</h2></div>;
 
-  return (
+    return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -636,108 +635,105 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 </Card>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <Card>
-                        <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                            <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Attachments</CardTitle>
-                            <CardDescription>Upload relevant documents, plans, or photos.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                           <Button asChild variant="outline" className="w-full" disabled={isUploading}>
-                               <label htmlFor="file-upload">
-                                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                                   {isUploading ? 'Uploading...' : 'Upload File'}
-                               </label>
-                           </Button>
-                           <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} disabled={isUploading} />
-                           {quote.attachments && quote.attachments.length > 0 ? (
-                            <div className="space-y-2">
-                                {quote.attachments.map((file, index) => (
-                                    <div key={index} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
-                                        <div className="flex items-center gap-2 truncate">
-                                            <Paperclip className="h-4 w-4" />
-                                            <span className="truncate">{file.name}</span>
-                                        </div>
-                                        <a href={file.url} target="_blank" rel="noopener noreferrer">
-                                           <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
-                                        </a>
+            <div className="grid grid-cols-1 gap-6 pt-6">
+                <Card>
+                    <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="clientNotes" render={({ field }) => (<FormItem><FormLabel>Notes for Client</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                        <FormField control={form.control} name="internalNotes" render={({ field }) => (<FormItem><FormLabel>Internal Notes</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage/></FormItem>)}/>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Attachments</CardTitle>
+                        <CardDescription>Upload relevant documents, plans, or photos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                       <Button asChild variant="outline" className="w-full" disabled={isUploading}>
+                           <label htmlFor="file-upload">
+                               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                               {isUploading ? 'Uploading...' : 'Upload File'}
+                           </label>
+                       </Button>
+                       <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} disabled={isUploading} />
+                       {quote.attachments && quote.attachments.length > 0 ? (
+                        <div className="space-y-2">
+                            {quote.attachments.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
+                                    <div className="flex items-center gap-2 truncate">
+                                        <Paperclip className="h-4 w-4" />
+                                        <span className="truncate">{file.name}</span>
                                     </div>
-                                ))}
-                            </div>
-                           ) : (
-                            <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
-                           )}
-                        </CardContent>
-                    </Card>
-                </div>
-                <div className="lg:col-span-1">
-                    <Card>
-                        <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
-                        <CardContent>
-                             <div className="w-full space-y-4">
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-muted-foreground">Parts Total</span>
-                                        <div className="flex gap-4 items-baseline">
-                                            <Badge variant="outline" className={cn(partsMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{partsMargin.toFixed(1)}%</Badge>
-                                            <span className="font-medium">${partsSubtotal.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-muted-foreground">Labour Total</span>
-                                        <div className="flex gap-4 items-baseline">
-                                            <Badge variant="outline" className={cn(labourMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{labourMargin.toFixed(1)}%</Badge>
-                                            <span className="font-medium">${labourSubtotal.toFixed(2)}</span>
-                                        </div>
+                                    <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                       <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                       ) : (
+                        <p className="text-xs text-muted-foreground text-center pt-2">No files attached.</p>
+                       )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader><CardTitle>Totals & Summary</CardTitle></CardHeader>
+                    <CardContent>
+                         <div className="w-full space-y-4">
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-muted-foreground">Parts Total</span>
+                                    <div className="flex gap-4 items-baseline">
+                                        <Badge variant="outline" className={cn(partsMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{partsMargin.toFixed(1)}%</Badge>
+                                        <span className="font-medium">${partsSubtotal.toFixed(2)}</span>
                                     </div>
                                 </div>
-                                <Separator />
-                                <div className="space-y-1 text-sm">
-                                    <div className="flex justify-between">
-                                        <span>Subtotal</span>
-                                        <span>${subtotal.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Tax (GST)</span>
-                                        <span>${totalTax.toFixed(2)}</span>
-                                    </div>
-                                </div>
-                                <Separator />
-                                <div className="flex justify-between font-bold text-lg">
-                                    <span>Total</span>
-                                    <span>${totalAmount.toFixed(2)}</span>
-                                </div>
-                                <Separator />
-                                <div className="space-y-1 text-xs text-muted-foreground">
-                                    <div className="flex justify-between">
-                                        <span>Total Cost</span>
-                                        <span>${totalCost.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Gross Profit</span>
-                                        <span>${grossProfit.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Overall Margin</span>
-                                        <span className={cn('font-semibold', grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span>
+                                 <div className="flex justify-between items-baseline">
+                                    <span className="text-muted-foreground">Labour Total</span>
+                                    <div className="flex gap-4 items-baseline">
+                                        <Badge variant="outline" className={cn(labourMargin < 20 ? 'text-destructive border-destructive/50' : 'text-primary border-primary/50')}>{labourMargin.toFixed(1)}%</Badge>
+                                        <span className="font-medium">${labourSubtotal.toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            <Separator />
+                            <div className="space-y-1 text-sm">
+                                <div className="flex justify-between">
+                                    <span>Subtotal</span>
+                                    <span>${subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Tax (GST)</span>
+                                    <span>${totalTax.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between font-bold text-lg">
+                                <span>Total</span>
+                                <span>${totalAmount.toFixed(2)}</span>
+                            </div>
+                            <Separator />
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                                <div className="flex justify-between">
+                                    <span>Total Cost</span>
+                                    <span>${totalCost.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Gross Profit</span>
+                                    <span>${grossProfit.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className={cn('font-semibold', grossMargin < 20 ? 'text-destructive' : 'text-primary')}>Overall Margin</span>
+                                    <span className={cn('font-semibold', grossMargin < 20 ? 'text-destructive' : 'text-primary')}>{grossMargin.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </form>
         </FormProvider>
     </div>
   );
 }
-
