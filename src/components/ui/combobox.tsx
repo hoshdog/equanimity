@@ -1,4 +1,4 @@
-// src/components/ui/combobox.tsx
+
 "use client"
 
 import * as React from "react"
@@ -21,13 +21,12 @@ import {
 } from "@/components/ui/popover"
 import type { OptionType } from "@/lib/types"
 
-
 interface ComboboxProps {
-    options: OptionType[];
-    value: string;
-    onChange: (value: string) => void;
-    placeholder?: string;
-    className?: string;
+  options: OptionType[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
 }
 
 export function Combobox({ options, value, onChange, placeholder, className }: ComboboxProps) {
@@ -52,26 +51,26 @@ export function Combobox({ options, value, onChange, placeholder, className }: C
         <Command>
           <CommandInput placeholder="Search option..." />
           <CommandList>
-              <CommandEmpty>No option found.</CommandEmpty>
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => {
-                      onChange(option.value === value ? "" : option.value)
-                      setOpen(false)
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === option.value ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+            <CommandEmpty>No option found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  onSelect={() => {
+                    onChange(option.value === value ? "" : option.value)
+                    setOpen(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>
