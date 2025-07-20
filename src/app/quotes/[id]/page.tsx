@@ -32,7 +32,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -106,11 +106,20 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }, [quotingProfile.laborRates]);
 
     const form = useForm<QuoteFormValues>({ resolver: zodResolver(formSchema) });
-    const { control, setValue, watch, trigger, getValues } = form;
+    const { control, setValue, watch, trigger, getValues, reset } = form;
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
+
+    const resetFormToQuote = React.useCallback((quoteData: Quote) => {
+        reset({
+            ...quoteData,
+            quoteDate: quoteData.quoteDate?.toDate() || new Date(),
+            dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
+            expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
+        });
+    }, [reset]);
 
     useEffect(() => {
         const fetchRelatedData = async (quoteData: Quote) => {
@@ -145,21 +154,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 const quoteData = { id: doc.id, ...doc.data() } as Quote;
                 setQuote(quoteData);
                 await fetchRelatedData(quoteData);
-
-                form.reset({
-                    ...quoteData,
-                    quoteDate: quoteData.quoteDate?.toDate() || new Date(),
-                    dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
-                    expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
-                });
+                resetFormToQuote(quoteData);
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Quote not found.' });
             }
             setLoading(false);
         });
         return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [quoteId, toast]);
+    }, [quoteId, toast, resetFormToQuote]);
 
     // Fetch lists for dropdowns when editing
     useEffect(() => {
@@ -230,51 +232,70 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </Button>
                     <h2 className="text-3xl font-bold tracking-tight">Quote: {quote.quoteNumber}</h2>
                  </div>
-                 <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Save Changes'}</Button>
+                 <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4"/>Save Changes</>}</Button>
             </div>
             
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Project & Customer Information</CardTitle>
-                        <CardDescription>The core details this quote is linked to.</CardDescription>
+                        <CardTitle>Quote Header</CardTitle>
+                        <CardDescription>Core details, dates, and links for this quote.</CardDescription>
                     </div>
-                     {!isEditingHeader && <Button variant="outline" onClick={() => setIsEditingHeader(true)}><Pencil className="mr-2 h-4 w-4" /> Edit</Button>}
+                     <div className="flex gap-2">
+                        {!isEditingHeader ? (
+                            <Button variant="outline" onClick={() => setIsEditingHeader(true)}><Pencil className="mr-2 h-4 w-4" /> Edit</Button>
+                        ) : (
+                           <>
+                            <Button variant="secondary" onClick={() => { setIsEditingHeader(false); resetFormToQuote(quote); }}>Cancel</Button>
+                            <Button onClick={() => form.handleSubmit(onSubmit)()} disabled={loading}>
+                                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                                Save Details
+                            </Button>
+                           </>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {isEditingHeader ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="projectId" render={({ field }) => ( <FormItem><FormLabel>Project</FormLabel><SearchableCombobox options={projectOptions} {...field} placeholder="Select a project..." /></FormItem> )}/>
-                            <FormField control={form.control} name="customerId" render={({ field }) => ( <FormItem><FormLabel>Customer</FormLabel><SearchableCombobox options={customerOptions} {...field} placeholder="Select a customer..." /></FormItem> )}/>
-                            <FormField control={form.control} name="siteId" render={({ field }) => ( <FormItem><FormLabel>Site</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <FormField control={form.control} name="customerId" render={({ field }) => ( <FormItem><FormLabel>Customer</FormLabel><SearchableCombobox options={customerOptions} {...field} placeholder="Select a customer..." /></FormItem> )}/>
+                                <FormField control={form.control} name="siteId" render={({ field }) => ( <FormItem><FormLabel>Site</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
+                                <FormField control={form.control} name="projectId" render={({ field }) => ( <FormItem><FormLabel>Project</FormLabel><SearchableCombobox options={projectOptions} {...field} placeholder="Select a project..." /></FormItem> )}/>
+                            </div>
+                            <Separator />
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Quote Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <FormField control={form.control} name="quoteNumber" render={({ field }) => ( <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormItem><FormLabel>Quote Date</FormLabel><FormControl><Input readOnly value={form.getValues('quoteDate') ? format(form.getValues('quoteDate'), 'PPP') : 'N/A'} /></FormControl></FormItem>
+                                <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                                <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
+                            </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground"/><strong>Project:</strong> {project?.name || 'N/A'}</div>
-                            <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/><strong>Customer:</strong> {customer?.name || 'N/A'}</div>
-                            <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/><strong>Site:</strong> {site?.name || 'N/A'}</div>
+                        <div className="space-y-4">
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/><strong>Customer:</strong> {customer?.name || 'N/A'}</div>
+                                <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/><strong>Site:</strong> {site?.name || 'N/A'}</div>
+                                <div className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground"/><strong>Project:</strong> {project?.name || 'N/A'}</div>
+                            </div>
+                            <Separator />
+                            <div className="text-sm">
+                                <p><strong>{quote.name}</strong></p>
+                                <p className="text-muted-foreground">{quote.description}</p>
+                            </div>
+                             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                                <div><span className="text-muted-foreground">Due:</span> {format(quote.dueDate.toDate(), 'PPP')}</div>
+                                <div><span className="text-muted-foreground">Status:</span> <span className="font-medium">{quote.status}</span></div>
+                            </div>
                         </div>
                     )}
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader><CardTitle>Quote Details</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Quote Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <FormField control={form.control} name="quoteNumber" render={({ field }) => ( <FormItem><FormLabel>Quote #</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="quoteDate" render={({ field }) => ( <FormItem><FormLabel>Quote Date</FormLabel><FormControl><Input readOnly value={field.value ? format(field.value, 'PPP') : 'N/A'} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="dueDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Due Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
-                        <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Sent">Sent</SelectItem><SelectItem value="Approved">Approved</SelectItem><SelectItem value="Rejected">Rejected</SelectItem><SelectItem value="Invoiced">Invoiced</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* ... Other cards remain the same ... */}
             <div className="space-y-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
