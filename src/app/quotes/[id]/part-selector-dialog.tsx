@@ -28,7 +28,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
@@ -226,8 +225,8 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       </div>
                     ) : (
-                      <>
-                        <div className="p-4 flex gap-4">
+                      <div className="p-4 md:p-6">
+                        <div className="flex gap-4 mb-4">
                           <Input
                             placeholder="Search by description or part number..."
                             value={globalFilter}
@@ -271,7 +270,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                                 </TableBody>
                             </Table>
                          </div>
-                      </>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -358,7 +357,6 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
     const inventoryItem = inventoryMap.get(part.partNumber);
     const stockQty = inventoryItem?.quantityOnHand || 0;
     
-    // Sort suppliers by price, cheapest first
     const sortedSuppliers = [...part.suppliers].sort((a, b) => a.tradePrice - b.tradePrice);
     
     const handleQuickAdd = () => {
@@ -369,28 +367,23 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
         } else {
             supplierToUse = part.suppliers.find(s => s.supplier === defaultSupplierPreference);
             if (!supplierToUse) {
-                // Fallback to cheapest if preferred supplier doesn't stock it
                 supplierToUse = sortedSuppliers[0];
             }
         }
         
         if (supplierToUse) {
             onSelect(part, supplierToUse, quickAddQty);
-            setQuickAddQty(1); // Reset
+            setQuickAddQty(1);
         }
     };
 
-
     return (
-       <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
-        <tbody>
+       <React.Fragment>
             <TableRow>
                 <TableCell className="w-12">
-                     <CollapsibleTrigger asChild>
-                         <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
-                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                         </Button>
-                     </CollapsibleTrigger>
+                     <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
+                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                     </Button>
                 </TableCell>
                 <TableCell>
                     <p className="font-medium">{part.description}</p>
@@ -408,7 +401,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </div>
                 </TableCell>
             </TableRow>
-             <CollapsibleContent asChild>
+             {isOpen && (
                 <TableRow>
                     <TableCell colSpan={4} className="p-0">
                        <div className="p-2 bg-secondary/50 space-y-1">
@@ -424,9 +417,8 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                        </div>
                     </TableCell>
                 </TableRow>
-            </CollapsibleContent>
-        </tbody>
-       </Collapsible>
+            )}
+       </React.Fragment>
     )
 }
 
@@ -435,7 +427,7 @@ function SupplierRow({ part, supplier, isCheapest, onSelect }: { part: Catalogue
     
     const handleAddClick = () => {
         onSelect(part, supplier, quantity);
-        setQuantity(1); // Reset for next time
+        setQuantity(1);
     }
     
     return (
