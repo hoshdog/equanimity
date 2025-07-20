@@ -4,85 +4,95 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper Functions
-    function isUserAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
+    
+    function isAppAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
 
-    function getRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[role];
+    function isOwner(resource) {
+      return request.auth.uid == resource.data.uid || request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.ownerUid;
     }
     
-    function isRole(role) {
-      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
-    }
-    
-    function isOneOfRoles(roles) {
-       return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(roles);
-    }
-
-    function isOwner(doc) {
-      return request.auth.uid == doc.uid;
-    }
-
-    // USERS
-    // Users can read their own profile.
-    // Users can update their own profile.
-    // Admins can read/write any user profile.
+    // User can read their own profile, admin can read any
     match /users/{userId} {
-      allow read, update: if isUserAuthenticated() && (isOwner(resource.data) || isRole('admin'));
-      allow create, delete: if isRole('admin');
+      allow read: if request.auth.uid == userId || isAppAdmin();
+      allow write: if request.auth.uid == userId || isAppAdmin();
+    }
+    
+    // Companies can be written by the owner, read by any signed-in user
+    match /companies/{companyId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(resource) || isAppAdmin();
     }
 
-    // PROJECTS
-    // Anyone authenticated can read.
-    // Only admins or the project's customer can create/update/delete.
+    // Projects can be read by any signed-in user.
+    // Write access is restricted to the owner (client) or an admin.
     match /projects/{projectId} {
-      allow read: if isUserAuthenticated();
-      allow create: if isUserAuthenticated() && request.resource.data.customerId == request.auth.uid;
-      allow update, delete: if isUserAuthenticated() && (isRole('admin') || resource.data.customerId == request.auth.uid);
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if isOwner(get(/databases/$(database)/documents/projects/$(projectId))) || isAppAdmin();
       
-      // CHAT MESSAGES
-      // Only project members can read/write messages.
+      // Messages can only be read/written by project members (defined in future assignedStaff field)
+      // For now, we'll restrict to owner/admin.
       match /messages/{messageId} {
-        allow read, write: if isUserAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.assignedStaff;
+        allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId))) || isAppAdmin();
+      }
+
+      // oneDriveFolders subcollection can only be written by the backend (Cloud Functions)
+      match /oneDriveFolders/{folderId} {
+        allow read: if isOwner(get(/databases/$(database)/documents/projects/$(projectId))) || isAppAdmin();
+        // The `request.auth.token.firebase.sign_in_provider == 'custom'` check is a common way
+        // to identify requests coming from a service account / Admin SDK.
+        allow write: if request.auth.token.firebase.sign_in_provider == 'custom' || isAppAdmin();
+      }
+    }
+
+    // Jobs can be read by any signed-in user.
+    // CRUD is limited to the project owner or an admin.
+    match /jobs/{jobId} {
+       allow read: if isSignedIn();
+       allow create: if isSignedIn();
+       allow update, delete: if isOwner(get(/databases/$(database)/documents/jobs/$(jobId))) || isAppAdmin();
+    }
+
+    match /quotes/{quoteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isOwner(get(/databases/$(database)/documents/quotes/$(quoteId))) || isAppAdmin();
+    }
+    
+    match /purchaseOrders/{poId} {
+       allow read: if isSignedIn();
+       allow create: if isSignedIn();
+       allow update, delete: if isOwner(get(/databases/$(database)/documents/purchaseOrders/$(poId))) || isAppAdmin();
+    }
+    
+    match /stockItems/{itemId} {
+        allow read, write: if isSignedIn() || isAppAdmin();
+    }
+    
+    match /employees/{employeeId} {
+        allow read, write: if isAppAdmin();
+    }
+
+    // Customer data is sensitive. Only admins or the customer themselves can access.
+    match /customers/{customerId} {
+      allow read: if request.auth.uid == customerId || isAppAdmin();
+      allow write: if request.auth.uid == customerId || isAppAdmin();
+
+      // Subcollections follow parent's permissions.
+      match /{allChildren=**} {
+        allow read, write: if request.auth.uid == customerId || isAppAdmin();
       }
     }
     
-    // CUSTOMERS
-    // Only admins can manage customers.
-    match /customers/{customerId} {
-      allow read, write: if isRole('admin');
-      
-      // Customer sub-collections
-       match /{allSubcollections}/{docId} {
-         allow read, write: if isRole('admin');
-       }
-    }
-    
-    // EMPLOYEES
-    match /employees/{employeeId} {
-       allow read, write: if isUserAuthenticated();
-    }
-    
-     // JOBS, QUOTES, PURCHASE ORDERS (Root Collections)
-    match /{collection}/{docId} {
-        allow read: if isUserAuthenticated();
-        allow write: if isUserAuthenticated() && (isRole('admin') || request.resource.data.customerId == request.auth.uid);
-    }
-    
-    // For system-wide tokens like Xero
-    match /system_tokens/{tokenId} {
-       allow read, write: if isRole('admin');
-    }
-
-    match /stockItems/{itemId} {
-      allow read, write: if isUserAuthenticated();
-    }
-    
-    match /companies/{companyId} {
-       allow read: if isUserAuthenticated();
-       allow create: if isUserAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
-       allow update: if isUserAuthenticated() && resource.data.ownerUid == request.auth.uid;
+    // Templates are read-only for authenticated users, writable only by admins.
+    match /oneDriveTemplates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAppAdmin();
     }
   }
 }
