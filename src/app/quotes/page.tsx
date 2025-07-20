@@ -2,6 +2,7 @@
 // src/app/quotes/page.tsx
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -107,7 +108,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
             const initialSite = { name: 'Main Site', address: values.address };
             
             const { customerId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
-            const newCustomer = { id: customerId, ...newCustomerData };
+            const newCustomer = { id: customerId, ...newCustomerData, primaryContactId: initialContact.name };
             
             onCustomerAdded(newCustomer);
             toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
@@ -261,8 +262,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                 setProjects(projectsData);
                 setEmployees(employeesData);
                 setCustomers(customersData);
-
-                // Set default assigned staff to logged in user
+                
                 const defaultUser = employeesData.find(e => e.id === 'EMP010'); // Simulating Jane Doe as logged-in user
                 if (defaultUser) {
                   replaceStaff([{ employeeId: defaultUser.id, role: 'Project Manager' }]);
@@ -305,7 +305,10 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                     const customer = customers.find(c => c.id === watchedCustomerId);
                     
                     if (customer?.primaryContactId) {
-                        replaceContacts([{ contactId: customer.primaryContactId, role: 'Primary' }]);
+                        const primaryContactExists = contactsData.some(c => c.id === customer.primaryContactId);
+                        if(primaryContactExists) {
+                           replaceContacts([{ contactId: customer.primaryContactId, role: 'Primary' }]);
+                        }
                     } else if (contactsData.length > 0) {
                         replaceContacts([{ contactId: contactsData[0].id, role: 'Primary' }]);
                     } else {
@@ -328,6 +331,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
     
 
     const customerOptions = useMemo(() => customers.map(c => ({ value: c.id, label: c.name })), [customers]);
+    
     const projectOptions = useMemo(() => {
         const filteredProjects = watchedCustomerId ? projects.filter(p => p.customerId === watchedCustomerId) : projects;
         return filteredProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})`}));
