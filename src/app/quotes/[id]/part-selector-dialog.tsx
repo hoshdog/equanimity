@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 interface PartSelectorDialogProps {
@@ -100,6 +101,8 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   const [stockItems, setStockItems] = React.useState<StockItem[]>([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [selectedParts, setSelectedParts] = React.useState<Map<string, SelectedPart>>(new Map());
+  const [defaultSupplier, setDefaultSupplier] = React.useState('cheapest');
+
 
   const { toast } = useToast();
 
@@ -163,7 +166,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
     selectedParts.forEach(({ part, supplierInfo, quantity }) => {
         const sellPrice = supplierInfo.tradePrice * 1.3; // Placeholder 30% markup
         onPartSelected({
-          description: `${part.description} (${supplierInfo.supplier})`,
+          description: `${part.description}`,
           quantity,
           unitPrice: parseFloat(sellPrice.toFixed(2)),
           unitCost: supplierInfo.tradePrice,
@@ -189,6 +192,14 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
   }, [globalFilter]);
 
   const selectedPartsArray = Array.from(selectedParts.entries());
+  
+  const allSuppliers = React.useMemo(() => {
+    const supplierSet = new Set<string>();
+    mockPartsCatalogue.forEach(part => {
+        part.suppliers.forEach(s => supplierSet.add(s.supplier));
+    });
+    return Array.from(supplierSet);
+  }, []);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -216,13 +227,22 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                       </div>
                     ) : (
                       <>
-                        <div className="p-4">
+                        <div className="p-4 flex gap-4">
                           <Input
                             placeholder="Search by description or part number..."
                             value={globalFilter}
                             onChange={(event) => setGlobalFilter(event.target.value)}
                             className="w-full"
                           />
+                           <Select value={defaultSupplier} onValueChange={setDefaultSupplier}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Default Supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cheapest">Cheapest</SelectItem>
+                                    {allSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                          <div className="rounded-md border">
                             <Table>
@@ -231,14 +251,21 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                                     <TableHead className="w-12"></TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead className="text-center w-28">Qty in Stock</TableHead>
+                                    <TableHead className="w-48 text-right">Quick Add</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredCatalogue.length > 0 ? filteredCatalogue.map((part) => (
-                                        <PartRow key={part.partNumber} part={part} inventoryMap={inventoryMap} onSelect={handleSelectPart} />
+                                        <PartRow 
+                                            key={part.partNumber} 
+                                            part={part} 
+                                            inventoryMap={inventoryMap} 
+                                            onSelect={handleSelectPart}
+                                            defaultSupplierPreference={defaultSupplier}
+                                        />
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="h-24 text-center">No parts found.</TableCell>
+                                            <TableCell colSpan={4} className="h-24 text-center">No parts found.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -293,9 +320,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                            <div key={key} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
                                 <div>
                                     <p className="font-medium">{part.description}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {quantity} x {supplierInfo.supplier}
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">{part.partNumber} &bull; {quantity} x {supplierInfo.supplier}</p>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemovePart(key)}>
                                     <Trash2 className="h-4 w-4 text-destructive"/>
@@ -304,7 +329,7 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
                         ))
                     ) : (
                         <div className="text-center text-sm text-muted-foreground py-10">
-                            No parts selected. Select a part from the catalogue to add it here.
+                            No parts selected. Use the quick add or expand a row to select parts.
                         </div>
                     )}
                 </CardContent>
@@ -326,14 +351,36 @@ export function PartSelectorDialog({ children, onPartSelected }: PartSelectorDia
 }
 
 
-function PartRow({ part, inventoryMap, onSelect }: { part: CataloguePart, inventoryMap: Map<string, StockItem>, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void }) {
+function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { part: CataloguePart, inventoryMap: Map<string, StockItem>, onSelect: (part: CataloguePart, supplier: SupplierPartInfo, quantity: number) => void, defaultSupplierPreference: string }) {
     const [isOpen, setIsOpen] = React.useState(false);
+    const [quickAddQty, setQuickAddQty] = React.useState(1);
+
     const inventoryItem = inventoryMap.get(part.partNumber);
     const stockQty = inventoryItem?.quantityOnHand || 0;
     
     // Sort suppliers by price, cheapest first
     const sortedSuppliers = [...part.suppliers].sort((a, b) => a.tradePrice - b.tradePrice);
     
+    const handleQuickAdd = () => {
+        let supplierToUse: SupplierPartInfo | undefined;
+
+        if (defaultSupplierPreference === 'cheapest') {
+            supplierToUse = sortedSuppliers[0];
+        } else {
+            supplierToUse = part.suppliers.find(s => s.supplier === defaultSupplierPreference);
+            if (!supplierToUse) {
+                // Fallback to cheapest if preferred supplier doesn't stock it
+                supplierToUse = sortedSuppliers[0];
+            }
+        }
+        
+        if (supplierToUse) {
+            onSelect(part, supplierToUse, quickAddQty);
+            setQuickAddQty(1); // Reset
+        }
+    };
+
+
     return (
         <Collapsible asChild>
             <>
@@ -354,11 +401,17 @@ function PartRow({ part, inventoryMap, onSelect }: { part: CataloguePart, invent
                         {stockQty}
                     </Badge>
                 </TableCell>
+                <TableCell className="text-right">
+                    <div className="flex justify-end items-center gap-2">
+                        <Input type="number" value={quickAddQty} onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)} className="w-20 h-8" />
+                        <Button size="sm" onClick={handleQuickAdd}>Add</Button>
+                    </div>
+                </TableCell>
             </TableRow>
             <CollapsibleContent asChild>
                <TableRow>
                     <TableCell></TableCell>
-                    <TableCell colSpan={2} className="p-0">
+                    <TableCell colSpan={3} className="p-0">
                        <div className="p-2 bg-secondary/50 space-y-1">
                           {sortedSuppliers.map((supplier, index) => (
                               <SupplierRow 
@@ -401,4 +454,3 @@ function SupplierRow({ part, supplier, isCheapest, onSelect }: { part: Catalogue
         </div>
     )
 }
-
