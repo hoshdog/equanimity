@@ -382,11 +382,11 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
 
 
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <React.Fragment>
             <TableRow>
                 <TableCell className="w-12">
                      <CollapsibleTrigger asChild>
-                         <Button variant="ghost" size="icon" disabled={part.suppliers.length <= 1}>
+                         <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} disabled={part.suppliers.length <= 1}>
                             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                          </Button>
                      </CollapsibleTrigger>
@@ -407,8 +407,8 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                     </div>
                 </TableCell>
             </TableRow>
-            <CollapsibleContent asChild>
-               <TableRow>
+            {isOpen && (
+                <TableRow>
                     <TableCell></TableCell>
                     <TableCell colSpan={3} className="p-0">
                        <div className="p-2 bg-secondary/50 space-y-1">
@@ -424,8 +424,8 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
                        </div>
                     </TableCell>
                 </TableRow>
-            </CollapsibleContent>
-        </Collapsible>
+            )}
+        </React.Fragment>
     )
 }
 
