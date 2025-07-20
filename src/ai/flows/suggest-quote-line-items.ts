@@ -6,7 +6,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { QuotingProfile } from '@/lib/quoting-profiles';
 
 // Input schema defines the expected shape of data passed to the AI prompt
 const SuggestQuoteLineItemsInputSchema = z.object({

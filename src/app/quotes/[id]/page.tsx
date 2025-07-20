@@ -37,14 +37,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { suggestQuoteLineItems } from '@/ai/flows/suggest-quote-line-items';
-import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
-import { mockPartsCatalogue } from './part-selector-dialog'; // Reuse the catalogue for now
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { generateQuoteDescription, GenerateQuoteDescriptionInput } from '@/ai/flows/generate-quote-description';
+
 
 const lineItemSchema = z.object({
     id: z.string(),
@@ -86,12 +80,11 @@ const formSchema = z.object({
 type QuoteFormValues = z.infer<typeof formSchema>;
 
 
-function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerateDescription: (description: string) => void }) {
+function AIAssistant({ quote, onGenerateDescription, onSuggestionsReceived }: { quote: Quote, onGenerateDescription: (description: string) => void, onSuggestionsReceived: (suggestions: string) => void }) {
     const [aiPrompt, setAiPrompt] = useState(quote.prompt || '');
     const [uploadedFiles, setUploadedFiles] = useState<{ file: File, dataUri: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [generatingDescription, setGeneratingDescription] = useState(false);
-    const [suggestions, setSuggestions] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string>(initialQuotingProfiles[0].id);
     const { toast } = useToast();
     
@@ -117,17 +110,14 @@ function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerat
 
     const handleGetSuggestions = async () => {
         setLoading(true);
-        setSuggestions(null);
         try {
             const aiInput: SuggestQuoteLineItemsInput = {
                 userPrompt: aiPrompt,
-                uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
-                partsCatalogue: mockPartsCatalogue, // Using mock data for now
                 quotingProfile: selectedProfile,
-                previousQuotesContext: [], // Placeholder for future implementation
             };
             const result = await suggestQuoteLineItems(aiInput);
-            setSuggestions(result);
+            onSuggestionsReceived(result);
+            toast({ title: 'Suggestions Ready', description: 'The AI has generated line item suggestions.' });
         } catch (error) {
             console.error("AI suggestion failed:", error);
             toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to get suggestions.' });
@@ -139,11 +129,12 @@ function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerat
     const handleGenerateDescription = async () => {
         setGeneratingDescription(true);
         try {
-            const result = await generateQuoteDescription({
+            const input: GenerateQuoteDescriptionInput = {
                 userPrompt: aiPrompt,
                 uploadedDocuments: uploadedFiles.map(f => ({ dataUri: f.dataUri, fileName: f.file.name })),
                 quotingProfile: selectedProfile
-            });
+            };
+            const result = await generateQuoteDescription(input);
             onGenerateDescription(result.quoteDescription);
             toast({ title: 'Description Generated', description: 'The quote description has been populated by the AI.' });
         } catch (error) {
@@ -214,21 +205,6 @@ function AIAssistant({ quote, onGenerateDescription }: { quote: Quote, onGenerat
                         Suggest Line Items
                     </Button>
                 </div>
-                {loading && (
-                    <div className="flex items-center justify-center text-center p-8">
-                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                        <p className="mt-2 text-sm text-muted-foreground">AI is thinking...</p>
-                    </div>
-                )}
-                {suggestions && (
-                    <div className="space-y-2 pt-4">
-                        <Label>AI Suggestions</Label>
-                        <Textarea readOnly value={suggestions} rows={10} className="font-mono text-xs select-text" />
-                        <div className="flex justify-end">
-                            <Button variant="ghost" size="sm" onClick={() => setSuggestions(null)}>Clear</Button>
-                        </div>
-                    </div>
-                )}
             </CardContent>
         </Card>
     );
@@ -248,6 +224,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditingHeader, setIsEditingHeader] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState<string | null>(null);
     const { toast } = useToast();
 
     const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
@@ -380,6 +357,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const handleGenerateDescription = (description: string) => {
         setValue('description', description);
     }
+    
+    const handleSuggestionsReceived = (suggestions: string) => {
+        setAiSuggestions(suggestions);
+    }
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
@@ -468,6 +449,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
+                    
                     <Card>
                         <CardHeader>
                             <CardTitle>Quote Description</CardTitle>
@@ -681,11 +663,24 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </Card>
                 </div>
 
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-4">
                      <AIAssistant 
                         quote={quote} 
                         onGenerateDescription={handleGenerateDescription}
+                        onSuggestionsReceived={handleSuggestionsReceived}
                     />
+                    {aiSuggestions && (
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>AI Suggestions</CardTitle>
+                                <CardDescription>Review and apply the AI's suggestions.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <Textarea value={aiSuggestions} readOnly rows={12} className="font-mono text-xs select-text" />
+                                 <Button variant="outline" size="sm" className="mt-2" onClick={() => setAiSuggestions(null)}>Clear</Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </form>
