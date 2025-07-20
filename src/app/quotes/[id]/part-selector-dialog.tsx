@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart, ChevronDown, ChevronRight, Star } from 'lucide-react';
+import { Loader2, DollarSign, PlusCircle, CheckCircle, Circle, Trash2, ShoppingCart, ChevronDown, ChevronRight, Star, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { subscribeToStockItems } from '@/lib/inventory';
 import type { StockItem, QuoteLineItem } from '@/lib/types';
@@ -382,7 +382,7 @@ function PartRow({ part, inventoryMap, onSelect, defaultSupplierPreference }: { 
 
 
     return (
-        <Collapsible>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <TableRow>
                 <TableCell className="w-12">
                      <CollapsibleTrigger asChild>
