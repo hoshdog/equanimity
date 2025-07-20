@@ -108,12 +108,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     
     const quotesQuery = query(collection(db, 'quotes'), where('projectId', '==', projectId));
     const unsubQuotes = onSnapshot(quotesQuery, (snapshot) => {
-        setQuotes(snapshot.docs.map(doc => ({
-            id: doc.id, 
-            ...doc.data(),
-            quoteDate: (doc.data().quoteDate as any).toDate(),
-            createdAt: (doc.data().createdAt as any)?.toDate(),
-        } as Quote)));
+        setQuotes(snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id, 
+                ...data,
+                quoteDate: (data.quoteDate as any)?.toDate(),
+                createdAt: (data.createdAt as any)?.toDate(),
+            } as Quote
+        }));
     });
 
     const poQuery = query(collection(db, 'purchaseOrders'), where('projectId', '==', projectId));
@@ -151,7 +154,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             dueDate: addDays(new Date(), 14),
             expiryDate: addDays(new Date(), 30),
             status: 'Draft' as const,
-            lineItems: [{ id: 'item-0', description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
+            lineItems: [{ id: 'item-0', type: 'Part' as const, description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
             subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
             projectContacts: [],
             assignedStaff: [],

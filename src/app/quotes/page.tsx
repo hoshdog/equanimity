@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Loader2, PlusCircle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getQuotes, addQuote } from '@/lib/quotes';
-import { getCustomers, getProjects } from '@/lib/firebase-helpers'; // Placeholder
-import type { Quote, Customer, Project, OptionType } from '@/lib/types';
+import { addQuote } from '@/lib/quotes';
+import { getProjects } from '@/lib/projects';
+import type { Quote, Project, OptionType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
@@ -28,8 +28,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
-import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { addDays } from 'date-fns';
 
 
 const createQuoteSchema = z.object({
@@ -56,10 +57,8 @@ function CreateQuoteDialog() {
         async function fetchProjects() {
             setLoading(true);
             try {
-                // In a real app, this should be a more efficient query
-                const q = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
-                const snapshot = await getDocs(q);
-                setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
+                const projectsData = await getProjects();
+                setProjects(projectsData);
             } catch (error) {
                 toast({ variant: "destructive", title: "Error", description: "Could not load projects." });
             } finally {
@@ -81,18 +80,19 @@ function CreateQuoteDialog() {
         }
 
         try {
-            const newQuoteData = {
+             const newQuoteData = {
                 projectId: selectedProject.id,
+                projectName: selectedProject.name,
                 customerId: selectedProject.customerId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
+                name: `${selectedProject.name} - Quote`,
+                description: `Quote for ${selectedProject.name}`,
                 quoteDate: new Date(),
-                expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+                dueDate: addDays(new Date(), 14),
+                expiryDate: addDays(new Date(), 30),
                 status: 'Draft' as const,
-                lineItems: [{ id: 'item-0', description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
-                subtotal: 0,
-                totalDiscount: 0,
-                totalTax: 0,
-                totalAmount: 0,
+                lineItems: [{ id: 'item-0', type: 'Part' as const, description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
+                subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
                 version: 1,
             };
             const newQuoteId = await addQuote(newQuoteData);
@@ -166,12 +166,15 @@ export default function QuotesPage() {
     const q = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, 
         (snapshot) => {
-            const quotesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                quoteDate: (doc.data().quoteDate as any).toDate(),
-                createdAt: (doc.data().createdAt as any)?.toDate(),
-            } as Quote));
+            const quotesData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    quoteDate: (data.quoteDate as Timestamp)?.toDate(),
+                    createdAt: (data.createdAt as Timestamp)?.toDate(),
+                } as Quote;
+            });
             setQuotes(quotesData);
             setLoading(false);
         },
