@@ -4,8 +4,9 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
 
 interface BreadcrumbContextType {
-  breadcrumbs: { [path: string]: string };
-  setBreadcrumbs: (breadcrumbs: { [path: string]: string }) => void;
+  // The value is now a simple string for the dynamic part of the breadcrumb
+  dynamicTitle: string | null;
+  setDynamicTitle: (title: string | null) => void;
 }
 
 const BreadcrumbContext = createContext<BreadcrumbContextType | null>(null);
@@ -19,15 +20,15 @@ export function useBreadcrumb() {
 }
 
 export function BreadcrumbProvider({ children }: { children: React.ReactNode }) {
-  const [breadcrumbs, setBreadcrumbs] = useState<{ [path: string]: string }>({});
+  const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
 
-  const handleSetBreadcrumbs = useCallback((newBreadcrumbs: { [path: string]: string }) => {
-    setBreadcrumbs(newBreadcrumbs);
+  const handleSetTitle = useCallback((title: string | null) => {
+    setDynamicTitle(title);
   }, []);
 
   const value = {
-    breadcrumbs,
-    setBreadcrumbs: handleSetBreadcrumbs,
+    dynamicTitle,
+    setDynamicTitle: handleSetTitle,
   };
 
   return (

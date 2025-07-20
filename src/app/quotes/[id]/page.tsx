@@ -103,7 +103,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
     const { setContext, logTime } = useTimeTracker();
-    const { setBreadcrumbs } = useBreadcrumb();
+    const { setDynamicTitle } = useBreadcrumb();
 
 
     const { toast } = useToast();
@@ -184,8 +184,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 setLoading(true);
                 const quoteData = { id: docSnapshot.id, ...docSnapshot.data() } as Quote;
                 setQuote(quoteData);
-                setContext({ type: 'quote', id: quoteData.id, name: `Quote ${quoteData.quoteNumber}` });
-                setBreadcrumbs({ [docSnapshot.ref.path]: `Quote ${quoteData.quoteNumber}` });
+                const title = `Quote ${quoteData.quoteNumber}`;
+                setContext({ type: 'quote', id: quoteData.id, name: title });
+                setDynamicTitle(title);
                 await fetchRelatedData(quoteData);
                 resetFormToQuote(quoteData);
             } else {
@@ -197,9 +198,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         return () => {
             unsub();
             setContext(null); // Clear context on unmount
-            setBreadcrumbs({}); // Clear breadcrumbs on unmount
+            setDynamicTitle(null); // Clear breadcrumbs on unmount
         };
-    }, [quoteId, toast, resetFormToQuote, setContext, setBreadcrumbs]);
+    }, [quoteId, toast, resetFormToQuote, setContext, setDynamicTitle]);
 
     // Fetch lists for dropdowns when editing
     useEffect(() => {

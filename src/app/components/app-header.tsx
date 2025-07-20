@@ -19,7 +19,7 @@ import { useBreadcrumb } from '@/context/breadcrumb-context';
 
 function Breadcrumbs() {
   const pathname = usePathname();
-  const { breadcrumbs } = useBreadcrumb();
+  const { dynamicTitle } = useBreadcrumb();
   const segments = pathname.split('/').filter(Boolean);
 
   if (segments.length === 0) {
@@ -40,16 +40,9 @@ function Breadcrumbs() {
       {segments.map((segment, index) => {
         const path = `/${segments.slice(0, index + 1).join('/')}`;
         const isLast = index === segments.length - 1;
-        const breadcrumbLabel = breadcrumbs[path];
         
-        let label = breadcrumbLabel || segment;
-        if (!breadcrumbLabel && isLast) {
-          const parentPath = `/${segments.slice(0, index).join('/')}`;
-          if (breadcrumbs[parentPath]) {
-             label = segment; // If parent has a label, show the raw segment for the child
-          }
-        }
-
+        // If it's the last segment, use the dynamic title from context if it exists, otherwise use the segment itself.
+        const label = isLast ? dynamicTitle || segment : segment;
 
         return (
           <React.Fragment key={path}>

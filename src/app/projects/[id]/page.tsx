@@ -208,7 +208,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { setContext } = useTimeTracker();
-  const { setBreadcrumbs } = useBreadcrumb();
+  const { setDynamicTitle } = useBreadcrumb();
 
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         const projectData = { id: projectDoc.id, ...projectDoc.data() } as Project;
         setProject(projectData);
         setContext({ type: 'project', id: projectData.id, name: projectData.name });
-        setBreadcrumbs({ [projectDoc.ref.path]: projectData.name });
+        setDynamicTitle(projectData.name);
 
         if (projectData.customerId) {
           const customerData = await getCustomer(projectData.customerId);
@@ -269,9 +269,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         unsubQuotes();
         unsubPOs();
         setContext(null); // Clear context on unmount
-        setBreadcrumbs({}); // Clear breadcrumbs on unmount
+        setDynamicTitle(null); // Clear breadcrumbs on unmount
     };
-  }, [projectId, toast, setContext, setBreadcrumbs]);
+  }, [projectId, toast, setContext, setDynamicTitle]);
 
   const employeeMap = useMemo(() => {
     return new Map(employees.map(e => [e.id, e.name]));
