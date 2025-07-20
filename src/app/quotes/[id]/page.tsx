@@ -39,6 +39,7 @@ import { Separator } from '@/components/ui/separator';
 
 const lineItemSchema = z.object({
     id: z.string(),
+    type: z.enum(['Part', 'Labour']),
     description: z.string().min(3, "Description is required."),
     quantity: z.coerce.number().min(0.1, "Qty must be > 0."),
     unitPrice: z.coerce.number().min(0.01, "Price must be > 0."),
@@ -276,26 +277,31 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                     </CardContent>
                 </Card>
             </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Line Items</CardTitle>
-                </CardHeader>
-                <CardContent>
-                     <div className="space-y-2">
-                        <div className="grid grid-cols-12 gap-2 px-2">
+            
+            <div className="space-y-4">
+                {/* Parts Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Parts & Materials</CardTitle>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Part', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
+                            <PlusCircle className="mr-2 h-4 w-4"/>Add Part
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                         <div className="grid grid-cols-12 gap-2 px-2">
                             <Label className="col-span-12 sm:col-span-5">Description</Label>
                             <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
                             <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
                             <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
                             <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
                         </div>
-                        <div className="space-y-2">
-                            {lineItemFields.map((field, index) => (
+                        {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
+                             if (field.type !== 'Part') return null;
+                             return (
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-12 sm:col-span-5">
-                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Item description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
                                             <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
@@ -310,31 +316,83 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                             <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)} disabled={lineItemFields.length <= 1}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
                                 </div>
-                            ))}
+                             )
+                        }) : <p className="text-sm text-muted-foreground text-center p-4">No parts added yet.</p>}
+                    </CardContent>
+                </Card>
+
+                 {/* Labour Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Labour & Services</CardTitle>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, type: 'Labour', description: "", quantity: 1, unitCost: 0, unitPrice: 0, taxRate: 10 })}>
+                            <PlusCircle className="mr-2 h-4 w-4"/>Add Labour
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                         <div className="grid grid-cols-12 gap-2 px-2">
+                            <Label className="col-span-12 sm:col-span-5">Description</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
+                            <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
+                            <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendLineItem({ id: `item-${lineItemFields.length}`, description: "", quantity: 1, unitPrice: 0, unitCost: 0, taxRate: 10 })}><PlusCircle className="mr-2 h-4 w-4"/>Add Line</Button>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                    <div className="w-full max-w-sm space-y-4">
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
-                        <Separator />
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                            <div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Gross Margin</span>
-                                <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span>
+                        {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
+                             if (field.type !== 'Labour') return null;
+                             return (
+                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
+                                    <div className="grid grid-cols-12 gap-2 flex-grow">
+                                        <div className="col-span-12 sm:col-span-5">
+                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Labour description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-2">
+                                            <FormField control={form.control} name={`lineItems.${index}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-1">
+                                            <FormField control={form.control} name={`lineItems.${index}.taxRate`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pr-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(index)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
+                                </div>
+                             )
+                        }) : <p className="text-sm text-muted-foreground text-center p-4">No labour added yet.</p>}
+                    </CardContent>
+                </Card>
+            </div>
+
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Totals & Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <div className="flex justify-end">
+                        <div className="w-full max-w-sm space-y-4">
+                            <div className="space-y-1 text-sm">
+                                <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span>Tax (GST)</span><span>${totalTax.toFixed(2)}</span></div>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between font-bold text-lg"><span>Total</span><span>${totalAmount.toFixed(2)}</span></div>
+                            <Separator />
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                                <div className="flex justify-between"><span>Total Cost</span><span>${totalCost.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span>Gross Profit</span><span>${grossProfit.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span>Gross Margin</span>
+                                    <span className={cn(grossMargin < 20 ? 'text-destructive' : 'text-green-600')}>{grossMargin.toFixed(1)}%</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </CardFooter>
+                </CardContent>
             </Card>
 
             <Card>

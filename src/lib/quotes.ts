@@ -54,6 +54,7 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
   
   const dataToSave = {
     ...quoteData,
+    lineItems: quoteData.lineItems.map(item => ({ ...item, type: item.type || 'Part' })), // Ensure type is set
     quoteDate: Timestamp.fromDate(quoteData.quoteDate as Date),
     dueDate: Timestamp.fromDate(quoteData.dueDate as Date),
     expiryDate: Timestamp.fromDate(quoteData.expiryDate as Date),

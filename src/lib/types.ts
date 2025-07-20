@@ -148,6 +148,7 @@ export interface Employee {
 
 export interface QuoteLineItem {
     id: string; // For React key
+    type: 'Part' | 'Labour';
     description: string;
     quantity: number;
     unitPrice: number; // This is the SELL price
