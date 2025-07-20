@@ -2,10 +2,55 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all read and write access for development purposes.
-    // WARNING: These rules are not secure for a production environment.
+
+    // Helper function to check for project membership (implementation needed)
+    // This function would typically check a 'members' array or map on the project document.
+    function isProjectMember(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+    }
+
+    match /projects/{projectId} {
+      // READ: Allow any member of the project to read the project document.
+      allow read: if isProjectMember(projectId);
+
+      // CREATE: A user must be authenticated and set themselves as the owner.
+      // We also validate that the incoming data has the correct fields.
+      allow create: if request.auth.uid != null
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.name is string
+                    && request.resource.data.members is map;
+
+      // UPDATE: Only the owner can update. Critically, we prevent the ownerUid from being changed.
+      allow update: if request.auth.uid == resource.data.ownerUid
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+
+      // DELETE: Only the owner can delete the project.
+      allow delete: if request.auth.uid == resource.data.ownerUid;
+
+      match /tasks/{taskId} {
+        // READ: Inherits read access from the parent project. Any project member can read tasks.
+        allow read: if isProjectMember(projectId);
+
+        // CREATE: Any project member can create a task.
+        // We validate that the new task has an assignee and a description.
+        allow create: if isProjectMember(projectId)
+                      && request.resource.data.assigneeUid is string
+                      && request.resource.data.description is string;
+        
+        // WRITE (Update/Delete): Split into more granular rules.
+        // UPDATE: Only the assigned user can update a task. Prevent re-assignment.
+        allow update: if request.auth.uid == resource.data.assigneeUid
+                      && request.resource.data.assigneeUid == resource.data.assigneeUid;
+                      
+        // DELETE: Allow the assignee OR the project owner to delete the task.
+        allow delete: if request.auth.uid == resource.data.assigneeUid
+                      || request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.ownerUid;
+      }
+    }
+
+    // Explicitly deny access to other collections unless specified
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
