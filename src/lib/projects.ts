@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import type { Project, Customer } from './types';
 import { getCustomer } from './customers';
+import { auth } from './auth';
 
 const projectsCollection = collection(db, 'projects');
 
@@ -48,7 +49,10 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 // Add a new project
-export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName'>): Promise<string> {
+export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName' | 'projectCode'>): Promise<string> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User must be authenticated to create a project.");
+
     const customer = await getCustomer(projectData.customerId);
     if (!customer) {
         throw new Error("Customer not found for project creation.");
@@ -58,7 +62,11 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
         ...projectData,
         customerName: customer.name, // Denormalized field
         status: 'Planning',
+        // Audit Trail
+        createdBy: user.uid,
+        updatedBy: user.uid,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
     });
 
     return newProjectRef.id;
@@ -67,8 +75,15 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
 
 // Update a project
 export async function updateProject(id: string, data: Partial<Project>) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User must be authenticated to update a project.");
+  
   const docRef = doc(db, 'projects', id);
-  await updateDoc(docRef, data);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+    updatedBy: user.uid,
+  });
 }
 
 // Delete a project

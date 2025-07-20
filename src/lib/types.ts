@@ -7,12 +7,24 @@ export interface OptionType {
   label: string;
 }
 
+export interface Revision {
+    version: number;
+    changedBy: string;
+    changedAt: Timestamp;
+    changeSummary: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
   emails: string[];
   phones: string[];
   jobTitle?: string;
+  // Audit Trail
+  createdAt?: Timestamp;
+  createdBy?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 export interface Site {
@@ -20,6 +32,11 @@ export interface Site {
   name: string;
   address: string;
   primaryContactId: string;
+   // Audit Trail
+  createdAt?: Timestamp;
+  createdBy?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 export interface Customer {
@@ -31,6 +48,11 @@ export interface Customer {
   email: string;
   phone: string;
   primaryContactId?: string; // Optional: ID of the primary contact in the subcollection
+   // Audit Trail
+  createdAt?: Timestamp;
+  createdBy?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 export interface ProjectContact {
@@ -45,6 +67,7 @@ export interface AssignedStaff {
 
 export interface Project {
     id: string;
+    projectCode?: string; // e.g. PRJ-2024-001
     name: string;
     description: string;
     status: string;
@@ -53,13 +76,18 @@ export interface Project {
     customerName: string; // Denormalized for easier display
     siteId: string;
     projectContacts: ProjectContact[];
-    createdAt: Timestamp;
+    // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }
 
 export const jobStaffRoles = ["Lead Technician", "Technician", "Apprentice", "Project Manager", "Safety Officer"];
 
 export interface Job {
     id: string;
+    jobCode?: string; // e.g. PRJ-2024-001-JB-001
     projectId: string;
     projectName: string; // Denormalized
     customerId: string; // Denormalized
@@ -87,8 +115,11 @@ export interface Job {
     billable: boolean;
     billingRate?: number;
     
-    // Meta
-    createdAt: Timestamp;
+    // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }
 
 export interface UserProfile {
@@ -104,7 +135,11 @@ export interface UserProfile {
         name: string;
         expiryDate: string; // ISO 8601 format (YYYY-MM-DD)
     }>;
-    createdAt: string; // ISO 8601 format
+     // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }
 
 export interface Company {
@@ -144,6 +179,11 @@ export interface Employee {
         fundName: string;
         memberNumber: string;
     };
+     // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }
 
 export interface QuoteLineItem {
@@ -186,8 +226,16 @@ export interface Quote {
     internalNotes?: string;
     clientNotes?: string;
     version: number;
-    createdAt?: Timestamp | Date;
+    revisions: Revision[];
+    // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
     updatedAt?: Timestamp;
+    updatedBy?: string;
+    approvedBy?: string;
+    approvedAt?: Timestamp;
+    rejectedBy?: string;
+    rejectedAt?: Timestamp;
 }
 
 
@@ -208,7 +256,11 @@ export interface PurchaseOrder {
   status: 'Draft' | 'Sent' | 'Partially Received' | 'Received' | 'Cancelled';
   lineItems: POLineItem[];
   totalValue: number;
-  createdAt: Timestamp;
+   // Audit Trail
+  createdAt?: Timestamp;
+  createdBy?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 export interface LaborRate {
@@ -224,7 +276,11 @@ export interface StockItem {
     sku: string;
     quantityOnHand: number;
     reorderThreshold: number;
-    createdAt: Timestamp;
+     // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }
 
 export interface Message {
@@ -256,6 +312,7 @@ export interface ScheduleResource {
 // Timeline-specific types
 export interface TimelineItem {
     id: string;
+    taskCode?: string; // e.g. PRJ-2024-001-JB-001-TS-001
     name: string;
     type: 'job' | 'task';
     jobId?: string; // Only for tasks
@@ -275,4 +332,25 @@ export interface TimelineItem {
     lateStart?: string;
     lateFinish?: string;
     slack?: number; // in days
+     // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
+}
+
+// QMS Types
+export interface Procedure {
+    id: string;
+    procedureCode: string; // e.g. SOP-001
+    title: string;
+    description: string;
+    owner: string; // User ID
+    version: number;
+    revisions: Revision[];
+    // Audit Trail
+    createdAt?: Timestamp;
+    createdBy?: string;
+    updatedAt?: Timestamp;
+    updatedBy?: string;
 }

@@ -13,8 +13,10 @@ import {
   Timestamp,
   getDoc,
   updateDoc,
+  FieldValue,
 } from 'firebase/firestore';
 import type { Quote } from './types';
+import { auth } from './auth';
 
 
 // Get all quotes from all projects for the main list view
@@ -31,7 +33,15 @@ export async function getQuote(id: string): Promise<Quote | null> {
     const docRef = doc(db, 'quotes', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Quote;
+        const data = docSnap.data();
+        // Manually convert Timestamps to Dates for form compatibility
+        return { 
+            id: docSnap.id, 
+            ...data,
+            quoteDate: data.quoteDate?.toDate(),
+            dueDate: data.dueDate?.toDate(),
+            expiryDate: data.expiryDate?.toDate(),
+        } as Quote;
     }
     return null;
 }
@@ -49,16 +59,21 @@ export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
 }
 
 // Add a new quote
-export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'>): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User must be authenticated to create a quote.");
+
   const quotesCollectionRef = collection(db, 'quotes');
   
   const dataToSave = {
     ...quoteData,
     lineItems: quoteData.lineItems.map(item => ({ ...item, type: item.type || 'Part' })), // Ensure type is set
-    quoteDate: Timestamp.fromDate(quoteData.quoteDate as Date),
-    dueDate: Timestamp.fromDate(quoteData.dueDate as Date),
-    expiryDate: Timestamp.fromDate(quoteData.expiryDate as Date),
+    version: 1,
+    revisions: [],
+    // Audit fields
+    createdBy: user.uid,
     createdAt: serverTimestamp(),
+    updatedBy: user.uid,
     updatedAt: serverTimestamp(),
   };
 
@@ -68,7 +83,10 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
 
 
 // Update an existing quote
-export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>) {
+export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>, changeSummary: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User must be authenticated to update a quote.");
+
   const quoteRef = doc(db, 'quotes', id);
   const dataToUpdate = { ...quoteData };
 
@@ -83,8 +101,19 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
       dataToUpdate.expiryDate = Timestamp.fromDate(dataToUpdate.expiryDate);
   }
 
+  // Handle revision history
+  const newRevision = {
+      version: quoteData.version || 1, // Use existing version from form
+      changedBy: user.uid,
+      changedAt: serverTimestamp(),
+      changeSummary: changeSummary,
+  };
+
   await updateDoc(quoteRef, {
     ...dataToUpdate,
+    version: FieldValue.increment(1),
+    revisions: FieldValue.arrayUnion(newRevision),
     updatedAt: serverTimestamp(),
+    updatedBy: user.uid,
   });
 }
