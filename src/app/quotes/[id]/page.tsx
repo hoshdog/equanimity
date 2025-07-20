@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
+import { Badge } from '@/components/ui/badge';
 
 
 const lineItemSchema = z.object({
