@@ -8,7 +8,7 @@ import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle, MapPin, MinusCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, User, Mail, Phone, Briefcase, PlusCircle, MapPin, MinusCircle, Loader2, Star } from "lucide-react";
 import Link from "next/link";
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { addSite, addContact } from '@/lib/customers';
+import { addSite, addContact, updateCustomer } from '@/lib/customers';
 import type { Customer, Contact, Site, Project, OptionType } from '@/lib/types';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { onSnapshot, doc, collection, where, query } from 'firebase/firestore';
@@ -101,12 +101,10 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
 
     }, [customerId, toast, selectedSiteId]);
 
-
   const primaryContact = useMemo(() => {
-    if (!customer || !sites.length) return null;
-    const site = sites.find(s => s.id === selectedSiteId);
-    return contacts.find(c => c.id === site?.primaryContactId) || contacts[0];
-  }, [customer, sites, contacts, selectedSiteId]);
+    if (!customer) return null;
+    return contacts.find(c => c.id === customer.primaryContactId);
+  }, [customer, contacts]);
 
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
@@ -155,6 +153,16 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
        toast({ variant: "destructive", title: "Error", description: "Failed to add contact." });
     }
   }
+
+  const handleSetPrimaryContact = async (contactId: string) => {
+    if (!customer) return;
+    try {
+      await updateCustomer(customer.id, { primaryContactId: contactId });
+      toast({ title: 'Primary Contact Updated' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update primary contact." });
+    }
+  };
 
   const contactOptions = useMemo(() => {
     return contacts.map(contact => ({ label: contact.name, value: contact.id }));
@@ -404,6 +412,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead></TableHead>
                                             <TableHead>Name</TableHead>
                                             <TableHead>Email</TableHead>
                                             <TableHead>Phone</TableHead>
@@ -412,6 +421,11 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                     <TableBody>
                                         {contacts.map(contact => (
                                             <TableRow key={contact.id}>
+                                                 <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleSetPrimaryContact(contact.id)} className={cn(customer.primaryContactId === contact.id ? 'text-yellow-400' : 'text-muted-foreground hover:text-yellow-400')}>
+                                                        <Star className={cn("h-5 w-5", customer.primaryContactId === contact.id && 'fill-current')}/>
+                                                    </Button>
+                                                </TableCell>
                                                 <TableCell className="font-medium">{contact.name}</TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">

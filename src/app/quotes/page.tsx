@@ -94,24 +94,26 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             name: "",
             description: "",
             prompt: "",
-            assignedStaff: [{ employeeId: '', role: '' }],
-            projectContacts: [{ contactId: '', role: '' }],
+            assignedStaff: [],
+            projectContacts: [],
             customerId: "",
             siteId: "",
         },
     });
 
-    const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({
+    const { fields: staffFields, append: appendStaff, remove: removeStaff, replace: replaceStaff } = useFieldArray({
         control: form.control,
         name: 'assignedStaff'
     });
-     const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
+     const { fields: contactFields, append: appendContact, remove: removeContact, replace: replaceContacts } = useFieldArray({
         control: form.control,
         name: 'projectContacts'
     });
 
     const watchedProjectId = form.watch('projectId');
     const watchedCustomerId = form.watch('customerId');
+    const selectedCustomer = useMemo(() => customers.find(c => c.id === watchedCustomerId), [customers, watchedCustomerId]);
+
 
     // Fetch initial data (customers, all projects, employees)
     useEffect(() => {
@@ -128,6 +130,13 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                 setProjects(projectsData);
                 setEmployees(employeesData);
                 setCustomers(customersData);
+
+                // Set default assigned staff to logged in user
+                const defaultUser = employeesData.find(e => e.id === 'EMP010'); // Simulating Jane Doe as logged-in user
+                if (defaultUser) {
+                  replaceStaff([{ employeeId: defaultUser.id, role: 'Project Manager' }]);
+                }
+
             } catch (error) {
                 toast({ variant: "destructive", title: "Error", description: "Could not load initial data." });
             } finally {
@@ -135,6 +144,7 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             }
         }
         fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, toast]);
 
     // When a project is selected, find its details and auto-fill customer and site.
@@ -160,6 +170,14 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                     ]);
                     setContacts(contactsData);
                     setSites(sitesData);
+                    
+                    // Set default contact if customer has a primary contact
+                    if (selectedCustomer?.primaryContactId) {
+                        replaceContacts([{ contactId: selectedCustomer.primaryContactId, role: 'Primary' }]);
+                    } else if (contactsData.length > 0) {
+                        replaceContacts([{ contactId: contactsData[0].id, role: 'Primary' }]);
+                    }
+
                 } catch (error) {
                      toast({ variant: 'destructive', title: "Error", description: "Could not load data for the selected customer." });
                 } finally {
@@ -171,7 +189,8 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
             }
         }
         fetchCustomerSubData();
-    }, [watchedCustomerId, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedCustomerId, toast, selectedCustomer]);
     
 
     const customerOptions = useMemo(() => customers.map(c => ({ value: c.id, label: c.name })), [customers]);
@@ -187,14 +206,13 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
 
     async function onSubmit(values: CreateQuoteValues) {
         setLoading(true);
-        const selectedProject = projects.find(p => p.id === values.projectId);
         
         try {
              const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
                 projectId: values.projectId,
-                projectName: selectedProject?.name,
-                customerId: selectedProject ? selectedProject.customerId : values.customerId,
-                siteId: selectedProject ? selectedProject.siteId : values.siteId,
+                projectName: projects.find(p => p.id === values.projectId)?.name,
+                customerId: values.customerId,
+                siteId: values.siteId,
                 quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
                 name: values.name,
                 description: values.description || "",
@@ -257,22 +275,20 @@ function CreateQuoteDialog({ children, initialProjectId }: { children: React.Rea
                                         </FormItem>
                                     )}
                                 />
-                                {!watchedProjectId && (
-                                     <FormField
-                                        control={form.control}
-                                        name="siteId"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Site</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || sites.length === 0}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
-                                                    <SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                )}
+                                 <FormField
+                                    control={form.control}
+                                    name="siteId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Site</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCustomerId || sites.length === 0 || !!watchedProjectId}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a site" /></SelectTrigger></FormControl>
+                                                <SelectContent>{siteOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                  <FormField
                                     control={form.control}
                                     name="projectId"

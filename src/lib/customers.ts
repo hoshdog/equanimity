@@ -47,18 +47,20 @@ export async function getCustomerContacts(customerId: string): Promise<Contact[]
 }
 
 // Add a new customer and their initial contact/site
-export async function addCustomer(customerData: Omit<Customer, 'id'>, initialContact: Omit<Contact, 'id'>, initialSite: Omit<Site, 'id' | 'primaryContactId'>) {
+export async function addCustomer(customerData: Omit<Customer, 'id' | 'primaryContactId'>, initialContact: Omit<Contact, 'id'>, initialSite: Omit<Site, 'id' | 'primaryContactId'>) {
     const batch = writeBatch(db);
 
     // 1. Create the customer document
     const customerRef = doc(collection(db, 'customers'));
-    batch.set(customerRef, customerData);
 
     // 2. Create the initial contact document
     const contactRef = doc(collection(db, 'customers', customerRef.id, 'contacts'));
     batch.set(contactRef, initialContact);
     
-    // 3. Create the initial site document, linking the new contact
+    // 3. Set the customer document with the ID of the new primary contact
+    batch.set(customerRef, { ...customerData, primaryContactId: contactRef.id });
+
+    // 4. Create the initial site document, linking the new contact
     const siteRef = doc(collection(db, 'customers', customerRef.id, 'sites'));
     batch.set(siteRef, { ...initialSite, primaryContactId: contactRef.id });
 

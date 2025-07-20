@@ -31,6 +31,7 @@ export interface Customer {
   primaryContactName: string;
   email: string;
   phone: string;
+  primaryContactId?: string; // Optional: ID of the primary contact in the subcollection
 }
 
 export interface ProjectContact {
