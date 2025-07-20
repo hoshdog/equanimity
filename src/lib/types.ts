@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 
@@ -195,10 +196,12 @@ export interface Employee {
 export interface QuoteLineItem {
     id: string; // For React key
     type: 'Part' | 'Labour';
+    partNumber?: string;
     description: string;
     quantity: number;
     unitPrice: number; // This is the SELL price
     unitCost?: number; // This is the COST price
+    markup?: number;
     taxRate?: number; // Optional, defaults can be applied
     discount?: number; // Optional
 }

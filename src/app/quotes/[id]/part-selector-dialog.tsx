@@ -187,6 +187,7 @@ export function PartSelectorDialog({ children, onPartSelected, quoteDescription 
     selectedParts.forEach(({ part, supplierInfo, quantity }) => {
         const sellPrice = supplierInfo.tradePrice * 1.3; // Placeholder 30% markup
         onPartSelected({
+          partNumber: part.partNumber,
           description: `${part.description}`,
           quantity,
           unitPrice: parseFloat(sellPrice.toFixed(2)),
@@ -198,7 +199,7 @@ export function PartSelectorDialog({ children, onPartSelected, quoteDescription 
   };
   
   const handleAddOneOff = (values: OneOffItemValues) => {
-    onPartSelected({ ...values, taxRate: 10 });
+    onPartSelected({ ...values, taxRate: 10, partNumber: 'ONE-OFF' });
     setIsOpen(false);
     oneOffForm.reset();
   };
@@ -528,4 +529,3 @@ function SupplierRow({ part, supplier, isCheapest, onSelect }: { part: Catalogue
         </div>
     )
 }
-

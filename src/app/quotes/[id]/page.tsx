@@ -30,7 +30,7 @@ import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, Attachment } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download, Percent } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -43,10 +43,12 @@ import { generateQuoteDescription } from '@/ai/flows/generate-quote-description'
 const lineItemSchema = z.object({
     id: z.string(),
     type: z.enum(['Part', 'Labour']),
+    partNumber: z.string().optional(),
     description: z.string().min(3, "Description is required."),
     quantity: z.coerce.number().min(0.1, "Qty must be > 0."),
     unitPrice: z.coerce.number().min(0.01, "Price must be greater than 0."),
     unitCost: z.coerce.number().min(0).optional(), // Cost to you
+    markup: z.coerce.number().min(0).optional(),
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
 
@@ -120,12 +122,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }, [quotingProfile.laborRates]);
 
     const form = useForm<QuoteFormValues>({ resolver: zodResolver(formSchema) });
-    const { control, setValue, watch, trigger, getValues, reset } = form;
-    const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
+    const { control, setValue, watch, getValues, reset } = form;
+    const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem } = useFieldArray({ control, name: "lineItems" });
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
     const watchedDescription = watch('description');
+    const lineItemsWatch = watch('lineItems');
 
     const resetFormToQuote = useCallback((quoteData: Quote) => {
         reset({
@@ -194,13 +197,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }, [watchedCustomerId, isEditingHeader]);
 
 
-    const lineItemsWatch = form.watch('lineItems');
     const { subtotal, totalTax, totalAmount, totalCost, grossProfit, grossMargin } = React.useMemo(() => {
         let sub = 0, tax = 0, cost = 0;
         if (lineItemsWatch) {
             lineItemsWatch.forEach((item: Partial<QuoteLineItem>) => {
                 const lineTotal = (item.quantity || 0) * (item.unitPrice || 0);
-                const lineCost = (item.quantity || 0) * (item.unitCost || item.unitPrice || 0);
+                const lineCost = (item.quantity || 0) * (item.unitCost || 0); // Use 0 if unitCost is not present
                 sub += lineTotal;
                 tax += lineTotal * ((item.taxRate || 0) / 100);
                 cost += lineCost;
@@ -420,6 +422,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         unitCost: part.unitCost,
                                         unitPrice: part.unitPrice,
                                         taxRate: 10,
+                                        partNumber: part.partNumber
                                     });
                                 }}
                                 quoteDescription={watchedDescription || ''}
@@ -430,47 +433,69 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             </PartSelectorDialog>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            <div className="grid grid-cols-12 gap-2 px-2">
-                                <Label className="col-span-12 sm:col-span-5">Description</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Qty</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Cost</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Unit Price</Label>
-                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-muted-foreground">
+                                <Label className="col-span-4">Description</Label>
+                                <Label className="col-span-2">Part #</Label>
+                                <Label className="col-span-1 text-center">Qty</Label>
+                                <Label className="col-span-1 text-center">Cost</Label>
+                                <Label className="col-span-1 text-center">Markup</Label>
+                                <Label className="col-span-1 text-center">Margin</Label>
+                                <Label className="col-span-1 text-center">Sell</Label>
+                                <Label className="col-span-1 text-center">Tax</Label>
                             </div>
                             {lineItemFields.filter(item => item.type === 'Part').length > 0 ? lineItemFields.map((field, index) => {
                                 const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
                                 if (lineItemFields[originalIndex].type !== 'Part') return null;
+                                const item = lineItemsWatch[originalIndex];
+                                const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
                                 return (
                                     <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                         <div className="grid grid-cols-12 gap-2 flex-grow">
-                                            <div className="col-span-12 sm:col-span-5">
+                                            <div className="col-span-4">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
+                                            <div className="col-span-2">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.partNumber`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Part #" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-1">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Qty" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
-                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
+                                            <div className="col-span-1">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
-                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
-                                            </div>
-                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                                             <div className="col-span-1">
                                                 <FormField
                                                     control={form.control}
-                                                    name={`lineItems.${originalIndex}.taxRate`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <div className="relative flex items-center">
-                                                                    <input type="hidden" {...field} />
-                                                                    <span className="text-sm">{field.value}%</span>
-                                                                </div>
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
+                                                    name={`lineItems.${originalIndex}.markup`}
+                                                    render={({ field: markupField }) => {
+                                                        const unitCost = watch(`lineItems.${originalIndex}.unitCost`) || 0;
+                                                        const markupValue = unitCost > 0 ? ((watch(`lineItems.${originalIndex}.unitPrice`) - unitCost) / unitCost) * 100 : 0;
+                                                        return (
+                                                             <FormItem><FormControl><div className="relative">
+                                                                <Percent className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                                                <Input 
+                                                                    type="number"
+                                                                    className="pl-5 text-center"
+                                                                    value={markupValue.toFixed(0)}
+                                                                    onChange={(e) => {
+                                                                        const newMarkup = parseFloat(e.target.value);
+                                                                        const newPrice = unitCost * (1 + newMarkup / 100);
+                                                                        setValue(`lineItems.${originalIndex}.unitPrice`, parseFloat(newPrice.toFixed(2)));
+                                                                    }}
+                                                                />
+                                                            </div></FormControl><FormMessage /></FormItem>
+                                                        )
+                                                    }}
                                                 />
+                                            </div>
+                                            <div className="col-span-1 flex items-center justify-center text-xs p-2 rounded-md bg-background/50">
+                                                <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
+                                            </div>
+                                            <div className="col-span-1">
+                                                <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            </div>
+                                            <div className="col-span-1 flex items-center justify-center text-xs">
+                                                <span>{item.taxRate}%</span>
                                             </div>
                                         </div>
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
@@ -488,20 +513,23 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            <div className="grid grid-cols-12 gap-2 px-2">
-                                <Label className="col-span-12 sm:col-span-5">Description</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Hours</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Cost Rate</Label>
-                                <Label className="col-span-4 sm:col-span-2 text-center">Billable Rate</Label>
-                                <Label className="col-span-4 sm:col-span-1 text-center">Tax %</Label>
+                            <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-muted-foreground">
+                                <Label className="col-span-5">Description</Label>
+                                <Label className="col-span-1 text-center">Hours</Label>
+                                <Label className="col-span-2 text-center">Cost Rate</Label>
+                                <Label className="col-span-2 text-center">Billable Rate</Label>
+                                <Label className="col-span-1 text-center">Margin</Label>
+                                <Label className="col-span-1 text-center">Tax</Label>
                             </div>
                             {lineItemFields.filter(item => item.type === 'Labour').length > 0 ? lineItemFields.map((field, index) => {
                                 const originalIndex = lineItemFields.findIndex(item => item.id === field.id);
                                 if (lineItemFields[originalIndex].type !== 'Labour') return null;
+                                const item = lineItemsWatch[originalIndex];
+                                const margin = item.unitPrice > 0 ? ((item.unitPrice - (item.unitCost || 0)) / item.unitPrice) * 100 : 0;
                                 return (
                                     <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                         <div className="grid grid-cols-12 gap-2 flex-grow">
-                                            <div className="col-span-12 sm:col-span-5">
+                                            <div className="col-span-5">
                                                 <FormField
                                                     control={form.control}
                                                     name={`lineItems.${originalIndex}.description`}
@@ -536,31 +564,20 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                     )}
                                                 />
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
+                                            <div className="col-span-1">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
+                                            <div className="col-span-2">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.unitCost`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-2">
+                                            <div className="col-span-2">
                                                 <FormField control={form.control} name={`lineItems.${originalIndex}.unitPrice`} render={({ field }) => ( <FormItem><FormControl><div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6" {...field} /></div></FormControl><FormMessage /></FormItem> )}/>
                                             </div>
-                                            <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`lineItems.${originalIndex}.taxRate`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <div className="relative flex items-center">
-                                                                    <input type="hidden" {...field} />
-                                                                    <span className="text-sm">{field.value}%</span>
-                                                                </div>
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
+                                            <div className="col-span-1 flex items-center justify-center text-xs p-2 rounded-md bg-background/50">
+                                                <span className={cn(margin < 20 ? "text-destructive" : "text-primary")}>{margin.toFixed(0)}%</span>
+                                            </div>
+                                            <div className="col-span-1 flex items-center justify-center text-xs">
+                                                <span>{item.taxRate}%</span>
                                             </div>
                                         </div>
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeLineItem(originalIndex)}><Trash2 className="h-5 w-5 text-destructive"/></Button>
