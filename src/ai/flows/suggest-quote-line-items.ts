@@ -9,15 +9,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import type { QuotingProfile } from '@/lib/quoting-profiles';
 
-
-const LineItemSchemaForAI = z.object({
-  type: z.enum(['Part', 'Labour']),
-  description: z.string().describe('Description of the line item (e.g., part name or labor type).'),
-  quantity: z.number().describe('Quantity of the item or hours of labor.'),
-  unitPrice: z.number().describe('The SELL price per unit or per hour.'),
-  unitCost: z.number().optional().describe('The COST price per unit or per hour.'),
-});
-
+// Schemas are defined locally within the 'use server' file. They are NOT exported.
 const SuggestQuoteLineItemsInputSchema = z.object({
   userPrompt: z
     .string()
@@ -45,20 +37,24 @@ const SuggestQuoteLineItemsInputSchema = z.object({
   quotingProfile: z.any().describe("The selected quotingProfile containing rules, rates, and persona."),
 });
 
-
 const SuggestQuoteLineItemsOutputSchema = z.string().describe("A formatted text block containing the suggested line items, reasoning, and a disclaimer. Use markdown for clarity.");
 
-// Types are inferred from the local schemas.
+
+// Export the TYPES, not the schema objects themselves.
 export type SuggestQuoteLineItemsInput = z.infer<typeof SuggestQuoteLineItemsInputSchema>;
 export type SuggestQuoteLineItemsOutput = z.infer<typeof SuggestQuoteLineItemsOutputSchema>;
 
 
+// This is the only function exported from this server module.
 export async function suggestQuoteLineItems(
   input: SuggestQuoteLineItemsInput
 ): Promise<SuggestQuoteLineItemsOutput> {
   return suggestQuoteLineItemsFlow(input);
 }
 
+
+// The prompt is defined locally and is NOT exported.
+// It now correctly includes the input and output schemas.
 const prompt = ai.definePrompt({
   name: 'suggestQuoteLineItemsPrompt',
   input: {schema: SuggestQuoteLineItemsInputSchema},
@@ -108,6 +104,7 @@ Format the entire output as a single string of text.
 `,
 });
 
+// The flow is defined locally and is NOT exported.
 const suggestQuoteLineItemsFlow = ai.defineFlow(
   {
     name: 'suggestQuoteLineItemsFlow',
