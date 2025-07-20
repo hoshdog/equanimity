@@ -13,17 +13,17 @@ import type { Project, Job, Employee, OptionType } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
-import { ItemCreationForm } from '@/components/forms/item-creation-form';
 import { Combobox } from '@/components/ui/combobox';
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { JobStatus, allJobStatuses } from '@/lib/job-status';
 
 const jobSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   projectId: z.string({ required_error: "Please select a project." }).min(1, "Please select a project."),
   technicianId: z.string({ required_error: "Please assign a technician." }).min(1, "Please assign a technician."),
-  status: z.string().min(2, "Please select a status."),
+  status: z.nativeEnum(JobStatus),
 });
 
 type JobFormValues = z.infer<typeof jobSchema>;
@@ -42,7 +42,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
 
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobSchema),
-    defaultValues: { description: "", projectId: initialProjectId || "", technicianId: "", status: "Not Started" },
+    defaultValues: { description: "", projectId: initialProjectId || "", technicianId: "", status: JobStatus.Draft },
   });
 
   React.useEffect(() => {
@@ -150,10 +150,9 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <SelectItem value="Not Started">Not Started</SelectItem>
-                                <SelectItem value="In Progress">In Progress</SelectItem>
-                                <SelectItem value="On Hold">On Hold</SelectItem>
-                                <SelectItem value="Completed">Completed</SelectItem>
+                                {allJobStatuses.map(status => (
+                                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <FormMessage /></FormItem>

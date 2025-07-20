@@ -1,6 +1,7 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
+import { JobStatus } from './job-status';
 
 export interface OptionType {
   value: string;
@@ -62,7 +63,7 @@ export interface Job {
     customerId: string; // Denormalized
     customerName: string; // Denormalized
     description: string;
-    status: 'Not Started' | 'In Progress' | 'On Hold' | 'Completed';
+    status: JobStatus;
     technicianId: string;
     createdAt: Timestamp;
 }

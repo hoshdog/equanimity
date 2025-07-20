@@ -14,13 +14,14 @@ import type { Job, Employee } from '@/lib/types';
 import { JobFormDialog } from './job-form-dialog';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { JobStatus } from '@/lib/job-status';
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: JobStatus) => {
     switch (status) {
-      case 'In Progress': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
-      case 'Not Started': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
-      case 'Completed': return 'text-green-600 bg-green-100/80 border-green-200/80';
-      case 'On Hold': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case JobStatus.InProgress: return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case JobStatus.Draft: return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
+      case JobStatus.Assigned: return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case JobStatus.Completed: return 'text-green-600 bg-green-100/80 border-green-200/80';
       default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
     }
 }
