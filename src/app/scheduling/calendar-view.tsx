@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronLeft, ChevronRight, Briefcase, Plane, CircleHelp } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, setHours, setMinutes, differenceInMinutes } from 'date-fns';
 import { ScheduleEvent, Resource } from './data';
 import { cn } from '@/lib/utils';
 import {
@@ -63,30 +63,77 @@ function WeekView({ currentDate, events, resources }: { currentDate: Date, event
         end: endOfWeek(currentDate, { weekStartsOn: 1 }),
     });
 
+    const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
+
     const getEventsForDay = (day: Date) => {
         return events.filter(event => isSameDay(event.start, day));
     };
+    
+    // Each hour represents 60px in height for positioning
+    const ROW_HEIGHT = 60; 
 
     return (
-        <div className="grid grid-cols-7 border-t border-l">
-            {/* Weekday Headers */}
-            {weekDays.map(day => (
-                <div key={`header-${day.toString()}`} className="border-b border-r p-2 text-center font-semibold text-muted-foreground">
-                    {format(day, 'EEE')}
-                </div>
-            ))}
-            {/* Day Cells */}
-            {weekDays.map(day => (
-                <div key={day.toString()} className="border-b border-r p-2 min-h-48">
-                    <div className="font-semibold text-right">{format(day, 'd')}</div>
-                    <div className="space-y-1 mt-1">
-                        {getEventsForDay(day).map(event => (
-                           <EventCard key={event.id} event={event} resource={resources.find(r => r.id === event.resourceId)} />
-                        ))}
-                    </div>
-                </div>
-            ))}
+      <div className="grid grid-cols-[auto_1fr] border-t border-l">
+        {/* Time column */}
+        <div className="border-r">
+          <div className="h-10 border-b">&nbsp;</div> {/* Header spacer */}
+          {hours.map(hour => (
+            <div key={hour} className="h-[60px] text-right pr-2 text-xs text-muted-foreground border-b flex items-center justify-end">
+              {format(setMinutes(setHours(new Date(), hour), 0), 'ha')}
+            </div>
+          ))}
         </div>
+
+        {/* Days grid */}
+        <div className="grid grid-cols-7">
+          {/* Day Headers */}
+          {weekDays.map(day => (
+            <div key={`header-${day.toString()}`} className="border-b border-r p-2 text-center font-semibold text-muted-foreground h-10">
+              <span className="text-xs">{format(day, 'EEE')}</span>
+              <p>{format(day, 'd')}</p>
+            </div>
+          ))}
+
+          {/* Day Cells */}
+          {weekDays.map(day => {
+            const dayEvents = getEventsForDay(day);
+            return (
+              <div key={day.toString()} className="border-r relative">
+                {/* Background hour lines */}
+                {hours.map(hour => (
+                  <div key={`line-${day.toString()}-${hour}`} className="h-[60px] border-b"></div>
+                ))}
+                
+                {/* Events */}
+                {dayEvents.map(event => {
+                  const dayStart = setMinutes(setHours(new Date(), 7), 0); // 7 AM
+                  const eventStartMinutes = differenceInMinutes(event.start, setHours(event.start, 7));
+                  const eventDurationMinutes = differenceInMinutes(event.end, event.start);
+                  
+                  // Calculate top and height based on a 60px row height per hour
+                  const top = (eventStartMinutes / 60) * ROW_HEIGHT;
+                  const height = (eventDurationMinutes / 60) * ROW_HEIGHT;
+
+                  if (top < 0) return null; // Don't render events that start before the view
+
+                  return (
+                     <div
+                        key={event.id}
+                        className="absolute w-full px-1"
+                        style={{
+                            top: `${top}px`,
+                            height: `${height}px`,
+                        }}
+                     >
+                         <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
+                     </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     );
 }
 
@@ -143,11 +190,13 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
                 return (
                   <div className={cn("flex flex-col h-full w-full justify-start items-stretch p-1 space-y-0.5 overflow-hidden", props.className)}>
                      <span className="self-end pr-2 text-sm">{date.getDate()}</span>
-                    {dayEvents.map(event => (
-                      <div key={event.id} className="w-full">
-                        <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
-                      </div>
-                    ))}
+                    <div className="flex flex-col gap-1 overflow-y-auto">
+                        {dayEvents.map(event => (
+                          <div key={event.id} className="w-full">
+                            <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 );
               },
