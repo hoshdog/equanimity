@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Waves } from 'lucide-react';
 import { signUp, signIn, sendVerificationEmail } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
@@ -20,6 +21,13 @@ const formSchema = z.object({
 });
 
 type AuthFormValues = z.infer<typeof formSchema>;
+
+const devUsers = [
+    { role: "Admin", email: "admin@example.com", password: "password123" },
+    { role: "Jane Doe (Manager)", email: "jane.doe@example.com", password: "password123" },
+    { role: "Alice (PM)", email: "alice.j@example.com", password: "password123" },
+    { role: "Bob (Tech)", email: "bob.s@example.com", password: "password123" },
+];
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -87,6 +95,12 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+  
+  const handleDevLogin = (user: { email: string; password: string }) => {
+    form.setValue('email', user.email);
+    form.setValue('password', user.password);
+    form.handleSubmit(onSubmit)();
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -141,6 +155,26 @@ export default function AuthPage() {
               {isLogin ? 'Sign up' : 'Log in'}
             </Button>
           </div>
+           {process.env.NODE_ENV === 'development' && (
+                <>
+                    <Separator className="my-6" />
+                    <div className="space-y-4">
+                        <p className="text-center text-sm text-muted-foreground">Developer Quick Login</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {devUsers.map(user => (
+                                <Button 
+                                    key={user.role} 
+                                    variant="outline"
+                                    onClick={() => handleDevLogin(user)}
+                                    disabled={loading}
+                                >
+                                    {user.role}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
         </CardContent>
       </Card>
     </div>
