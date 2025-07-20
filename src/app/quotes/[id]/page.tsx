@@ -22,7 +22,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
@@ -32,10 +31,11 @@ import { getCustomerContacts } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject } from '@/lib/projects';
 import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, DollarSign, Percent, ArrowLeft, Users, Pencil } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
+import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 
 
 const lineItemSchema = z.object({
@@ -84,11 +84,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
+    // For now, we'll just use the first quoting profile as the source of truth for labor rates.
+    const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
+    const laborRateOptions = useMemo(() => {
+        return quotingProfile.laborRates.map(rate => ({
+            label: rate.employeeType,
+            value: rate.employeeType, // Use the type name as the value
+            ...rate, // Include the full rate object
+        }));
+    }, [quotingProfile.laborRates]);
+
+
     const form = useForm<QuoteFormValues>({
         resolver: zodResolver(formSchema),
     });
 
-    const { control } = form;
+    const { control, setValue } = form;
 
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem, replace: replaceLineItems } = useFieldArray({ control, name: "lineItems" });
     const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({ control, name: "projectContacts" });
@@ -116,7 +127,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 form.reset({
                     ...quoteData,
                     quoteDate: quoteData.quoteDate?.toDate() || new Date(),
-                    dueDate: quoteData.dueDate?.toDate() || new Date(),
+                    dueDate: quoteData.dueDate?.toDate() || addDays(new Date(), 14),
                     expiryDate: quoteData.expiryDate?.toDate() || addDays(new Date(), 30),
                     projectContacts: quoteData.projectContacts || [],
                     assignedStaff: quoteData.assignedStaff || [],
@@ -232,7 +243,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                  <div className="space-y-2 rounded-lg border p-4">
-                    <h3 className="font-semibold leading-none tracking-tight">Customer Contacts</h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-semibold leading-none tracking-tight">Customer Contacts</h3>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add</Button>
+                    </div>
                     {contactFields.map((field, index) => (
                       <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                          <div className="grid grid-cols-2 gap-2 flex-1">
@@ -242,10 +256,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                          <Button type="button" variant="ghost" size="icon" onClick={() => removeContact(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ contactId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Contact</Button>
                 </div>
                 <div className="space-y-2 rounded-lg border p-4">
-                    <h3 className="font-semibold leading-none tracking-tight">Assigned Staff</h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-semibold leading-none tracking-tight">Assigned Staff</h3>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add</Button>
+                    </div>
                     {staffFields.map((field, index) => (
                       <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                          <div className="grid grid-cols-2 gap-2 flex-1">
@@ -255,7 +271,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                          <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}><PlusCircle className="mr-2 h-4 w-4"/>Add Staff</Button>
                 </div>
             </div>
             
@@ -326,7 +341,39 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md bg-secondary/30">
                                     <div className="grid grid-cols-12 gap-2 flex-grow">
                                         <div className="col-span-12 sm:col-span-5">
-                                            <FormField control={form.control} name={`lineItems.${index}.description`} render={({ field }) => ( <FormItem><FormControl><Input placeholder="Labour description" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                            <FormField
+                                                control={form.control}
+                                                name={`lineItems.${index}.description`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <Select
+                                                            onValueChange={(value) => {
+                                                                field.onChange(value);
+                                                                const selectedRate = laborRateOptions.find(opt => opt.value === value);
+                                                                if (selectedRate) {
+                                                                    setValue(`lineItems.${index}.unitCost`, selectedRate.calculatedCostRate);
+                                                                    setValue(`lineItems.${index}.unitPrice`, selectedRate.standardRate);
+                                                                }
+                                                            }}
+                                                            value={field.value}
+                                                        >
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select a labor type" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {laborRateOptions.map(option => (
+                                                                    <SelectItem key={option.value} value={option.value}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
                                         <div className="col-span-4 sm:col-span-2">
                                             <FormField control={form.control} name={`lineItems.${index}.quantity`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="Hours" {...field} /></FormControl><FormMessage /></FormItem> )}/>
