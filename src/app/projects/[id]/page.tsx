@@ -15,7 +15,6 @@ import { getCustomer, getCustomerContacts } from '@/lib/customers';
 import type { Project, Customer, Job, Employee, Quote, PurchaseOrder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { JobFormDialog } from '@/app/jobs/job-form-dialog';
-import { addQuote } from '@/lib/quotes';
 import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,136 +23,10 @@ import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
 import { ChatWidget } from './chat-widget';
 import TimelinePage from './timeline/page';
-import { format, addDays } from 'date-fns';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogContent,
-  DialogFooter,
-  DialogTrigger,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { format } from 'date-fns';
 import { useTimeTracker } from '@/context/time-tracker-context';
 import { useBreadcrumb } from '@/context/breadcrumb-context';
-
-
-const createQuoteSchema = z.object({
-    projectId: z.string().optional(),
-});
-type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
-
-
-// This component is now defined in quotes/page.tsx and imported here.
-// For simplicity of this change, I'll keep a reference here but in a larger refactor
-// this would be moved to a shared component file.
-function CreateQuoteDialog({ children, initialProjectId }: { children: React.ReactNode, initialProjectId?: string }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const router = useRouter();
-    const { toast } = useToast();
-
-    const form = useForm<CreateQuoteValues>({
-        resolver: zodResolver(createQuoteSchema),
-        defaultValues: { projectId: initialProjectId || "" },
-    });
-
-    useEffect(() => {
-        if (!isOpen) return;
-        async function fetchProjects() {
-            setLoading(true);
-            try {
-                const projectsData = await getProjects();
-                setProjects(projectsData);
-                if (initialProjectId) {
-                    form.setValue('projectId', initialProjectId);
-                }
-            } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Could not load projects." });
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchProjects();
-    }, [isOpen, toast, initialProjectId, form]);
-
-    const projectOptions = projects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})`}));
-
-    async function onSubmit(values: CreateQuoteValues) {
-        setLoading(true);
-        const selectedProject = projects.find(p => p.id === values.projectId);
-
-        try {
-             const newQuoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
-                projectId: selectedProject?.id,
-                projectName: selectedProject?.name,
-                customerId: selectedProject?.customerId,
-                quoteNumber: `Q-${Date.now().toString().slice(-6)}`,
-                name: selectedProject ? `${selectedProject.name} - Quote` : "New Quote",
-                description: selectedProject ? `Quote for ${selectedProject.name}` : "",
-                quoteDate: new Date(),
-                dueDate: addDays(new Date(), 14),
-                expiryDate: addDays(new Date(), 30),
-                status: 'Draft' as const,
-                lineItems: [{ id: 'item-0', type: 'Part' as const, description: "", quantity: 1, unitPrice: 0, taxRate: 10 }],
-                subtotal: 0, totalDiscount: 0, totalTax: 0, totalAmount: 0,
-                version: 1,
-            };
-            const newQuoteId = await addQuote(newQuoteData);
-            toast({ title: "Quote Created", description: "Redirecting to the new quote..." });
-            setIsOpen(false);
-            router.push(`/quotes/${newQuoteId}`);
-        } catch (error) {
-            console.error("Failed to create quote", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to create quote.' });
-            setLoading(false);
-        }
-    }
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Create New Quote</DialogTitle>
-                    <DialogDescription>Select the project or job this quote is for. You can add details on the next screen.</DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="projectId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Project or Job (Optional)</FormLabel>
-                                    <SearchableCombobox
-                                        options={projectOptions}
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        placeholder="Select a project or job"
-                                        disabled={!!initialProjectId}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter>
-                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                            <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : "Create Quote"}</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
-    )
-}
+import { CreateQuoteDialog } from '@/app/quotes/create-quote-dialog';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
