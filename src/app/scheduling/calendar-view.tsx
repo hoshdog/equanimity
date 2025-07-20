@@ -1,3 +1,4 @@
+
 // src/app/scheduling/calendar-view.tsx
 'use client';
 
@@ -140,8 +141,8 @@ export function CalendarView({ events, resources }: CalendarViewProps) {
               DayContent: ({ date, ...props }) => {
                 const dayEvents = events.filter(e => isSameDay(e.start, date));
                 return (
-                  <div className={cn("flex flex-col h-full w-full justify-end p-1 space-y-0.5 overflow-hidden", props.className)}>
-                     <span className="self-end pr-2">{date.getDate()}</span>
+                  <div className={cn("flex flex-col h-full w-full justify-start items-stretch p-1 space-y-0.5 overflow-hidden", props.className)}>
+                     <span className="self-end pr-2 text-sm">{date.getDate()}</span>
                     {dayEvents.map(event => (
                       <div key={event.id} className="w-full">
                         <EventCard event={event} resource={resources.find(r => r.id === event.resourceId)} />
