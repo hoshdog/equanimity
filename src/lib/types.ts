@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import type { GenerateQuoteFromPromptOutput, GenerateQuoteFromPromptInput } from '@/ai/flows/generate-quote-from-prompt';
@@ -17,7 +18,7 @@ export interface Contact {
 }
 
 export interface Site {
-  id: string;
+  id:string;
   name: string;
   address: string;
   primaryContactId: string;
@@ -191,4 +192,22 @@ export interface ScheduleEvent {
 export interface ScheduleResource {
   id: string;
   title: string;
+}
+
+// Timeline-specific types
+export interface TimelineItem {
+    id: string;
+    name: string;
+    type: 'job' | 'task';
+    jobId?: string; // Only for tasks
+    startDate: string; // ISO string
+    endDate: string; // ISO string
+    dependencies: string[]; // Array of other timelineItem IDs
+    // Optional fields populated by the critical path calculation
+    isCritical?: boolean;
+    earlyStart?: string;
+    earlyFinish?: string;
+    lateStart?: string;
+    lateFinish?: string;
+    slack?: number; // in days
 }

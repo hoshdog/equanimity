@@ -7,26 +7,33 @@
 
 import { onUserCreate } from "firebase-functions/v2/auth";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import { onRequest, HttpsOptions } from "firebase-functions/v2/https";
+import { onRequest, HttpsOptions, onCall } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { 
     getGraphClient, 
-    createFolder, 
-    grantPermission, 
+    createFolderInOneDrive, 
+    grantPermissionInOneDrive, 
     getDeltaChanges, 
     createFolderInTeamsChannel,
-    listTeams,
-    listChannelsInTeam,
-    getTeamsChannelFilesFolder,
     driveItemToFirestore,
 } from './graph-helper';
+import { onUpdateTimelineItem, calculateCriticalPath } from './timeline';
+
 
 // Initialize Firebase Admin SDK
 initializeApp();
 const db = getFirestore();
 const requestOptions: HttpsOptions = { cors: true, enforceAppCheck: false };
+
+/**
+ * =================================================================
+ * Timeline Functions
+ * =================================================================
+ */
+exports.onUpdateTimelineItem = onUpdateTimelineItem;
+exports.calculateCriticalPath = onCall(calculateCriticalPath);
 
 
 /**
@@ -66,12 +73,12 @@ export const createuserprofile = onUserCreate((event) => {
 
 /**
  * =================================================================
- * ONEDRIVE INTEGRATION FUNCTIONS
+ * ONEDRIVE INTEGRATION FUNCTIONS (USER-DELEGATED)
  * =================================================================
  */
 
 export const onCreateOrUpdateOneDriveFolder = onDocumentWritten("projects/{projectId}", async (event) => {
-    // ... OneDrive logic from previous turn ...
+    // ... OneDrive logic ...
     const change = event.data;
     if (!change) {
         logger.info("No data associated with the event, exiting.");
@@ -88,141 +95,73 @@ export const onCreateOrUpdateOneDriveFolder = onDocumentWritten("projects/{proje
         logger.info(`OneDrive folder already exists for project ${event.params.projectId}.`);
         return;
     }
-    // ... full implementation ...
+    // ... full implementation would go here ...
 });
 
 export const onSyncOneDriveChanges = onRequest(requestOptions, async (req, res) => {
-    // ... OneDrive sync logic from previous turn ...
+    // ... OneDrive sync logic ...
     res.status(501).send("Not Implemented");
 });
 
 
 /**
  * =================================================================
- * TEAMS INTEGRATION FUNCTIONS
+ * TEAMS INTEGRATION FUNCTIONS (APPLICATION)
  * =================================================================
  */
 
 /**
- * HTTP-callable: Lists Teams the app has access to.
- */
-export const listMyTeams = onRequest(requestOptions, async (req, res) => {
-    try {
-        const client = getGraphClient();
-        const teams = await listTeams(client);
-        res.status(200).json(teams);
-    } catch (error: any) {
-        logger.error("Error listing teams:", error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * HTTP-callable: Lists Channels within a specific Team.
- */
-export const listChannels = onRequest(requestOptions, async (req, res) => {
-    const { teamId } = req.query;
-    if (typeof teamId !== 'string') {
-        res.status(400).json({ success: false, message: 'Missing or invalid teamId parameter.' });
-        return;
-    }
-    try {
-        const client = getGraphClient();
-        const channels = await listChannelsInTeam(client, teamId);
-        res.status(200).json(channels);
-    } catch (error: any) {
-        logger.error(`Error listing channels for team ${teamId}:`, error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * HTTP-callable: Tests folder creation in a specific Teams channel.
- */
-export const testTeamsFolder = onRequest(requestOptions, async (req, res) => {
-    const { teamId, channelId, projectName } = req.body;
-    if (!teamId || !channelId || !projectName) {
-        res.status(400).json({ success: false, message: 'Missing required parameters: teamId, channelId, projectName.' });
-        return;
-    }
-    try {
-        const client = getGraphClient();
-        const createdFolder = await createFolderInTeamsChannel(client, teamId, channelId, `TEST - ${projectName}`);
-        res.status(200).json({ success: true, message: 'Test folder created successfully.', webUrl: createdFolder.webUrl });
-    } catch (error: any) {
-        logger.error("Error testing folder creation:", error);
-        res.status(500).json({ success: false, message: error.message, webUrl: null });
-    }
-});
-
-/**
- * HTTP-callable: Saves Teams integration settings to a project document.
- */
-export const saveIntegrationSettings = onRequest(requestOptions, async (req, res) => {
-    const { projectId, enabled, teamId, channelId } = req.body;
-    if (!projectId) {
-        res.status(400).json({ success: false, message: 'Missing required parameter: projectId.' });
-        return;
-    }
-    try {
-        const projectRef = db.collection('projects').doc(projectId);
-        await projectRef.update({
-            'settings.teamsIntegration': { enabled, teamId, channelId }
-        });
-        res.status(200).json({ success: true, message: 'Settings saved successfully.' });
-    } catch (error: any) {
-        logger.error(`Error saving integration settings for project ${projectId}:`, error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * Firestore Trigger: Creates a folder in Teams when a project is created or its settings are updated.
+ * Firestore Trigger: Creates a folder in the globally configured Teams channel
+ * when a project's `teams.provisionFolder` flag is set to true.
  */
 export const onCreateOrUpdateTeamsFolder = onDocumentWritten("projects/{projectId}", async (event) => {
     const change = event.data;
-    if (!change) {
-        logger.info("No data associated with the event, exiting.");
+    if (!change || !change.after.exists) {
+        logger.info("No data or document deleted, exiting.");
         return;
     }
     const project = change.after.data();
     const projectBefore = change.before.data();
 
-    if (!project || !project.settings?.teamsIntegration?.enabled) {
-        logger.info(`Teams integration not enabled for project ${event.params.projectId}.`);
+    // Trigger condition: provisionFolder is true and was not true before.
+    if (!project?.teams?.provisionFolder || projectBefore?.teams?.provisionFolder === true) {
+        logger.info(`Teams folder provisioning not requested for project ${event.params.projectId}.`);
         return;
     }
 
-    const hasBeenCreated = project.teamsFolder?.rootItemId;
-    const settingsChanged = JSON.stringify(project.settings.teamsIntegration) !== JSON.stringify(projectBefore?.settings?.teamsIntegration);
-
-    if (hasBeenCreated && !settingsChanged) {
-        logger.info(`Teams folder already exists and settings haven't changed for project ${event.params.projectId}.`);
-        return;
+    if (project.teamsFolder?.rootItemId) {
+        logger.info(`Teams folder already exists for project ${event.params.projectId}. Skipping.`);
+        // Reset the flag to prevent re-triggering
+        return change.after.ref.update({ 'teams.provisionFolder': false });
     }
     
-    const { teamId, channelId } = project.settings.teamsIntegration;
     const projectName = project.name;
-
-    if (!teamId || !channelId || !projectName) {
-        logger.error(`Project ${event.params.projectId} is missing required data for Teams integration (teamId, channelId, or name).`);
-        return event.data?.after.ref.update({ 'teamsFolder.error': 'Missing teamId, channelId, or project name.' });
+    if (!projectName) {
+        logger.error(`Project ${event.params.projectId} is missing a name.`);
+        return change.after.ref.update({ 'teamsFolder.error': 'Project name is missing.' });
     }
     
     try {
         const client = getGraphClient();
-        const rootFolder = await createFolderInTeamsChannel(client, teamId, channelId, projectName);
+        logger.info(`Provisioning Teams folder for project: "${projectName}"`);
+        const rootFolder = await createFolderInTeamsChannel(client, projectName);
+
         const folderData = {
             driveId: rootFolder.parentReference.driveId,
             rootItemId: rootFolder.id,
             webUrl: rootFolder.webUrl,
             lastSync: new Date().toISOString(),
+            error: null, // Clear any previous errors
         };
-
-        return event.data?.after.ref.update({ 'teamsFolder': folderData });
+        
+        // Update the project with the new folder data and reset the trigger flag.
+        return change.after.ref.update({ 
+            'teamsFolder': folderData,
+            'teams.provisionFolder': false 
+        });
     } catch (error: any) {
         logger.error(`Failed to create Teams folder for project ${event.params.projectId}:`, error);
-        return event.data?.after.ref.update({ 'teamsFolder.error': error.message });
+        return change.after.ref.update({ 'teamsFolder.error': error.message });
     }
 });
 
@@ -234,10 +173,11 @@ export const onSyncTeamsChanges = onRequest(requestOptions, async (req, res) => 
     logger.info("Starting Teams delta sync for all enabled projects.");
     
     try {
-        const projectsSnapshot = await db.collection('projects').where('settings.teamsIntegration.enabled', '==', true).get();
+        // Query for projects that have a driveId, indicating they've been provisioned.
+        const projectsSnapshot = await db.collection('projects').where('teamsFolder.driveId', '!=', null).get();
         
         if (projectsSnapshot.empty) {
-            logger.info("No projects with Teams integration enabled. Sync complete.");
+            logger.info("No projects with Teams integration provisioned. Sync complete.");
             res.status(200).send("No projects to sync.");
             return;
         }
@@ -247,8 +187,8 @@ export const onSyncTeamsChanges = onRequest(requestOptions, async (req, res) => 
             const projectRef = projectDoc.ref;
             const project = projectDoc.data();
 
-            if (!project.teamsFolder?.driveId || !project.teamsFolder?.rootItemId) {
-                logger.warn(`Project ${projectDoc.id} is enabled but has no root folder info. Skipping.`);
+            if (!project.teamsFolder?.driveId) {
+                logger.warn(`Project ${projectDoc.id} is missing driveId. Skipping.`);
                 return;
             }
 
@@ -258,7 +198,9 @@ export const onSyncTeamsChanges = onRequest(requestOptions, async (req, res) => 
             
             if (changes.length === 0) {
                  logger.info(`No changes detected for project ${projectDoc.id}.`);
-                 await projectRef.update({ 'teamsFolder.lastSync': new Date().toISOString(), 'teamsFolder.deltaToken': deltaToken });
+                 if (deltaToken) {
+                    await projectRef.update({ 'teamsFolder.lastSync': new Date().toISOString(), 'teamsFolder.deltaToken': deltaToken });
+                 }
                  return;
             }
 
@@ -277,7 +219,9 @@ export const onSyncTeamsChanges = onRequest(requestOptions, async (req, res) => 
                 }
             }
             
-            batch.update(projectRef, { 'teamsFolder.lastSync': new Date().toISOString(), 'teamsFolder.deltaToken': deltaToken });
+            if (deltaToken) {
+                batch.update(projectRef, { 'teamsFolder.lastSync': new Date().toISOString(), 'teamsFolder.deltaToken': deltaToken });
+            }
 
             await batch.commit();
         });

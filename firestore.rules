@@ -1,72 +1,68 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user has an admin role
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Helper function to check if the request is from a backend function
-    function isBackend() {
-      // Functions are authenticated as a service account, which does not have a user-specific 'uid' in request.auth
-      // A more robust check might involve custom claims if you need finer-grained control.
-      return request.auth != null && !('uid' in request.auth);
+    // Helper function to check if user is part of the project (placeholder)
+    // In a real app, you'd check a `members` array on the project document.
+    function isProjectMember(projectId) {
+      return isAuthenticated(); // Simplified for now
     }
 
-    // Default deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Allow logged-in users to read/write their own user profile
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId;
-      allow create: if request.auth.uid != null;
+      allow read, write: if request.auth.uid == userId;
     }
     
-    // Allow any authenticated user to read from collections that are generally public
-    match /customers/{customerId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin() || isBackend();
-    }
-    match /customers/{customerId}/{subcollection}/{docId} {
-        allow read, write: if request.auth != null;
+    match /companies/{companyId} {
+      // Allow reads/writes based on company membership
+      allow read, write: if isAuthenticated(); 
     }
 
     match /projects/{projectId} {
-      allow read: if request.auth != null;
-      allow create, delete: if isAdmin() || isBackend();
+      allow read: if isProjectMember(projectId);
+      allow create, update, delete: if isProjectMember(projectId);
 
-      // Allow updates, but protect the integration fields
-      allow update: if (isAdmin() || isBackend()) && 
-                     (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['teamsFolder', 'settings']));
+      // Rules for the new timelineItems subcollection
+      match /timelineItems/{itemId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
       
-      // Allow functions to update the integration fields
-      allow update: if isBackend() && 
-                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teamsFolder', 'settings']);
+      // Rules for other subcollections
+      match /{allChildren=**} {
+        allow read, write: if isProjectMember(projectId);
+      }
     }
 
-    match /projects/{projectId}/{subcollection}/{docId} {
-      // Let's assume project members can read/write subcollections like jobs, quotes etc.
-      // This rule needs to be more specific based on your app's logic,
-      // e.g., checking if request.auth.uid is in project.assignedStaff
-      allow read, write: if request.auth != null; 
+    // Rules for root collections
+    match /customers/{customerId}/{allChildren=**} {
+        allow read, write: if isAuthenticated();
     }
     
-    // Lock down templates so only admins/backend can manage them
-    match /oneDriveTemplates/{templateId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin() || isBackend();
+    match /employees/{employeeId} {
+        allow read, write: if isAuthenticated();
     }
 
-    // Default collections that any authenticated user can read
-    match /employees/{employeeId} { allow read, write: if request.auth != null; }
-    match /jobs/{jobId} { allow read, write: if request.auth != null; }
-    match /quotes/{quoteId} { allow read, write: if request.auth != null; }
-    match /purchaseOrders/{poId} { allow read, write: if request.auth != null; }
-    match /stockItems/{itemId} { allow read, write: if request.auth != null; }
+    match /jobs/{jobId} {
+        allow read, write: if isAuthenticated();
+    }
+    
+    match /quotes/{quoteId} {
+        allow read, write: if isAuthenticated();
+    }
 
+    match /purchaseOrders/{poId} {
+        allow read, write: if isAuthenticated();
+    }
+
+    match /stockItems/{stockItemId} {
+        allow read, write: if isAuthenticated();
+    }
   }
 }

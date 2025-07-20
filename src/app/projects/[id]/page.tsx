@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Briefcase, FileText, ShoppingCart, Users, Receipt, Building2, MapPin, Loader2, MessageSquare, GanttChartSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getProject } from '@/lib/projects';
 import { getCustomer } from '@/lib/customers';
@@ -23,6 +23,7 @@ import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
 import { JobStatus } from '@/lib/job-status';
 import { ChatWidget } from './chat-widget';
+import TimelinePage from './timeline/page';
 
 
 function PlaceholderContent({ title, icon: Icon }: { title: string, icon: React.ElementType }) {
@@ -180,6 +181,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
           <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
@@ -260,6 +262,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </Table>
                 </CardContent>
             </Card>
+        </TabsContent>
+        <TabsContent value="timeline">
+            <TimelinePage params={params} />
         </TabsContent>
         <TabsContent value="chat">
             <ChatWidget projectId={projectId} />
