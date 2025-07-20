@@ -64,17 +64,18 @@ export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
 // Helper function to reliably get the current user, waiting if necessary.
 async function getCurrentUser(): Promise<User> {
     const authInstance = auth();
-    const user = authInstance.currentUser;
-    if (user) return user;
+    if (authInstance.currentUser) {
+        return authInstance.currentUser;
+    }
 
     return new Promise((resolve, reject) => {
         const unsubscribe = onAuthStateChanged((user) => {
-            unsubscribe();
             if (user) {
+                unsubscribe();
                 resolve(user);
-            } else {
-                reject(new Error("User is not authenticated."));
             }
+            // Note: We don't reject here on a null user during initial load.
+            // A timeout could be added to reject if no user appears after a few seconds.
         });
     });
 }
@@ -111,6 +112,9 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
 
   // Get current quote to determine version number
   const currentQuoteSnap = await getDoc(quoteRef);
+  if (!currentQuoteSnap.exists()) {
+    throw new Error("Quote to update does not exist.");
+  }
   const currentVersion = currentQuoteSnap.data()?.version || 0;
 
   // Convert Date objects back to Timestamps if they exist
