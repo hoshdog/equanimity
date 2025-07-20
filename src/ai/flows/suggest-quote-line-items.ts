@@ -8,7 +8,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { SuggestQuoteLineItemsInput, SuggestQuoteLineItemsOutput } from '@/lib/types';
-import { SuggestQuoteLineItemsInputSchema } from '@/lib/types';
+import { SuggestQuoteLineItemsInputSchema, SuggestQuoteLineItemsOutputSchema } from '@/lib/types';
 
 
 export async function suggestQuoteLineItems(
@@ -20,6 +20,7 @@ export async function suggestQuoteLineItems(
 const prompt = ai.definePrompt({
   name: 'suggestQuoteLineItemsPrompt',
   input: {schema: SuggestQuoteLineItemsInputSchema},
+  output: {schema: SuggestQuoteLineItemsOutputSchema},
   prompt: `{{#if quotingProfile.persona}}
 {{quotingProfile.persona}}
 {{else}}
@@ -70,8 +71,10 @@ Format the entire output as a single JSON object that conforms to the output sch
 const suggestQuoteLineItemsFlow = ai.defineFlow(
   {
     name: 'suggestQuoteLineItemsFlow',
+    inputSchema: SuggestQuoteLineItemsInputSchema,
+    outputSchema: SuggestQuoteLineItemsOutputSchema,
   },
-  async (input: SuggestQuoteLineItemsInput): Promise<SuggestQuoteLineItemsOutput> => {
+  async (input) => {
     const { output } = await prompt(input);
     return output!;
   }
