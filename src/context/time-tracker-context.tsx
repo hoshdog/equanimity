@@ -41,6 +41,11 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const timeStore = useRef<Record<string, number>>({});
+    
+    // Use a ref to hold the current timer active state to avoid including it in useCallback dependencies
+    const isTimerActiveRef = useRef(isTimerActive);
+    isTimerActiveRef.current = isTimerActive;
+
 
     const pauseTimer = useCallback(() => {
         setIsTimerActive(false);
@@ -51,73 +56,58 @@ export function TimeTrackerProvider({ children }: { children: React.ReactNode })
     }, []);
 
     const startTimer = useCallback(() => {
-        if (intervalRef.current) return; // Already running
+        if (intervalRef.current) return;
         setIsTimerActive(true);
         intervalRef.current = setInterval(() => {
             setTimeSpent(prev => prev + 1);
         }, 1000);
     }, []);
-    
+
     const resetInactivityTimer = useCallback(() => {
         if (inactivityTimerRef.current) {
             clearTimeout(inactivityTimerRef.current);
         }
-        inactivityTimerRef.current = setTimeout(() => {
-            pauseTimer();
-        }, INACTIVITY_TIMEOUT);
+        inactivityTimerRef.current = setTimeout(pauseTimer, INACTIVITY_TIMEOUT);
     }, [pauseTimer]);
 
+    const handleActivity = useCallback(() => {
+        if (document.visibilityState === 'visible') {
+            // Use the ref to get the current state without adding it as a dependency
+            if (!isTimerActiveRef.current) {
+                startTimer();
+            }
+            resetInactivityTimer();
+        }
+    }, [startTimer, resetInactivityTimer]);
 
-    // Effect to manage the automatic timer based on user activity
+
     useEffect(() => {
-        const handleActivity = () => {
-            if (document.visibilityState === 'visible') {
-                if (!isTimerActive) {
-                    startTimer();
-                }
-                resetInactivityTimer();
-            }
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState !== 'visible') {
-                pauseTimer();
-            } else {
-                // When tab becomes visible again, reset inactivity timer
-                resetInactivityTimer();
-            }
-        };
-
         if (context) {
-            // Restore time for the current context
             const contextKey = `${context.type}-${context.id}`;
             setTimeSpent(timeStore.current[contextKey] || 0);
             
-            // Start tracking
             handleActivity();
 
             window.addEventListener('mousemove', handleActivity);
             window.addEventListener('keydown', handleActivity);
-            document.addEventListener('visibilitychange', handleVisibilityChange);
+            document.addEventListener('visibilitychange', handleActivity);
 
             return () => {
-                // Store current time before cleanup
                 timeStore.current[contextKey] = timeSpent;
                 pauseTimer();
                 window.removeEventListener('mousemove', handleActivity);
                 window.removeEventListener('keydown', handleActivity);
-                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                document.removeEventListener('visibilitychange', handleActivity);
                  if (inactivityTimerRef.current) {
                     clearTimeout(inactivityTimerRef.current);
                 }
             };
         } else {
-            // When there's no context, ensure everything is stopped
             pauseTimer();
             setTimeSpent(0);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [context, resetInactivityTimer, pauseTimer, startTimer, isTimerActive]); // isTimerActive is needed here
+    }, [context]); // This effect should ONLY run when the context changes.
 
 
     const logTime = async (): Promise<number> => {
