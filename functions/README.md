@@ -20,8 +20,9 @@ To enable the OneDrive integration, you must configure an Azure App Registration
 2.  Click **Add a permission**.
 3.  Select **Microsoft Graph**.
 4.  Select **Application permissions**.
-5.  Search for and add the following permission:
+5.  Search for and add the following permissions:
     *   `Files.ReadWrite.All`
+    *   `Sites.ReadWrite.All` (Required for Teams Channel integration)
 6.  Click **Grant admin consent for [Your Tenant]**. This is crucial for the client credentials flow to work.
 
 ### 3. Create a Client Secret
@@ -36,14 +37,22 @@ To enable the OneDrive integration, you must configure an Azure App Registration
 You need to set the following environment variables for your Firebase Functions. You can do this using the Firebase CLI:
 
 ```bash
+# Core Azure App Credentials
 firebase functions:config:set azure.client_id="YOUR_APPLICATION_CLIENT_ID"
 firebase functions:config:set azure.tenant_id="YOUR_DIRECTORY_TENANT_ID"
 firebase functions:config:set azure.client_secret="YOUR_CLIENT_SECRET_VALUE"
+
+# For OneDrive Integration
 firebase functions:config:set onedrive.user_id="USER_ID_OF_ONEDRIVE_ACCOUNT"
+
+# For Microsoft Teams Integration
+firebase functions:config:set teams.team_id="YOUR_TEAM_ID"
+firebase functions:config:set teams.channel_id="YOUR_CHANNEL_ID"
 ```
 
 *   `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` can be found on the **Overview** page of your App registration.
 *   `ONEDRIVE_USER_ID` is the User Principal Name (usually the email address) of the single OneDrive account where all project folders will be created (e.g., `projects@yourcompany.com`).
+*   `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID` can be found in the URL when you are viewing the channel in the Microsoft Teams web client, or by using the Microsoft Graph Explorer.
 
 After setting the config, deploy your functions for the changes to take effect:
 

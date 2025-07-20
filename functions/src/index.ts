@@ -5,17 +5,18 @@
  * This file contains the core function triggers for user management and integrations.
  * - createuserprofile: Triggered on new user creation to set up their Firestore profile.
  * - onCreateOrUpdateOneDriveFolder: Triggered on project creation/update to provision a OneDrive folder structure.
+ * - onCreateTeamsFolderForProject: Triggered on project creation to provision a folder in a Teams channel.
  * - onSyncOneDriveChanges: HTTP-callable function to sync changes from OneDrive back to Firestore.
  */
 
 import { onUserCreate } from "firebase-functions/v2/auth";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getGraphClient, createFolder, grantPermission, getDeltaChanges } from './graph-helper';
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getGraphClient, createFolder, grantPermission, getDeltaChanges, createFolderInTeamsChannel } from './graph-helper';
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -75,6 +76,12 @@ export const onCreateOrUpdateOneDriveFolder = onDocumentWritten("projects/{proje
         return;
     }
 
+    // Prevent re-running if the folder has already been created
+    if (projectData.oneDriveConfig.rootFolderId) {
+        logger.info(`OneDrive folder already exists for project ${event.params.projectId}.`);
+        return;
+    }
+
     const { templateName, ownerEmail } = projectData.oneDriveConfig;
     const projectName = projectData.name;
     const { projectId } = event.params;
@@ -101,7 +108,12 @@ export const onCreateOrUpdateOneDriveFolder = onDocumentWritten("projects/{proje
         await grantPermission(graphClient, rootFolder.id!, ownerEmail);
         
         const batch = db.batch();
-        const rootFolderRef = db.collection('projects').doc(projectId).collection('oneDriveFolders').doc(rootFolder.id!);
+        const projectRef = db.collection('projects').doc(projectId);
+        const rootFolderRef = projectRef.collection('oneDriveFolders').doc(rootFolder.id!);
+        
+        // Update the main project doc with the root folder ID
+        batch.update(projectRef, { 'oneDriveConfig.rootFolderId': rootFolder.id });
+
         batch.set(rootFolderRef, {
             name: rootFolder.name,
             webUrl: rootFolder.webUrl,
@@ -114,7 +126,7 @@ export const onCreateOrUpdateOneDriveFolder = onDocumentWritten("projects/{proje
         for (const folderName of templateFolders) {
             logger.info(`Creating subfolder: ${folderName} in ${projectName}`);
             const subFolder = await createFolder(graphClient, folderName, rootFolder.id);
-            const subFolderRef = db.collection('projects').doc(projectId).collection('oneDriveFolders').doc(subFolder.id!);
+            const subFolderRef = projectRef.collection('oneDriveFolders').doc(subFolder.id!);
              batch.set(subFolderRef, {
                 name: subFolder.name,
                 webUrl: subFolder.webUrl,
@@ -199,5 +211,53 @@ export const onSyncOneDriveChanges = onRequest({ cors: true }, async (req, res) 
     } catch (error) {
         logger.error("Error during OneDrive delta sync:", error);
         res.status(500).send("An error occurred during sync.");
+    }
+});
+
+
+/**
+ * =================================================================
+ * TEAMS INTEGRATION FUNCTIONS
+ * =================================================================
+ */
+
+/**
+ * Triggered on new project creation to provision a folder in a specific Teams channel.
+ */
+export const onCreateTeamsFolderForProject = onDocumentCreated("projects/{projectId}", async (event) => {
+    const project = event.data?.data();
+    if (!project) {
+        logger.info("No data associated with the event, exiting.");
+        return;
+    }
+
+    if (!project.teamsConfig?.enabled) {
+        logger.info(`Teams integration not enabled for project ${event.params.projectId}.`);
+        return;
+    }
+    
+    const projectName = project.name;
+    if (!projectName) {
+        logger.error(`Project ${event.params.projectId} is missing a name.`);
+        return;
+    }
+
+    try {
+        const graphClient = getGraphClient();
+        const teamsFolder = await createFolderInTeamsChannel(graphClient, projectName);
+
+        const folderData = {
+            driveId: teamsFolder.parentReference.driveId,
+            itemId: teamsFolder.id,
+            webUrl: teamsFolder.webUrl,
+        };
+
+        // Write the folder details back to the project document
+        return event.data?.ref.update({ 'teamsFolder': folderData });
+
+    } catch (error) {
+        logger.error(`Failed to create Teams folder for project ${event.params.projectId}:`, error);
+        // Optional: Update the project to indicate failure
+        return event.data?.ref.update({ 'teamsFolder.error': (error as Error).message });
     }
 });

@@ -12,10 +12,17 @@ import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-grap
 import "isomorphic-fetch";
 import * as logger from "firebase-functions/logger";
 
-const { AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, ONEDRIVE_USER_ID } = process.env;
+const { 
+    AZURE_TENANT_ID, 
+    AZURE_CLIENT_ID, 
+    AZURE_CLIENT_SECRET, 
+    ONEDRIVE_USER_ID,
+    TEAMS_TEAM_ID,
+    TEAMS_CHANNEL_ID
+} = process.env;
 
-if (!AZURE_TENANT_ID || !AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET || !ONEDRIVE_USER_ID) {
-    throw new Error("Missing required Azure environment variables for Graph API authentication.");
+if (!AZURE_TENANT_ID || !AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET) {
+    throw new Error("Missing required core Azure environment variables (TENANT_ID, CLIENT_ID, CLIENT_SECRET).");
 }
 
 /**
@@ -43,6 +50,10 @@ export function getGraphClient(): Client {
  * @returns {Promise<any>} The driveItem object of the created folder.
  */
 export async function createFolder(client: Client, folderName: string, parentId?: string): Promise<any> {
+    if (!ONEDRIVE_USER_ID) {
+        throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
+    }
+
     const folder = {
         name: folderName,
         folder: {},
@@ -57,6 +68,32 @@ export async function createFolder(client: Client, folderName: string, parentId?
 }
 
 /**
+ * Creates a folder within a specific Microsoft Teams channel's file library.
+ * @param client The authenticated Graph client.
+ * @param folderName The name of the folder to create.
+ * @returns The driveItem object of the created folder.
+ */
+export async function createFolderInTeamsChannel(client: Client, folderName: string): Promise<any> {
+    if (!TEAMS_TEAM_ID || !TEAMS_CHANNEL_ID) {
+        throw new Error("TEAMS_TEAM_ID or TEAMS_CHANNEL_ID environment variables are not set.");
+    }
+
+    const newFolder = {
+        name: folderName,
+        folder: {},
+        '@microsoft.graph.conflictBehavior': 'rename'
+    };
+    
+    const url = `/teams/${TEAMS_TEAM_ID}/channels/${TEAMS_CHANNEL_ID}/filesFolder/children`;
+
+    logger.info(`Attempting to create folder "${folderName}" in Teams channel.`);
+    const createdFolder = await client.api(url).post(newFolder);
+    logger.info(`Successfully created folder "${folderName}" with ID ${createdFolder.id}.`);
+
+    return createdFolder;
+}
+
+/**
  * Grants write permissions to a user on a specific drive item.
  * @param {Client} client - The authenticated Graph client.
  * @param {string} itemId - The ID of the drive item (folder).
@@ -64,6 +101,10 @@ export async function createFolder(client: Client, folderName: string, parentId?
  * @returns {Promise<any>} The permission object.
  */
 export async function grantPermission(client: Client, itemId: string, userEmail: string): Promise<any> {
+    if (!ONEDRIVE_USER_ID) {
+        throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
+    }
+
     const permission = {
         recipients: [{ email: userEmail }],
         message: "You have been granted access to this project folder.",
@@ -88,6 +129,10 @@ export async function getDeltaChanges(folderId: string, deltaToken?: string): Pr
   let allChanges: any[] = [];
   let nextLink: string | undefined;
 
+  if (!ONEDRIVE_USER_ID) {
+      throw new Error("ONEDRIVE_USER_ID environment variable is not set.");
+  }
+  
   let url = `/users/${ONEDRIVE_USER_ID}/drive/items/${folderId}/delta`;
   if (deltaToken) {
     url += `?token=${deltaToken}`;
