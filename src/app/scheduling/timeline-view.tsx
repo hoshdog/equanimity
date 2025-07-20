@@ -1,6 +1,7 @@
 // src/app/scheduling/timeline-view.tsx
 'use client';
 
+import * as React from 'react';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScheduleEvent, Resource, Project } from './data';
