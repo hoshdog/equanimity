@@ -97,11 +97,22 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
     const quotingProfile: QuotingProfile = initialQuotingProfiles[0];
     const laborRateOptions = useMemo(() => {
-        return quotingProfile.laborRates.map(rate => ({
+        const defaultRates = [
+            { label: "Standard Labor", value: "Standard Labor", calculatedCostRate: 50, standardRate: 90 },
+            { label: "Overtime Labor", value: "Overtime Labor", calculatedCostRate: 75, standardRate: 135 }
+        ];
+
+        if (!quotingProfile.laborRates || quotingProfile.laborRates.length === 0) {
+            return defaultRates;
+        }
+
+        const profileRates = quotingProfile.laborRates.map(rate => ({
             label: rate.employeeType,
             value: rate.employeeType,
             ...rate,
         }));
+        
+        return profileRates.length > 0 ? profileRates : defaultRates;
     }, [quotingProfile.laborRates]);
 
     const form = useForm<QuoteFormValues>({ resolver: zodResolver(formSchema) });
