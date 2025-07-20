@@ -21,9 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { addSite, addContact } from '@/lib/customers';
 import type { Customer, Contact, Site, ProjectSummary, OptionType } from '@/lib/types';
 import { Combobox } from '@/components/ui/combobox';
-import { onSnapshot, doc, collection } from 'firebase/firestore';
+import { onSnapshot, doc, collection, where, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { where, query } from 'firebase/firestore';
 
 interface CustomerPageProps {
   params: Promise<{ id: string }>;

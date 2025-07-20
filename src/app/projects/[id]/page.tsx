@@ -18,7 +18,7 @@ import { QuoteFormDialog } from '@/app/quotes/quote-form-dialog';
 import { PurchaseOrderFormDialog } from '@/app/purchase-orders/po-form-dialog';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getEmployees } from '@/lib/employees';
 
@@ -107,6 +107,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         setQuotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote)));
     });
 
+    // POs are in a project subcollection
     const poQuery = query(collection(db, 'projects', projectId, 'purchaseOrders'), orderBy('createdAt', 'desc'));
     const unsubPOs = onSnapshot(poQuery, (snapshot) => {
         setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as PurchaseOrder)));
