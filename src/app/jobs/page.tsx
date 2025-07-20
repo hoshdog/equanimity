@@ -76,9 +76,9 @@ export default function JobsPage() {
         router.push(`/projects/${job.projectId}`);
     };
 
-    const getTechnicianNames = (technicianIds: string[]) => {
-        if (!technicianIds || technicianIds.length === 0) return 'Unassigned';
-        return technicianIds.map(id => employees.find(e => e.id === id)?.name || 'Unknown').join(', ');
+    const getTechnicianNames = (assignedStaff: Job['assignedStaff']) => {
+        if (!assignedStaff || assignedStaff.length === 0) return 'Unassigned';
+        return assignedStaff.map(assignment => employees.find(e => e.id === assignment.employeeId)?.name || 'Unknown').join(', ');
     }
 
     return (
@@ -114,7 +114,7 @@ export default function JobsPage() {
                                         <TableRow key={job.id} onClick={() => handleRowClick(job)} className="cursor-pointer">
                                             <TableCell className="font-medium">{job.title}</TableCell>
                                             <TableCell>{job.projectName}</TableCell>
-                                            <TableCell>{getTechnicianNames(job.assignedStaffIds)}</TableCell>
+                                            <TableCell>{getTechnicianNames(job.assignedStaff)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={cn(getStatusColor(job.status))}>
                                                     {job.status}

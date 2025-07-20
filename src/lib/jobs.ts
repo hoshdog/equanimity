@@ -39,6 +39,9 @@ export async function addJob(projectId: string, jobData: Omit<Job, 'id' | 'creat
 
     const newJobRef = await addDoc(jobsCollection, {
         ...jobData,
+        // Convert dates to Timestamps if they are Date objects
+        startDate: jobData.startDate ? jobData.startDate : null,
+        endDate: jobData.endDate ? jobData.endDate : null,
         projectId: projectId,
         projectName: projectData.name,
         customerId: projectData.customerId,

@@ -55,6 +55,8 @@ export interface Project {
     createdAt: Timestamp;
 }
 
+export const jobStaffRoles = ["Lead Technician", "Technician", "Apprentice", "Project Manager", "Safety Officer"];
+
 export interface Job {
     id: string;
     projectId: string;
@@ -68,13 +70,13 @@ export interface Job {
     category: string;
 
     // Scheduling
-    startDate?: Timestamp;
-    endDate?: Timestamp;
+    startDate?: Date | Timestamp;
+    endDate?: Date | Timestamp;
     dependencies?: string[];
     isMilestone?: boolean;
     
     // Assignment
-    assignedStaffIds: string[];
+    assignedStaff: AssignedStaff[];
     estimatedHours?: number;
     
     // Status & Priority

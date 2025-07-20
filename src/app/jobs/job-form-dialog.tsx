@@ -3,13 +3,13 @@
 
 import * as React from 'react';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, CalendarIcon } from "lucide-react";
+import { PlusCircle, Loader2, CalendarIcon, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Job, Employee, OptionType, TimelineItem } from '@/lib/types';
+import type { Project, Job, Employee, OptionType, TimelineItem, AssignedStaff } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
@@ -25,7 +25,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { jobStaffRoles } from '@/lib/types';
+
+
+const assignedStaffSchema = z.object({
+  employeeId: z.string().min(1, "Please select a staff member."),
+  role: z.string().min(2, "Role is required."),
+});
 
 const jobSchema = z.object({
   // Core Details
@@ -41,7 +48,7 @@ const jobSchema = z.object({
   isMilestone: z.boolean().default(false),
 
   // Assignment & Resources
-  assignedStaffIds: z.array(z.string()).min(1, "Please assign at least one staff member."),
+  assignedStaff: z.array(assignedStaffSchema).min(1, "Please assign at least one staff member."),
   estimatedHours: z.coerce.number().min(0, "Hours must be a positive number.").optional(),
   
   // Status & Priority
@@ -88,13 +95,18 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
       description: "",
       category: "",
       projectId: initialProjectId || "",
-      assignedStaffIds: [],
+      assignedStaff: [{ employeeId: '', role: '' }],
       dependencies: [],
       status: 'Planned',
       priority: 'Medium',
       isMilestone: false,
       billable: true,
     },
+  });
+  
+  const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({
+    control: form.control,
+    name: "assignedStaff",
   });
   
   const watchedProjectId = form.watch('projectId');
@@ -148,7 +160,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           description: "",
           category: "",
           projectId: initialProjectId || "",
-          assignedStaffIds: [],
+          assignedStaff: [{ employeeId: '', role: '' }],
           dependencies: [],
           status: 'Planned',
           priority: 'Medium',
@@ -233,7 +245,48 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                         <FormField control={form.control} name="isMilestone" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Mark as Milestone</FormLabel><FormDescription>Key milestones are highlighted on the project timeline.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
                     </TabsContent>
                     <TabsContent value="assignment" className="pt-4 space-y-4">
-                        <FormField control={form.control} name="assignedStaffIds" render={({ field }) => (<FormItem><FormLabel>Assigned Staff</FormLabel><MultiSelect options={employees} selected={employees.filter(emp => field.value?.includes(emp.value))} onChange={(selected) => field.onChange(selected.map(s => s.value))} placeholder="Select staff members..." /><FormMessage /></FormItem>)}/>
+                       <div className="space-y-2">
+                            <FormLabel>Assigned Staff</FormLabel>
+                            {staffFields.map((field, index) => (
+                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                                    <div className="grid grid-cols-2 gap-2 flex-grow">
+                                        <FormField
+                                            control={form.control}
+                                            name={`assignedStaff.${index}.employeeId`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <Select onValueChange={field.onChange} value={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger></FormControl>
+                                                        <SelectContent>{employees.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`assignedStaff.${index}.role`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <Select onValueChange={field.onChange} value={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select role..." /></SelectTrigger></FormControl>
+                                                        <SelectContent>{jobStaffRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStaff(index)} disabled={staffFields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendStaff({ employeeId: '', role: '' })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Staff Member
+                            </Button>
+                            <FormMessage>{form.formState.errors.assignedStaff?.message}</FormMessage>
+                        </div>
                         <FormField control={form.control} name="estimatedHours" render={({ field }) => (<FormItem><FormLabel>Estimated Hours</FormLabel><FormControl><Input type="number" placeholder="e.g., 16" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                     </TabsContent>
                     <TabsContent value="financials" className="pt-4 space-y-4">
