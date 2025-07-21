@@ -208,6 +208,11 @@ export interface QuoteLineItem {
     discount?: number; // Optional
 }
 
+export interface Task {
+    title: string;
+    description: string;
+}
+
 export interface Quote {
     id: string;
     quoteNumber: string;
@@ -223,6 +228,7 @@ export interface Quote {
     expiryDate: Timestamp | Date;
     status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Invoiced';
     lineItems: QuoteLineItem[];
+    tasks?: Task[]; // The generated task list
     subtotal: number;
     totalDiscount: number;
     totalTax: number;

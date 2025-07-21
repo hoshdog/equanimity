@@ -10,3 +10,4 @@ import '@/ai/flows/generate-quote-description.ts';
 import '@/ai/flows/automatically-follow-up-purchase-orders.ts';
 import '@/ai/flows/generate-compliance-health-check.ts';
 import '@/ai/flows/suggest-parts-for-quote.ts';
+import '@/ai/flows/generate-task-list-for-quote.ts';

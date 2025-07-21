@@ -28,8 +28,8 @@ import { updateQuote, uploadAndAttachFileToQuote } from '@/lib/quotes';
 import { getCustomer, getCustomers, getCustomerContacts, getCustomerSites } from '@/lib/customers';
 import { getEmployees } from '@/lib/employees';
 import { getProject, getProjects } from '@/lib/projects';
-import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, Attachment, Revision } from '@/lib/types';
-import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download, Percent, Clock, History } from 'lucide-react';
+import type { Quote, Project, Contact, Employee, OptionType, QuoteLineItem, AssignedStaff, ProjectContact, Customer, Site, Attachment, Revision, Task } from '@/lib/types';
+import { PlusCircle, Trash2, Loader2, DollarSign, ArrowLeft, Users, Pencil, Briefcase, Building2, MapPin, Save, Wand2, Upload, FileText, Paperclip, Sparkles, AlertCircle, RotateCcw, Check, Download, Percent, Clock, History, ListChecks } from 'lucide-react';
 import { format, addDays, formatDistanceToNow } from 'date-fns';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { Separator } from '@/components/ui/separator';
@@ -37,6 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
+import { generateTaskListForQuote } from '@/ai/flows/generate-task-list-for-quote';
 import { Badge } from '@/components/ui/badge';
 import { useTimeTracker } from '@/context/time-tracker-context';
 import { useBreadcrumb } from '@/context/breadcrumb-context';
@@ -73,6 +74,7 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required.").optional(),
+  tasks: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
@@ -111,6 +113,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const [isUploading, setIsUploading] = useState(false);
     const [aiDescription, setAiDescription] = useState<{ original: string; suggestion: string } | null>(null);
     const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
+    const [aiTasksLoading, setAiTasksLoading] = useState(false);
     const { setContext } = useTimeTracker();
     const { setDynamicTitle } = useBreadcrumb();
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -149,6 +152,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const watchedCustomerId = watch('customerId');
     const watchedDescription = watch('description');
     const lineItemsWatch = watch('lineItems');
+    const tasksWatch = watch('tasks');
+
 
     const debouncedSave = useDebouncedCallback(async (values: QuoteFormValues) => {
         if (!quote) return;
@@ -171,7 +176,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             setSaveStatus('saving');
             debouncedSave(getValues());
         }
-    }, [lineItemsWatch, watchedDescription, isDirty, getValues, debouncedSave]);
+    }, [lineItemsWatch, watchedDescription, tasksWatch, isDirty, getValues, debouncedSave]);
 
 
     const resetFormToQuote = useCallback((quoteData: Quote) => {
@@ -179,6 +184,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         reset({
             ...quoteData,
             lineItems: quoteData.lineItems || [],
+            tasks: quoteData.tasks || [],
             quoteDate: quoteData.quoteDate instanceof Date ? quoteData.quoteDate : (quoteData.quoteDate as any)?.toDate() || new Date(),
             dueDate: quoteData.dueDate instanceof Date ? quoteData.dueDate : (quoteData.dueDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 14)),
             expiryDate: quoteData.expiryDate instanceof Date ? quoteData.expiryDate : (quoteData.expiryDate as any)?.toDate() || new Date(new Date().setDate(new Date().getDate() + 30)),
@@ -338,6 +344,26 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             setAiDescriptionLoading(false);
         }
     };
+    
+    const handleGenerateTasks = async () => {
+        if (!quote) return;
+        setAiTasksLoading(true);
+        try {
+            const result = await generateTaskListForQuote({
+                quoteDescription: getValues('description') || '',
+                lineItems: getValues('lineItems') || [],
+                notes: getValues('internalNotes') || '',
+                quotingProfile,
+            });
+            setValue('tasks', result.tasks);
+            toast({ title: "Task List Generated", description: "AI has created a suggested task list." });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate task list.' });
+        } finally {
+            setAiTasksLoading(false);
+        }
+    };
 
     const handleAcceptAIDescription = () => {
         setAiDescription(null);
@@ -403,6 +429,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             <Tabs defaultValue="details">
                 <TabsList>
                     <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="tasks">Task List</TabsTrigger>
                     <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 <TabsContent value="details" className="space-y-6">
@@ -819,6 +846,43 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     </FormItem>
                                 )}
                             />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="tasks">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2"><ListChecks /> Job Task List</CardTitle>
+                                <CardDescription>A preliminary task list to complete this job. This will be carried over when converted to a job.</CardDescription>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateTasks} disabled={aiTasksLoading}>
+                                {aiTasksLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                Generate Task List
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                            {aiTasksLoading ? (
+                                <div className="flex flex-col items-center justify-center text-center p-8">
+                                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                                    <p className="mt-4 text-lg font-semibold">AI is generating your task list...</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">This may take a moment.</p>
+                                </div>
+                            ) : (tasksWatch && tasksWatch.length > 0) ? (
+                                <div className="space-y-3">
+                                    {tasksWatch.map((task, index) => (
+                                        <div key={index} className="p-3 rounded-md border bg-secondary/30">
+                                            <h4 className="font-semibold">{task.title}</h4>
+                                            <p className="text-sm text-muted-foreground">{task.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg">
+                                    <ListChecks className="h-12 w-12 text-muted-foreground" />
+                                    <p className="mt-4 text-sm text-muted-foreground">No tasks generated yet. Click the button above to get started.</p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
