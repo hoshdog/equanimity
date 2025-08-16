@@ -54,7 +54,7 @@ export default function QuotesPage() {
                     ...data,
                     quoteDate: (data.quoteDate as Timestamp)?.toDate(),
                     createdAt: (data.createdAt as Timestamp)?.toDate(),
-                    dueDate: (data.dueDate as Timestamp)?.toDate(),
+                    dueDate: data.dueDate ? (data.dueDate as Timestamp).toDate() : null,
                 } as Quote;
             });
             setQuotes(quotesData);
@@ -98,12 +98,12 @@ export default function QuotesPage() {
     {
         accessorKey: 'createdAt',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
-        cell: ({ row }) => format(row.original.createdAt as Date, 'PP'),
+        cell: ({ row }) => row.original.createdAt ? format(row.original.createdAt as Date, 'PP') : 'N/A',
     },
     {
         accessorKey: 'dueDate',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Due Date" />,
-        cell: ({ row }) => format(row.original.dueDate, 'PP'),
+        cell: ({ row }) => row.original.dueDate ? format(row.original.dueDate, 'PP') : 'N/A',
     },
     {
       accessorKey: "status",
