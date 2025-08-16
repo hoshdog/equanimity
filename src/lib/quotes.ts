@@ -92,6 +92,9 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
     version: 1,
     revisions: [],
     attachments: [],
+    // Set defaults for new financial fields
+    likelihood: 75, // Default likelihood to 75%
+    estNetProfit: 0, // Default to 0, will be calculated later
     // Audit fields
     createdBy: user.uid,
     createdAt: serverTimestamp(),

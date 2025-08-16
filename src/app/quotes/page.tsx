@@ -23,6 +23,7 @@ import { CreateQuoteDialog } from './create-quote-dialog';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { DataTableViewOptions } from '@/components/ui/data-table-view-options';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 
@@ -53,6 +54,7 @@ export default function QuotesPage() {
                     ...data,
                     quoteDate: (data.quoteDate as Timestamp)?.toDate(),
                     createdAt: (data.createdAt as Timestamp)?.toDate(),
+                    dueDate: (data.dueDate as Timestamp)?.toDate(),
                 } as Quote;
             });
             setQuotes(quotesData);
@@ -94,9 +96,14 @@ export default function QuotesPage() {
       cell: ({ row }) => row.original.projectName || 'Internal Quote'
     },
     {
-        accessorKey: 'quoteDate',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-        cell: ({ row }) => format(row.original.quoteDate, 'PPP'),
+        accessorKey: 'createdAt',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
+        cell: ({ row }) => format(row.original.createdAt as Date, 'PP'),
+    },
+    {
+        accessorKey: 'dueDate',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Due Date" />,
+        cell: ({ row }) => format(row.original.dueDate, 'PP'),
     },
     {
       accessorKey: "status",
@@ -105,6 +112,24 @@ export default function QuotesPage() {
         <Badge variant="outline" className={cn(getQuoteStatusColor(row.original.status))}>
           {row.original.status}
         </Badge>
+      ),
+    },
+     {
+      accessorKey: "likelihood",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Likelihood" />,
+      cell: ({ row }) => (
+        <div className="text-center">
+            {row.original.likelihood ? `${row.original.likelihood}%` : 'N/A'}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "estNetProfit",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Est. Profit" />,
+      cell: ({ row }) => (
+        <div className="text-right font-medium">
+          {row.original.estNetProfit ? `$${row.original.estNetProfit.toFixed(2)}` : 'N/A'}
+        </div>
       ),
     },
     {
@@ -167,9 +192,11 @@ export default function QuotesPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Quotes</h2>
-        <CreateQuoteDialog>
-          <Button><PlusCircle className="mr-2 h-4 w-4" />Create New Quote</Button>
-        </CreateQuoteDialog>
+        <div className="flex items-center gap-2">
+          <CreateQuoteDialog>
+            <Button><PlusCircle className="mr-2 h-4 w-4" />Create New Quote</Button>
+          </CreateQuoteDialog>
+        </div>
       </div>
 
       <Card>

@@ -246,6 +246,9 @@ export interface Quote {
     clientNotes?: string;
     version: number;
     revisions: Revision[];
+    // Financials
+    likelihood?: number; // Optional: 0-100 percentage
+    estNetProfit?: number; // Optional: Estimated net profit in dollars
     // Audit Trail
     createdAt?: Timestamp;
     createdBy?: string;
