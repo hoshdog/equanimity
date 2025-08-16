@@ -1,4 +1,4 @@
-// src/app/settings/billing-profiles/profile-form.tsx
+// src/app/settings/quoting-profiles/profile-form.tsx
 'use client';
 
 import * as React from 'react';
@@ -32,6 +32,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOrg } from '@/components/auth-provider';
 
 
 function LaborRateDialog({
@@ -47,6 +48,7 @@ function LaborRateDialog({
   const { control, watch, setValue } = useFormContext(); // We get this from the main form
   const [employees, setEmployees] = React.useState<Employee[]>([]);
   const { toast } = useToast();
+  const { orgId } = useOrg();
   
   // Local state for the dialog form
   const [role, setRole] = React.useState(initialData?.employeeType || "");
@@ -59,9 +61,9 @@ function LaborRateDialog({
 
   React.useEffect(() => {
     async function fetchEmps() {
-        if (isOpen) {
+        if (isOpen && orgId) {
             try {
-                const employeesData = await getEmployeesWithWageData();
+                const employeesData = await getEmployeesWithWageData(orgId);
                 setEmployees(employeesData);
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load employees for wage calculation.' });
@@ -69,7 +71,7 @@ function LaborRateDialog({
         }
     }
     fetchEmps();
-  }, [isOpen, toast]);
+  }, [isOpen, toast, orgId]);
 
   const calculateCostRate = React.useCallback(() => {
     if (!role || !employees.length) return 0;

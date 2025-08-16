@@ -1,5 +1,4 @@
-
-// src/app/settings/billing-profiles/page.tsx
+// src/app/settings/quoting-profiles/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -33,7 +32,7 @@ export default function QuotingProfilesPage() {
 
   const handleDeleteProfile = (profileId: string, profileName: string) => {
     if (profiles.length <= 1) {
-        toast({ variant: 'destructive', title: "Cannot Delete", description: "You must have at least one billing profile."});
+        toast({ variant: 'destructive', title: "Cannot Delete", description: "You must have at least one quoting profile."});
         return;
     }
      if (window.confirm(`Are you sure you want to delete the profile "${profileName}"?`)) {
@@ -45,7 +44,7 @@ export default function QuotingProfilesPage() {
   return (
     <Card>
         <CardHeader>
-            <CardTitle>Billing Profiles</CardTitle>
+            <CardTitle>Quoting Profiles</CardTitle>
             <CardDescription>
                 Define the standard costs, labor rates, and AI instructions for generating quotes and jobs. This ensures accuracy and consistency across your team.
             </CardDescription>

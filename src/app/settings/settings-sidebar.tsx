@@ -14,8 +14,8 @@ const sidebarNavItems = [
     icon: <Building className="mr-2 h-4 w-4" />,
   },
   {
-    title: 'Billing Profiles',
-    href: '/settings/billing-profiles',
+    title: 'Quoting Profiles',
+    href: '/settings/quoting-profiles',
     icon: <FileText className="mr-2 h-4 w-4" />,
   },
   {
