@@ -15,6 +15,9 @@ import { PurchaseOrderFormDialog } from './po-form-dialog';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
+
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -33,7 +36,7 @@ export default function PurchaseOrdersPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const q = query(collection(db, 'purchaseOrders'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'orgs', ORG_ID, 'purchaseOrders'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder)));
         setLoading(false);
@@ -59,7 +62,7 @@ export default function PurchaseOrdersPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Purchase Orders</h2>
-        <PurchaseOrderFormDialog onPOCreated={handlePOCreated} />
+        <PurchaseOrderFormDialog onPOCreated={handlePOCreated} orgId={ORG_ID} />
       </div>
        <Card>
         <CardHeader>

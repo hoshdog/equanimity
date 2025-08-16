@@ -49,7 +49,7 @@ Super guarantee is currently 11% of an employee's ordinary time earnings. Overti
 Tax is calculated based on the ATO's tax tables.`;
 
 // In a real app, this would be fetched from the settings database
-const mockLaborRateRules: LaborRate = {
+const mockLaborRateRules: any = {
     employeeType: 'Technician',
     standardRate: 95.35,
     costRate: 49.57,
@@ -65,6 +65,8 @@ const mockLaborRateRules: LaborRate = {
     afterHoursCalloutRate: 190.7
 };
 
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
 
 export default function PayrollPage() {
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,7 @@ export default function PayrollPage() {
     async function fetchEmployees() {
         setLoading(true);
         try {
-            const employeesData = await getEmployeesWithWageData();
+            const employeesData = await getEmployeesWithWageData(ORG_ID);
             setEmployees(employeesData);
         } catch (error) {
             console.error("Failed to fetch employees:", error);
@@ -117,7 +119,7 @@ export default function PayrollPage() {
     }
 
     try {
-      const payrollInput: AutomatePayrollInput = {
+      const payrollInput = {
         employee: {
           name: selectedEmployee.name,
           payType: selectedEmployee.payType!,

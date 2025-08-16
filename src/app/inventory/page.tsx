@@ -27,10 +27,13 @@ import {
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { subscribeToStockItems, deleteStockItem } from '@/lib/inventory';
-import type { StockItem } from '@/lib/types';
+import type { CatalogueItem as StockItem } from '@/lib/types';
 import { StockItemFormDialog } from './stock-item-form-dialog';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
 
 
 export default function InventoryPage() {
@@ -42,6 +45,7 @@ export default function InventoryPage() {
 
     React.useEffect(() => {
         const unsubscribe = subscribeToStockItems(
+            ORG_ID,
             (items) => {
                 setStockItems(items);
                 setLoading(false);
@@ -69,7 +73,7 @@ export default function InventoryPage() {
         if (!window.confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) return;
         setLoading(true);
         try {
-            await deleteStockItem(itemId);
+            await deleteStockItem(ORG_ID, itemId);
             toast({ title: "Item Deleted", variant: "destructive", description: `"${itemName}" has been deleted from inventory.`})
         } catch (error) {
             console.error("Failed to delete stock item", error);
@@ -85,7 +89,7 @@ export default function InventoryPage() {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Item Name" />,
         cell: ({ row }) => {
             const item = row.original;
-            const isLowStock = item.quantityOnHand <= item.reorderThreshold;
+            const isLowStock = (item.quantityOnHand || 0) <= (item.reorderThreshold || 0);
             return (
                 <div className="flex items-center gap-2">
                    {isLowStock && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
@@ -103,23 +107,27 @@ export default function InventoryPage() {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Qty on Hand" />,
         cell: ({ row }) => {
           const item = row.original;
-          const isLowStock = item.quantityOnHand <= item.reorderThreshold;
-          return <span className={cn(isLowStock && "text-yellow-500 font-bold")}>{item.quantityOnHand}</span>;
+          const isLowStock = (item.quantityOnHand || 0) <= (item.reorderThreshold || 0);
+          return <span className={cn(isLowStock && "text-yellow-500 font-bold")}>{item.quantityOnHand || 0}</span>;
         },
       },
       {
         accessorKey: "reorderThreshold",
         header: "Reorder At",
+        cell: ({ row }) => row.original.reorderThreshold || 0,
       },
        {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => {
           const item = row.original;
-          if (item.quantityOnHand <= 0) {
+          const qty = item.quantityOnHand || 0;
+          const reorder = item.reorderThreshold || 0;
+
+          if (qty <= 0) {
             return <Badge variant="destructive">Out of Stock</Badge>;
           }
-          if (item.quantityOnHand <= item.reorderThreshold) {
+          if (qty <= reorder) {
             return <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Low Stock</Badge>;
           }
           return <Badge variant="outline">In Stock</Badge>;
@@ -180,6 +188,7 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
       <StockItemFormDialog 
+        orgId={ORG_ID}
         isOpen={isFormOpen} 
         setIsOpen={setIsFormOpen} 
         item={editingItem}

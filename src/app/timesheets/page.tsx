@@ -1,4 +1,3 @@
-
 // src/app/timesheets/page.tsx
 'use client';
 
@@ -24,6 +23,7 @@ import { Loader2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useOrg } from '@/components/auth-provider';
 
 const nonBillableTasks: OptionType[] = [
     { value: 'nonbill-travel', label: 'Travel Time' },
@@ -62,13 +62,14 @@ export default function TimesheetsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { orgId } = useOrg();
 
   useEffect(() => {
     async function fetchData() {
+        if (!orgId) return;
         setLoading(true);
         try {
-            // TODO: Replace 'default-org' with dynamic org ID from user session
-            const jobsData = await getJobs('default-org');
+            const jobsData = await getJobs(orgId);
             setJobs(jobsData);
         } catch (error) {
             console.error("Failed to fetch jobs:", error);
@@ -78,14 +79,14 @@ export default function TimesheetsPage() {
         }
     }
     fetchData();
-  }, [toast]);
+  }, [toast, orgId]);
   
   const jobOptions: OptionType[] = useMemo(() => {
     return [
       ...nonBillableTasks,
       ...jobs.map(job => ({
         value: job.id,
-        label: `${job.code} - ${job.name}`
+        label: `${job.code} - ${job.title}`
       }))
     ];
   }, [jobs]);
@@ -207,7 +208,9 @@ export default function TimesheetsPage() {
 
 
   const handleSubmit = () => {
+    if (!orgId) return;
     console.log("Submitting timesheet:", {
+      orgId,
       period: `${format(timesheet[0].date, 'dd MMM yyyy')} - ${format(timesheet[timesheet.length - 1].date, 'dd MMM yyyy')}`,
       totals: weeklyTotals,
       entries: timesheet,

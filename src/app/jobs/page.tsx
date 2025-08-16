@@ -14,13 +14,13 @@ import type { Job, Employee } from '@/lib/types';
 import { JobFormDialog } from './job-form-dialog';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useOrg } from '@/components/auth-provider';
 
 const getStatusColor = (status: Job['status']) => {
     switch (status) {
-      case 'In Progress': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
-      case 'Draft': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
-      case 'Planned': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
-      case 'Completed': return 'text-green-600 bg-green-100/80 border-green-200/80';
+      case 'IN_PROGRESS': return 'text-yellow-600 bg-yellow-100/80 border-yellow-200/80';
+      case 'PLANNING': return 'text-blue-600 bg-blue-100/80 border-blue-200/80';
+      case 'COMPLETED': return 'text-green-600 bg-green-100/80 border-green-200/80';
       default: return 'text-gray-500 bg-gray-100/80 border-gray-200/80';
     }
 }
@@ -40,10 +40,13 @@ export default function JobsPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+    const { orgId } = useOrg();
 
     useEffect(() => {
+        if (!orgId) return;
+
         // Subscribe to all jobs in real-time
-        const jobsQuery = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
+        const jobsQuery = query(collection(db, 'orgs', orgId, 'jobs'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(jobsQuery, (snapshot) => {
             const jobsData: Job[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
             setJobs(jobsData);
@@ -57,7 +60,7 @@ export default function JobsPage() {
         // Fetch employees once
         async function fetchSupportingData() {
             try {
-                const employeesData = await getEmployees();
+                const employeesData = await getEmployees(orgId!);
                 setEmployees(employeesData);
             } catch (error) {
                 console.error("Failed to fetch employees:", error);
@@ -66,7 +69,7 @@ export default function JobsPage() {
         fetchSupportingData();
 
         return () => unsubscribe();
-    }, [toast]);
+    }, [toast, orgId]);
 
     const handleJobCreated = (newJob: Job) => {
         // State is handled by the real-time listener

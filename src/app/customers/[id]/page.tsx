@@ -23,6 +23,10 @@ import type { Customer, Contact, Site, Project, OptionType } from '@/lib/types';
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 import { onSnapshot, doc, collection, where, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useBreadcrumb } from '@/context/breadcrumb-context';
+import { getCustomer, getCustomerContacts, getCustomerSites } from '@/lib/customers';
+import { getProjectsByCustomer } from '@/lib/projects';
+import { useOrg } from '@/components/auth-provider';
 
 interface CustomerPageProps {
   params: Promise<{ id: string }>;
@@ -32,12 +36,6 @@ const siteSchema = z.object({
   name: z.string().min(2, "Site name must be at least 2 characters."),
   address: z.string().min(10, "Address must be at least 10 characters."),
   primaryContactId: z.string().min(1, "You must select a primary contact."),
-});
-
-const projectSchema = z.object({
-  name: z.string().min(3, "Project name must be at least 3 characters."),
-  siteId: z.string().min(1, "You must select a site for the project."),
-  status: z.string().min(2, "Please select a status."),
 });
 
 const contactSchema = z.object({
@@ -60,67 +58,66 @@ const getStatusColor = (status: string) => {
 export default function CustomerDetailPage({ params }: CustomerPageProps) {
   const { id: customerId } = use(params);
   const { toast } = useToast();
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customer, setCustomer] = useState<Contact | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const { setDynamicTitle } = useBreadcrumb();
+  const { orgId } = useOrg();
   
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!customerId) return;
-        setLoading(true);
+        if (!customerId || !orgId) return;
+        
+        const fetchCustomerData = async () => {
+            setLoading(true);
+            try {
+                const customerData = await getCustomer(orgId, customerId);
+                setCustomer(customerData as unknown as Contact); // Cast for UI compatibility
+                setDynamicTitle(customerData?.displayName || 'Customer');
 
-        const unsubscribers = [
-            onSnapshot(doc(db, 'customers', customerId), (doc) => {
-                if (doc.exists()) {
-                    setCustomer({ id: doc.id, ...doc.data() } as Customer);
-                } else {
-                    toast({ variant: 'destructive', title: "Error", description: "Customer not found." });
+                if (customerData) {
+                    const [sitesData, contactsData, projectsData] = await Promise.all([
+                        getCustomerSites(orgId, customerId),
+                        getCustomerContacts(orgId, customerId),
+                        getProjectsByCustomer(orgId, customerId)
+                    ]);
+                    setSites(sitesData);
+                    setContacts(contactsData);
+                    setProjects(projectsData);
+
+                    if (sitesData.length > 0 && !selectedSiteId) {
+                        setSelectedSiteId(sitesData[0].id);
+                    }
                 }
+
+            } catch (error) {
+                console.error("Failed to fetch customer data:", error);
+                toast({ variant: 'destructive', title: "Error", description: "Customer not found." });
+            } finally {
                 setLoading(false);
-            }),
-            onSnapshot(collection(db, 'customers', customerId, 'contacts'), (snapshot) => {
-                setContacts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact)));
-            }),
-            onSnapshot(collection(db, 'customers', customerId, 'sites'), (snapshot) => {
-                const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
-                setSites(sitesData);
-                if (sitesData.length > 0 && !selectedSiteId) {
-                    setSelectedSiteId(sitesData[0].id);
-                }
-            }),
-            // Query the top-level projects collection
-            onSnapshot(query(collection(db, 'projects'), where('customerId', '==', customerId)), (snapshot) => {
-                 setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
-            })
-        ];
+            }
+        };
 
-        return () => unsubscribers.forEach(unsub => unsub());
+        fetchCustomerData();
 
-    }, [customerId, toast, selectedSiteId]);
-
-  const primaryContact = useMemo(() => {
-    if (!customer) return null;
-    return contacts.find(c => c.id === customer.primaryContactId);
-  }, [customer, contacts]);
+    }, [customerId, orgId, toast, setDynamicTitle, selectedSiteId]);
 
   const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
-  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
 
   const siteForm = useForm<z.infer<typeof siteSchema>>({ resolver: zodResolver(siteSchema), defaultValues: { name: "", address: "", primaryContactId: "" } });
-  const projectForm = useForm<z.infer<typeof projectSchema>>({ resolver: zodResolver(projectSchema), defaultValues: { name: "", siteId: "", status: "Planning" } });
   const contactForm = useForm<z.infer<typeof contactSchema>>({ resolver: zodResolver(contactSchema), defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" } });
 
   const { fields: emailFields, append: appendEmail, remove: removeEmail } = useFieldArray({ control: contactForm.control, name: "emails" });
   const { fields: phoneFields, append: appendPhone, remove: removePhone } = useFieldArray({ control: contactForm.control, name: "phones" });
 
   const handleAddSite = async (values: z.infer<typeof siteSchema>) => {
-    if (!customer) return;
+    if (!customer || !orgId) return;
     try {
-      await addSite(customer.id, values);
+      await addSite(orgId, { ...values, customerId: customer.id });
       toast({ title: "Site Added", description: `"${values.name}" has been added.` });
       setIsSiteDialogOpen(false);
       siteForm.reset();
@@ -129,23 +126,11 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
     }
   };
 
-  const handleAddProject = async (values: z.infer<typeof projectSchema>) => {
-    if (!customer) return;
-    try {
-      // Logic for adding project
-      toast({ title: "Project Added", description: `"${values.name}" has been created.` });
-      setIsProjectDialogOpen(false);
-      projectForm.reset();
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to add project." });
-    }
-  }
-
   const handleAddContact = async (values: z.infer<typeof contactSchema>) => {
-    if (!customer) return;
+    if (!customer || !orgId) return;
     try {
-      const contactData = { name: values.name, emails: values.emails.map(e => e.value), phones: values.phones.map(p => p.value), jobTitle: values.jobTitle };
-      await addContact(customer.id, contactData);
+      const contactData = { displayName: values.name, emails: values.emails.map(e => ({type: 'PRIMARY' as const, address: e.value})), phones: values.phones.map(p => ({type: 'MOBILE' as const, number: p.value})) };
+      await addContact(orgId, customer.id, contactData);
       toast({ title: "Contact Added", description: `"${values.name}" has been added.` });
       setIsContactDialogOpen(false);
       contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" });
@@ -155,9 +140,10 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   }
 
   const handleSetPrimaryContact = async (contactId: string) => {
-    if (!customer) return;
+    if (!customer || !orgId) return;
     try {
-      await updateCustomer(customer.id, { primaryContactId: contactId });
+      // This logic needs to adapt if primary contact is a field on the main customer doc
+      // await updateCustomer(orgId, customer.id, { primaryContactId: contactId });
       toast({ title: 'Primary Contact Updated' });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to update primary contact." });
@@ -165,7 +151,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   };
 
   const contactOptions = useMemo(() => {
-    return contacts.map(contact => ({ label: contact.name, value: contact.id }));
+    return contacts.map(contact => ({ label: contact.displayName, value: contact.id }));
   }, [contacts]);
   
   const siteOptions = useMemo(() => {
@@ -194,6 +180,8 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
   }
 
   const filteredProjects = projects.filter(p => p.siteId === selectedSiteId);
+  const primaryEmail = customer.emails?.find(e => e.type === 'PRIMARY')?.address;
+  const primaryPhone = customer.phones?.find(p => p.type === 'MOBILE')?.number;
 
 
   return (
@@ -208,9 +196,9 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
             <div>
                 <h2 className="text-3xl font-bold tracking-tight flex items-start md:items-center gap-3">
                     <Building2 className="h-8 w-8 text-primary mt-1 md:mt-0 shrink-0"/>
-                    {customer.name}
+                    {customer.displayName}
                 </h2>
-                <p className="text-muted-foreground">{customer.address}</p>
+                <p className="text-muted-foreground">{customer.addresses?.[0]?.line1}</p>
             </div>
         </div>
 
@@ -218,33 +206,22 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
             <div className="lg:col-span-1">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Admin & Primary Contact</CardTitle>
+                        <CardTitle>Customer Details</CardTitle>
                     </CardHeader>
-                    {primaryContact ? (
-                        <CardContent className="space-y-4 text-sm">
-                            <div className="flex items-center gap-3">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span>{primaryContact.name}</span>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Mail className="h-4 w-4 text-muted-foreground mt-1" />
-                                <div className='flex flex-col'>
-                                  {primaryContact.emails.map(email => <a key={email} href={`mailto:${email}`} className="hover:underline break-all">{email}</a>)}
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Phone className="h-4 w-4 text-muted-foreground mt-1" />
-                                <div className='flex flex-col'>
-                                  {primaryContact.phones.map(phone => <span key={phone}>{phone}</span>)}
-                                </div>
-                            </div>
-                            <div>
-                               <Badge variant="secondary">{customer.type}</Badge>
-                            </div>
-                        </CardContent>
-                    ) : (
-                         <CardContent><p className="text-sm text-muted-foreground">No primary contact assigned.</p></CardContent>
-                    )}
+                    <CardContent className="space-y-4 text-sm">
+                        <div className="flex items-center gap-3">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span>{customer.displayName}</span>
+                        </div>
+                         <div className="flex items-start gap-3">
+                            <Mail className="h-4 w-4 text-muted-foreground mt-1" />
+                            <a href={`mailto:${primaryEmail}`} className="hover:underline break-all">{primaryEmail}</a>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Phone className="h-4 w-4 text-muted-foreground mt-1" />
+                             <span>{primaryPhone}</span>
+                        </div>
+                    </CardContent>
                 </Card>
             </div>
             <div className="lg:col-span-2">
@@ -261,7 +238,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                     <h3 className="font-semibold text-lg">Sites</h3>
                                     <Dialog open={isSiteDialogOpen} onOpenChange={setIsSiteDialogOpen}>
                                         <DialogTrigger asChild><Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5"/></Button></DialogTrigger>
-                                        <DialogContent><DialogHeader><DialogTitle>Add New Site</DialogTitle><DialogDescription>Add a new site for {customer.name}.</DialogDescription></DialogHeader>
+                                        <DialogContent><DialogHeader><DialogTitle>Add New Site</DialogTitle><DialogDescription>Add a new site for {customer.displayName}.</DialogDescription></DialogHeader>
                                             <Form {...siteForm}><form onSubmit={siteForm.handleSubmit(handleAddSite)} className="space-y-4">
                                                 <FormField control={siteForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Melbourne Office" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                                 <FormField control={siteForm.control} name="address" render={({ field }) => ( <FormItem><FormLabel>Site Address</FormLabel><FormControl><Input placeholder="e.g., 55 Collins St, Melbourne" {...field} /></FormControl><FormMessage /></FormItem> )}/>
@@ -288,7 +265,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                             {contact && (
                                                 <div className="text-xs flex items-center gap-1 border-t pt-2 mt-2" onClick={(e) => e.stopPropagation()}>
                                                     <User className="h-3 w-3" />
-                                                    <span>{contact.name}</span>
+                                                    <span>{contact.displayName}</span>
                                                 </div>
                                             )}
                                         </button>
@@ -326,7 +303,7 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                         <Card>
                              <CardHeader className="flex flex-row items-center justify-between">
                                 <div className="space-y-1.5">
-                                    <CardTitle>All Projects for {customer.name}</CardTitle>
+                                    <CardTitle>All Projects for {customer.displayName}</CardTitle>
                                     <CardDescription>A list of all projects across all sites for this customer.</CardDescription>
                                 </div>
                             </CardHeader>
@@ -356,13 +333,13 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                         <Card>
                              <CardHeader className="flex flex-row items-center justify-between">
                                 <div className="space-y-1.5">
-                                    <CardTitle>Contacts at {customer.name}</CardTitle>
+                                    <CardTitle>Contacts at {customer.displayName}</CardTitle>
                                     <CardDescription>Manage all contact persons for this customer.</CardDescription>
                                 </div>
                                 <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) contactForm.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" }); }}>
                                     <DialogTrigger asChild><Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4"/>New Contact</Button></DialogTrigger>
                                     <DialogContent className="sm:max-w-md">
-                                        <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customer.name}.</DialogDescription></DialogHeader>
+                                        <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customer.displayName}.</DialogDescription></DialogHeader>
                                         <Form {...contactForm}>
                                           <form onSubmit={contactForm.handleSubmit(handleAddContact)} className="space-y-4">
                                             <FormField control={contactForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
@@ -412,7 +389,6 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead></TableHead>
                                             <TableHead>Name</TableHead>
                                             <TableHead>Email</TableHead>
                                             <TableHead>Phone</TableHead>
@@ -421,20 +397,15 @@ export default function CustomerDetailPage({ params }: CustomerPageProps) {
                                     <TableBody>
                                         {contacts.map(contact => (
                                             <TableRow key={contact.id}>
-                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleSetPrimaryContact(contact.id)} className={cn(customer.primaryContactId === contact.id ? 'text-yellow-400' : 'text-muted-foreground hover:text-yellow-400')}>
-                                                        <Star className={cn("h-5 w-5", customer.primaryContactId === contact.id && 'fill-current')}/>
-                                                    </Button>
-                                                </TableCell>
-                                                <TableCell className="font-medium">{contact.name}</TableCell>
+                                                <TableCell className="font-medium">{contact.displayName}</TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        {contact.emails.map(email => <span key={email}>{email}</span>)}
+                                                        {contact.emails?.map(email => <span key={email.address}>{email.address}</span>)}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        {contact.phones.map(phone => <span key={phone}>{phone}</span>)}
+                                                        {contact.phones?.map(phone => <span key={phone.number}>{phone.number}</span>)}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

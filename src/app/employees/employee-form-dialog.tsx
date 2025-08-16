@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Loader2, Pencil, Trash2, DollarSign, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { addEmployee, updateEmployee } from '@/lib/employees';
 import type { Employee } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -72,6 +72,7 @@ interface EmployeeFormDialogProps {
   employee?: Employee;
   onEmployeeSaved: (employee: Employee) => void;
   children?: React.ReactNode;
+  orgId: string;
 }
 
 function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open: boolean, onOpenChange: (open: boolean) => void, roles: string[], onRolesChange: (roles: string[]) => void }) {
@@ -123,7 +124,7 @@ function ManageRolesDialog({ open, onOpenChange, roles, onRolesChange }: { open:
 }
 
 
-export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: EmployeeFormDialogProps) {
+export function EmployeeFormDialog({ employee, onEmployeeSaved, children, orgId }: EmployeeFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isRolesDialogOpen, setIsRolesDialogOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -249,11 +250,11 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: Empl
     setLoading(true);
     try {
       if (isEditing && employee) {
-        await updateEmployee(employee.id, values);
+        await updateEmployee(orgId, employee.id, values);
         onEmployeeSaved({ id: employee.id, ...values });
         toast({ title: 'Employee Updated', description: `${values.name}'s details have been updated.` });
       } else {
-        const newEmployeeId = await addEmployee(values);
+        const newEmployeeId = await addEmployee(orgId, values);
         onEmployeeSaved({ id: newEmployeeId, ...values });
         toast({ title: 'Employee Created', description: `${values.name} has been added.` });
       }
@@ -281,7 +282,7 @@ export function EmployeeFormDialog({ employee, onEmployeeSaved, children }: Empl
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
           <DialogDescription>
-            {isEditing ? `Update the details for ${employee.name}.` : 'Fill in the details for the new employee.'}
+            {isEditing && employee ? `Update the details for ${employee.name}.` : 'Fill in the details for the new employee.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

@@ -15,7 +15,7 @@ import { initialQuotingProfiles, QuotingProfile } from "@/lib/quoting-profiles";
 import { useToast } from "@/hooks/use-toast";
 import { ProfileFormDialog } from "./profile-form-dialog";
 
-export default function BillingProfilesPage() {
+export default function QuotingProfilesPage() {
   const [profiles, setProfiles] = useState<QuotingProfile[]>(initialQuotingProfiles);
   const { toast } = useToast();
 

@@ -20,9 +20,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { onSnapshot, collection } from 'firebase/firestore';
+import { onSnapshot, collection, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { deleteEmployee } from '@/lib/employees';
+
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
 
 export default function EmployeesPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -31,7 +34,8 @@ export default function EmployeesPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, 'employees'), (snapshot) => {
+        const q = query(collection(db, 'orgs', ORG_ID, 'employees'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const employeesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
             setEmployees(employeesData);
             setLoading(false);
@@ -60,7 +64,7 @@ export default function EmployeesPage() {
         if (!window.confirm(`Are you sure you want to delete ${employeeName}? This action cannot be undone.`)) return;
         setLoading(true);
         try {
-            await deleteEmployee(employeeId);
+            await deleteEmployee(ORG_ID, employeeId);
             toast({ title: "Employee Deleted", variant: "destructive", description: `${employeeName} has been deleted.`})
         } catch (error) {
             console.error("Failed to delete employee", error);
@@ -83,7 +87,7 @@ export default function EmployeesPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
        <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
-        <EmployeeFormDialog onEmployeeSaved={handleEmployeeSaved} />
+        <EmployeeFormDialog onEmployeeSaved={handleEmployeeSaved} orgId={ORG_ID} />
       </div>
       <Card>
         <CardHeader>
@@ -138,7 +142,7 @@ export default function EmployeesPage() {
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => handleRowClick(employee.id)}>View Profile</DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved}>
+                                                <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved} orgId={ORG_ID}>
                                                     <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
                                                         <Pencil className="mr-2 h-4 w-4" /> Edit
                                                     </button>

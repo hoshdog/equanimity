@@ -27,6 +27,9 @@ import { DataTableViewOptions } from '@/components/ui/data-table-view-options';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
+
 const getQuoteStatusColor = (status: string) => {
     switch (status) {
       case 'Draft': return 'text-gray-600 bg-gray-100/80 border-gray-200/80';
@@ -44,7 +47,7 @@ export default function QuotesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const q = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'orgs', ORG_ID, 'quotes'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, 
         (snapshot) => {
             const quotesData = snapshot.docs.map(doc => {

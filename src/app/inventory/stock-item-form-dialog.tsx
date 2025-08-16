@@ -19,14 +19,15 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { StockItem } from '@/lib/types';
+import type { CatalogueItem as StockItem } from '@/lib/types';
 import { addStockItem, updateStockItem } from '@/lib/inventory';
 
 const stockItemFormSchema = z.object({
   name: z.string().min(3, "Item name must be at least 3 characters."),
   sku: z.string().min(2, "SKU is required."),
-  quantityOnHand: z.coerce.number().min(0, "Quantity cannot be negative."),
-  reorderThreshold: z.coerce.number().min(0, "Reorder threshold cannot be negative."),
+  quantityOnHand: z.coerce.number().min(0, "Quantity cannot be negative.").optional(),
+  reorderThreshold: z.coerce.number().min(0, "Reorder threshold cannot be negative.").optional(),
+  uom: z.string().min(1, "Unit of Measure is required (e.g., 'each', 'm', 'box')."),
 });
 
 type StockItemFormValues = z.infer<typeof stockItemFormSchema>;
@@ -35,16 +36,17 @@ interface StockItemFormDialogProps {
   item?: StockItem | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  orgId: string;
 }
 
-export function StockItemFormDialog({ item, isOpen, setIsOpen }: StockItemFormDialogProps) {
+export function StockItemFormDialog({ item, isOpen, setIsOpen, orgId }: StockItemFormDialogProps) {
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
   const isEditing = !!item;
 
   const form = useForm<StockItemFormValues>({
     resolver: zodResolver(stockItemFormSchema),
-    defaultValues: { name: "", sku: "", quantityOnHand: 0, reorderThreshold: 0 },
+    defaultValues: { name: "", sku: "", quantityOnHand: 0, reorderThreshold: 0, uom: 'each' },
   });
 
   React.useEffect(() => {
@@ -52,7 +54,7 @@ export function StockItemFormDialog({ item, isOpen, setIsOpen }: StockItemFormDi
       if (isEditing && item) {
         form.reset(item);
       } else {
-        form.reset({ name: "", sku: "", quantityOnHand: 0, reorderThreshold: 0 });
+        form.reset({ name: "", sku: "", quantityOnHand: 0, reorderThreshold: 0, uom: 'each' });
       }
     }
   }, [isOpen, isEditing, item, form]);
@@ -61,10 +63,10 @@ export function StockItemFormDialog({ item, isOpen, setIsOpen }: StockItemFormDi
     setLoading(true);
     try {
       if (isEditing && item) {
-        await updateStockItem(item.id, values);
+        await updateStockItem(orgId, item.id, values);
         toast({ title: 'Item Updated', description: `"${values.name}" has been updated.` });
       } else {
-        await addStockItem(values);
+        await addStockItem(orgId, values);
         toast({ title: 'Item Created', description: `"${values.name}" has been added to inventory.` });
       }
       setIsOpen(false);
@@ -82,7 +84,7 @@ export function StockItemFormDialog({ item, isOpen, setIsOpen }: StockItemFormDi
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Stock Item' : 'Add New Stock Item'}</DialogTitle>
           <DialogDescription>
-            {isEditing ? `Update the details for ${item.name}.` : 'Fill in the details for the new inventory item.'}
+            {isEditing && item ? `Update the details for ${item.name}.` : 'Fill in the details for the new inventory item.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -90,9 +92,14 @@ export function StockItemFormDialog({ item, isOpen, setIsOpen }: StockItemFormDi
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Item Name</FormLabel><FormControl><Input placeholder="e.g., Cat 6 Cable (305m box)" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="sku" render={({ field }) => (
-              <FormItem><FormLabel>SKU / Part Number</FormLabel><FormControl><Input placeholder="e.g., C6-BL-305M" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+             <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="sku" render={({ field }) => (
+                  <FormItem><FormLabel>SKU / Part Number</FormLabel><FormControl><Input placeholder="e.g., C6-BL-305M" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={form.control} name="uom" render={({ field }) => (
+                  <FormItem><FormLabel>Unit of Measure</FormLabel><FormControl><Input placeholder="e.g., each, box, m" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+             </div>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="quantityOnHand" render={({ field }) => (
                 <FormItem><FormLabel>Quantity On Hand</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>

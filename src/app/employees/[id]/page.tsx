@@ -14,7 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { EmployeeFormDialog } from '../employee-form-dialog';
+import { useBreadcrumb } from '@/context/breadcrumb-context';
 
+
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
 
 export default function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -22,14 +26,17 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const router = useRouter();
+    const { setDynamicTitle } = useBreadcrumb();
+
 
     useEffect(() => {
         async function fetchEmployee() {
             setLoading(true);
             try {
-                const employeeData = await getEmployee(id);
+                const employeeData = await getEmployee(ORG_ID, id);
                 if (employeeData) {
                     setEmployee(employeeData);
+                    setDynamicTitle(employeeData.name);
                 } else {
                     toast({ variant: 'destructive', title: 'Error', description: 'Employee not found.' });
                     router.push('/employees');
@@ -45,7 +52,7 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
         if (id) {
             fetchEmployee();
         }
-    }, [id, toast, router]);
+    }, [id, toast, router, setDynamicTitle]);
     
     const handleEmployeeSaved = (savedEmployee: Employee) => {
         setEmployee(savedEmployee);
@@ -101,7 +108,7 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
                         </div>
                     </div>
                 </div>
-                 <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved}>
+                 <EmployeeFormDialog employee={employee} onEmployeeSaved={handleEmployeeSaved} orgId={ORG_ID}>
                     <Button variant="outline">
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit Details

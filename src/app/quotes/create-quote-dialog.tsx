@@ -73,18 +73,16 @@ const createQuoteSchema = z.object({
 type CreateQuoteValues = z.infer<typeof createQuoteSchema>;
 
 const customerSchema = z.object({
-    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
-    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
-    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
-    email: z.string().email({ message: "Please enter a valid email address." }),
-    phone: z.string().min(8, { message: "Phone number seems too short." }),
-    type: z.string().min(2, { message: "Please select a customer type." }),
+    displayName: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    addresses: z.array(z.object({ type: z.literal('PHYSICAL'), line1: z.string().min(10, { message: "Address must be at least 10 characters." }) })),
+    emails: z.array(z.object({type: z.literal('PRIMARY'), address: z.string().email() })),
+    phones: z.array(z.object({type: z.literal('MOBILE'), number: z.string().min(8) })),
 });
 
 const newContactSchema = z.object({
-  name: z.string().min(2, "Contact name must be at least 2 characters."),
-  emails: z.array(z.object({ value: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
-  phones: z.array(z.object({ value: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
+  displayName: z.string().min(2, "Contact name must be at least 2 characters."),
+  emails: z.array(z.object({ type: z.literal('PRIMARY'), address: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
+  phones: z.array(z.object({ type: z.literal('MOBILE'), number: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
   jobTitle: z.string().optional(),
 });
 
@@ -94,34 +92,26 @@ const newSiteSchema = z.object({
   primaryContactId: z.string().min(1, "You must select a primary contact."),
 });
 
+// TODO: Replace with dynamic org ID from user session
+const ORG_ID = 'test-org';
+
 function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof customerSchema>>({
         resolver: zodResolver(customerSchema),
-        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "Corporate Client" },
+        defaultValues: { displayName: "", addresses: [{ type: 'PHYSICAL', line1: "" }], emails: [{type: 'PRIMARY', address: ''}], phones: [{type: 'MOBILE', number: ''}] },
     });
     
     async function onSubmit(values: z.infer<typeof customerSchema>) {
         setLoading(true);
         try {
-            const newCustomerData = {
-              name: values.name,
-              address: values.address,
-              type: values.type,
-              primaryContactName: values.primaryContactName,
-              email: values.email,
-              phone: values.phone,
-            }
-            const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone], jobTitle: 'Primary Contact' };
-            const initialSite = { name: 'Main Site', address: values.address };
-            
-            const { customerId, contactId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
-            const newCustomer = { id: customerId, ...newCustomerData, primaryContactId: contactId };
+            const { customerId } = await addDbCustomer(ORG_ID, values);
+            const newCustomer = { id: customerId, ...values, type: 'CUSTOMER' as const };
             
             onCustomerAdded(newCustomer);
-            toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
+            toast({ title: "Customer Added", description: `"${values.displayName}" has been added.` });
             setIsOpen(false);
             form.reset();
         } catch (error) {
@@ -134,10 +124,11 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
 
     const handlePlaceSelect = (place: google.maps.places.PlaceResult | null) => {
         if (place?.name) {
-            form.setValue('name', place.name);
+            form.setValue('displayName', place.name);
         }
         if (place?.formatted_address) {
-            form.setValue('address', place.formatted_address);
+            // This is simplified, a real app would parse address components
+            form.setValue('addresses', [{ type: 'PHYSICAL', line1: place.formatted_address }]);
         }
     };
 
@@ -151,7 +142,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                 </DialogHeader>
                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormField control={form.control} name="displayName" render={({ field }) => (
                             <FormItem><FormLabel>Customer Name</FormLabel>
                                 <FormControl>
                                     <AddressAutocompleteInput 
@@ -164,38 +155,15 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                                 <FormMessage />
                             </FormItem>
                         )}/>
-                         <FormField control={form.control} name="address" render={({ field }) => (
+                         <FormField control={form.control} name="addresses.0.line1" render={({ field }) => (
                             <FormItem><FormLabel>Address</FormLabel>
                             <FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="primaryContactName" render={({ field }) => (
-                            <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormField control={form.control} name="emails.0.address" render={({ field }) => (
                             <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="phone" render={({ field }) => (
+                         <FormField control={form.control} name="phones.0.number" render={({ field }) => (
                             <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="type" render={({ field }) => (
-                            <FormItem>
-                                 <FormLabel>Customer Type</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a customer type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Corporate Client">Corporate Client</SelectItem>
-                                        <SelectItem value="Construction Partner">Construction Partner</SelectItem>
-                                        <SelectItem value="Small Business">Small Business</SelectItem>
-                                        <SelectItem value="Government">Government</SelectItem>
-                                        <SelectItem value="Private">Private</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
                         )}/>
                         <DialogFooter>
                              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
@@ -208,13 +176,14 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
     );
 }
 
+
 function AddContactDialog({ customerId, customerName, onContactAdded, children }: { customerId: string, customerName: string, onContactAdded: (contact: Contact) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof newContactSchema>>({
         resolver: zodResolver(newContactSchema),
-        defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" },
+        defaultValues: { displayName: "", emails: [{ type: 'PRIMARY', address: "" }], phones: [{ type: 'MOBILE', number: "" }], jobTitle: "" },
     });
     
     const { fields: emailFields, append: appendEmail, remove: removeEmail } = useFieldArray({ control: form.control, name: "emails" });
@@ -224,16 +193,16 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
         setLoading(true);
         try {
             const contactData = {
-              name: values.name,
-              emails: values.emails.map(e => e.value),
-              phones: values.phones.map(p => p.value),
-              jobTitle: values.jobTitle,
+              displayName: values.displayName,
+              emails: values.emails,
+              phones: values.phones,
+              // jobTitle: values.jobTitle,
             };
-            const newContactId = await addDbContact(customerId, contactData);
-            onContactAdded({ id: newContactId, ...contactData });
-            toast({ title: "Contact Added", description: `"${values.name}" has been added to ${customerName}.` });
+            const newContactId = await addDbContact(ORG_ID, customerId, contactData);
+            onContactAdded({ id: newContactId, type: 'CUSTOMER', ...contactData });
+            toast({ title: "Contact Added", description: `"${values.displayName}" has been added to ${customerName}.` });
             setIsOpen(false);
-            form.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" });
+            form.reset({ displayName: "", emails: [{ type: 'PRIMARY', address: "" }], phones: [{ type: 'MOBILE', number: "" }], jobTitle: "" });
         } catch (error) {
             console.error("Failed to add contact", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to add contact.' });
@@ -249,13 +218,13 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                  <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customerName}.</DialogDescription></DialogHeader>
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField control={form.control} name="displayName" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                         <FormField control={form.control} name="jobTitle" render={({ field }) => ( <FormItem><FormLabel>Job Title (Optional)</FormLabel><FormControl><Input placeholder="e.g., Project Manager" {...field} /></FormControl><FormMessage /></FormItem> )}/>
 
                         <div>
                             <FormLabel>Email Addresses</FormLabel>
                             {emailFields.map((field, index) => (
-                              <FormField key={field.id} control={form.control} name={`emails.${index}.value`} render={({ field }) => (
+                              <FormField key={field.id} control={form.control} name={`emails.${index}.address`} render={({ field }) => (
                                 <FormItem className="flex items-center gap-2 mt-1">
                                   <FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl>
                                   <Button type="button" variant="ghost" size="icon" disabled={emailFields.length <= 1} onClick={() => removeEmail(index)}>
@@ -264,7 +233,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                                 </FormItem>
                               )}/>
                             ))}
-                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmail({ value: "" })}>
+                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmail({ type: 'PRIMARY', address: "" })}>
                                 <PlusCircle className="mr-2 h-4 w-4"/>Add Email
                             </Button>
                         </div>
@@ -272,7 +241,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                         <div>
                             <FormLabel>Phone Numbers</FormLabel>
                             {phoneFields.map((field, index) => (
-                              <FormField key={field.id} control={form.control} name={`phones.${index}.value`} render={({ field }) => (
+                              <FormField key={field.id} control={form.control} name={`phones.${index}.number`} render={({ field }) => (
                                 <FormItem className="flex items-center gap-2 mt-1">
                                   <FormControl><Input placeholder="0412 345 678" {...field} /></FormControl>
                                   <Button type="button" variant="ghost" size="icon" disabled={phoneFields.length <= 1} onClick={() => removePhone(index)}>
@@ -281,7 +250,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                                 </FormItem>
                               )}/>
                             ))}
-                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendPhone({ value: "" })}>
+                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendPhone({ type: 'MOBILE', number: "" })}>
                                 <PlusCircle className="mr-2 h-4 w-4"/>Add Phone
                             </Button>
                         </div>
@@ -310,7 +279,7 @@ function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, childr
     async function onSubmit(values: z.infer<typeof newSiteSchema>) {
         setLoading(true);
         try {
-            const newSiteId = await addDbSite(customerId, values);
+            const newSiteId = await addDbSite(ORG_ID, { ...values, customerId });
             onSiteAdded({ id: newSiteId, ...values });
             toast({ title: "Site Added", description: `"${values.name}" has been added to ${customerName}.` });
             setIsOpen(false);
@@ -322,7 +291,7 @@ function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, childr
         }
     }
 
-    const contactOptions = contacts.map(c => ({ value: c.id, label: c.name }));
+    const contactOptions = contacts.map(c => ({ value: c.id, label: c.displayName }));
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -406,9 +375,9 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
             setLoading(true);
             try {
                 const [projectsData, employeesData, customersData] = await Promise.all([
-                    getProjects(),
-                    getEmployees(),
-                    getCustomers()
+                    getProjects(ORG_ID),
+                    getEmployees(ORG_ID),
+                    getCustomers(ORG_ID)
                 ]);
                 setProjects(projectsData);
                 setEmployees(employeesData);
@@ -433,7 +402,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
     useEffect(() => {
         async function fetchProjectDetails() {
             if (watchedProjectId) {
-                const project = await getProject(watchedProjectId);
+                const project = await getProject(ORG_ID, watchedProjectId);
                 if (project) {
                     form.setValue('customerId', project.customerId, { shouldValidate: true });
                     form.setValue('siteId', project.siteId, { shouldValidate: true });
@@ -453,19 +422,17 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
                 setLoading(true);
                 try {
                     const [contactsData, sitesData] = await Promise.all([
-                        getCustomerContacts(watchedCustomerId),
-                        getCustomerSites(watchedCustomerId)
+                        getCustomerContacts(ORG_ID, watchedCustomerId),
+                        getCustomerSites(ORG_ID, watchedCustomerId)
                     ]);
                     setContacts(contactsData);
                     setSites(sitesData);
                     
                     const customer = customers.find(c => c.id === watchedCustomerId);
                     
-                    if (customer?.primaryContactId) {
-                        const primaryContactExists = contactsData.some(c => c.id === customer.primaryContactId);
-                        if(primaryContactExists) {
-                           replaceContacts([{ contactId: customer.primaryContactId, role: 'Primary' }]);
-                        }
+                    const primaryContact = contactsData.find(c => c.isPrimary); // Adapt if needed
+                    if (primaryContact) {
+                       replaceContacts([{ contactId: primaryContact.id, role: 'Primary' }]);
                     } else if (contactsData.length > 0) {
                         replaceContacts([{ contactId: contactsData[0].id, role: 'Primary' }]);
                     } else {
@@ -487,7 +454,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
     }, [watchedCustomerId, toast, customers]);
     
 
-    const customerOptions = useMemo(() => customers.map(c => ({ value: c.id, label: c.name })), [customers]);
+    const customerOptions = useMemo(() => customers.map(c => ({ value: c.id, label: c.displayName })), [customers]);
     
     const projectOptions = useMemo(() => {
         const filteredProjects = watchedCustomerId ? projects.filter(p => p.customerId === watchedCustomerId) : projects;
@@ -495,7 +462,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
     }, [projects, watchedCustomerId]);
     
     const siteOptions = useMemo(() => sites.map(s => ({ value: s.id, label: s.name })), [sites]);
-    const contactOptions = useMemo(() => contacts.map(c => ({ value: c.id, label: c.name })), [contacts]);
+    const contactOptions = useMemo(() => contacts.map(c => ({ value: c.id, label: c.displayName })), [contacts]);
     const employeeOptions = useMemo(() => employees.map(e => ({ value: e.id, label: e.name })), [employees]);
 
     const handleCustomerAdded = (newCustomer: Customer) => {
@@ -542,7 +509,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
                 assignedStaff: values.assignedStaff,
                 projectContacts: values.projectContacts,
             };
-            const newQuoteId = await addQuote(newQuoteData);
+            const newQuoteId = await addQuote(ORG_ID, newQuoteData);
             toast({ title: "Quote Created", description: "Redirecting to the new quote..." });
             setIsOpen(false);
             router.push(`/quotes/${newQuoteId}`);
@@ -628,7 +595,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
                                                 </Select>
                                                 <AddSiteDialog
                                                     customerId={watchedCustomerId!}
-                                                    customerName={selectedCustomer?.name || ''}
+                                                    customerName={selectedCustomer?.displayName || ''}
                                                     contacts={contacts}
                                                     onSiteAdded={handleSiteAdded}
                                                 >
@@ -679,7 +646,7 @@ export function CreateQuoteDialog({ children, initialProjectId }: { children: Re
                                         <FormLabel>Customer Contacts</FormLabel>
                                          <AddContactDialog 
                                             customerId={watchedCustomerId!} 
-                                            customerName={selectedCustomer?.name || ''} 
+                                            customerName={selectedCustomer?.displayName || ''} 
                                             onContactAdded={handleContactAdded}
                                         >
                                             <Button type="button" variant="outline" size="sm" disabled={!watchedCustomerId}>

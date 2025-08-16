@@ -56,9 +56,10 @@ const mockSuppliers = [
 interface PurchaseOrderFormDialogProps {
   onPOCreated: (po: PurchaseOrder) => void;
   initialProjectId?: string;
+  orgId: string;
 }
 
-export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: PurchaseOrderFormDialogProps) {
+export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId, orgId }: PurchaseOrderFormDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [projects, setProjects] = React.useState<OptionType[]>([]);
@@ -90,7 +91,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
       if (isOpen && !initialProjectId) {
         setLoading(true);
         try {
-          const projectsData = await getProjects();
+          const projectsData = await getProjects(orgId);
           setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
         } catch (error) {
           toast({ variant: 'destructive', title: 'Error', description: 'Could not load projects.' });
@@ -100,7 +101,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
       }
     }
     fetchProjectsData();
-  }, [isOpen, initialProjectId, toast]);
+  }, [isOpen, initialProjectId, toast, orgId]);
   
   React.useEffect(() => {
     if (isOpen && initialProjectId) {
@@ -125,7 +126,7 @@ export function PurchaseOrderFormDialog({ onPOCreated, initialProjectId }: Purch
         ...values,
         totalValue,
       };
-      const newPOId = await addPurchaseOrder(values.projectId, poData);
+      const newPOId = await addPurchaseOrder(orgId, values.projectId, poData);
       onPOCreated({ id: newPOId, ...poData, createdAt: new Date() } as any);
       toast({ title: "Purchase Order Created", description: `${values.poNumber} has been successfully created.` });
       setIsOpen(false);
