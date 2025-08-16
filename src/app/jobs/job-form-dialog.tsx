@@ -445,7 +445,6 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="">Use default rate</SelectItem>
                                             {laborRates.map(rate => (
                                                 <SelectItem key={rate.id} value={String(rate.standardRate)}>
                                                     {rate.name} - ${rate.standardRate.toFixed(2)}/hr
