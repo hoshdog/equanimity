@@ -1,26 +1,21 @@
 // functions/src/index.ts
 /**
  * @fileOverview Firebase Cloud Functions for the Equanimity application.
- * This file handles backend logic for user creation, code generation, and MS Teams integration.
+ * This file defines the backend logic for data processing, integrations, and scheduled tasks.
  */
 
 import { onUserCreate } from "firebase-functions/v2/auth";
-import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
-import { onRequest, HttpsOptions } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onCall, onRequest, HttpsOptions } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { 
-    getGraphClient, 
-    getDeltaChanges, 
-    createFolderInTeamsChannel,
-    driveItemToFirestore,
-} from './graph-helper';
+import { getGraphClient, createFolderInTeamsChannel } from './graph-helper';
 
 // Initialize Firebase Admin SDK
 initializeApp();
 const db = getFirestore();
-const requestOptions: HttpsOptions = { cors: true, enforceAppCheck: false };
+const httpsOptions: HttpsOptions = { cors: true, enforceAppCheck: false }; // Configure as needed
 
 /**
  * =================================================================
@@ -30,8 +25,7 @@ const requestOptions: HttpsOptions = { cors: true, enforceAppCheck: false };
 
 /**
  * Triggered when a new user signs up via Firebase Auth.
- * This function creates a default organization for the user and adds them to it.
- * In a production scenario, this might instead add them to an invited organization.
+ * Creates a default organization for the user.
  */
 export const oncreateuser = onUserCreate(async (event) => {
     const user = event.data;
@@ -39,36 +33,30 @@ export const oncreateuser = onUserCreate(async (event) => {
     logger.info(`New user signed up: ${uid}, Email: ${email}`);
 
     const batch = db.batch();
+    const orgRef = db.collection('orgs').doc();
 
-    // 1. Create a new organization for the user.
-    const orgRef = db.collection('orgs').doc(); // Auto-generate ID
     const orgData = {
         name: `${email?.split('@')[0] || 'New'}'s Organization`,
         ownerId: uid,
+        country: 'AU',
+        accounting: {
+            provider: null,
+            status: 'disconnected',
+            tenantOrFileId: null,
+            lastSyncAt: null,
+            scopes: [],
+        },
         createdAt: FieldValue.serverTimestamp(),
-        // Default integration settings can be placed here
-        integrations: {
-            teams: {
-                enabled: false,
-                teamId: null,
-                channelId: null,
-            }
-        }
     };
     batch.set(orgRef, orgData);
 
-    // 2. Create the user's profile within the new organization.
     const userRef = orgRef.collection('users').doc(uid);
     const userProfile = {
         email,
-        roles: ['owner', 'admin'], // Grant owner and admin roles by default
+        roles: ['owner', 'admin'],
         createdAt: FieldValue.serverTimestamp(),
     };
     batch.set(userRef, userProfile);
-    
-    // 3. Create a default tracking category for the new org.
-    const trackingRef = orgRef.collection('mappings').doc('tracking').collection('categories').doc();
-    batch.set(trackingRef, { name: 'Projects', options: [] });
 
     try {
         await batch.commit();
@@ -81,23 +69,121 @@ export const oncreateuser = onUserCreate(async (event) => {
 
 /**
  * =================================================================
- * TEAMS INTEGRATION FUNCTIONS (APPLICATION)
+ * ACCOUNTING PROVIDER FUNCTIONS (HTTPS Callbacks & Triggers)
  * =================================================================
  */
 
-/**
- * Firestore Trigger: Creates a folder in the configured Teams channel
- * when a new job is created within an organization that has Teams integration enabled.
- */
-export const onCreateJobCreateTeamsFolder = onDocumentCreated("orgs/{orgId}/jobs/{jobId}", async (event) => {
-    const orgId = event.params.orgId;
-    const job = event.data?.data();
+// NOTE: These are stubs. The 'accounting-provider.ts' interface would be implemented
+// by concrete 'xero-adapter.ts' and 'myob-adapter.ts' files, which these functions would call.
 
-    if (!job) {
-        logger.info("No job data found, exiting.");
+export const connect_startAuth = onCall(httpsOptions, async (request) => {
+    // 1. Get orgId from request context.
+    // 2. Load org's config.
+    // 3. Instantiate the correct provider adapter (Xero or MYOB).
+    // 4. Call adapter.auth.startAuth(orgId) to get the consent URL.
+    // 5. Return the URL to the client.
+    logger.info("connect.startAuth called", { data: request.data });
+    return { redirectUrl: `https://login.xero.com/identity/connect/authorize?response_type=code&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&scope=openid%20profile%20email%20accounting.transactions&state=${request.data.orgId}` };
+});
+
+export const connect_handleCallback = onRequest(httpsOptions, async (req, res) => {
+    // 1. Get 'code' and 'state' (orgId) from query params.
+    // 2. Instantiate provider adapter.
+    // 3. Call adapter.auth.handleRedirect(code, state) to get tokens.
+    // 4. Encrypt and store tokens in `orgs/{orgId}/tokens/{provider}`.
+    // 5. Update `orgs/{orgId}.accounting` status.
+    // 6. Redirect user back to the settings page.
+    logger.info("connect.handleCallback called", { query: req.query });
+    res.redirect('/settings/integrations?status=success');
+});
+
+export const sync_pullReferenceData = onCall(httpsOptions, async (request) => {
+    // 1. Get orgId from request context.
+    // 2. Load org config & tokens.
+    // 3. Instantiate provider adapter.
+    // 4. Call adapter.pullReferenceData().
+    // 5. Write results to `orgs/{orgId}/mappings/*`.
+    logger.info("sync.pullReferenceData called for org:", request.data.orgId);
+    return { success: true, message: "Reference data sync complete." };
+});
+
+export const sync_pushFinancialIntent = onCall(httpsOptions, async (request) => {
+    // 1. Get orgId, intentId, idempotencyKey from request.
+    // 2. Load org config, tokens, and the FinancialIntent document.
+    // 3. Instantiate provider adapter.
+    // 4. Call adapter.pushInvoice() or pushBill().
+    // 5. Update `financialIntents/{finId}.ledgerRef` with the result.
+    logger.info("sync.pushFinancialIntent called", { data: request.data });
+    return { success: true, ledgerRef: { id: 'INV-12345', url: 'https://go.xero.com/...' } };
+});
+
+export const sync_attachEvidence = onCall(httpsOptions, async (request) => {
+    // 1. Get orgId, documentId, ledgerRef from request.
+    // 2. Download file from Storage.
+    // 3. Instantiate provider adapter.
+    // 4. Call adapter.attach().
+    // 5. Update `documents/{docId}.providerFileRef`.
+    logger.info("sync.attachEvidence called", { data: request.data });
+    return { success: true, attachmentId: 'ATTACH-54321' };
+});
+
+export const webhooks_handleXero = onRequest(httpsOptions, async (req, res) => {
+    // 1. Verify Xero webhook signature.
+    // 2. For each event in payload, create a message in the `outbox` collection.
+    //    The message's `kind` could be `xero.syncPayment` etc.
+    // 3. Acknowledge the webhook with a 200 OK.
+    logger.info("webhooks.handleXero called");
+    res.status(200).send('OK');
+});
+
+
+/**
+ * =================================================================
+ * SCHEDULED FUNCTIONS (Internal Processing & Maintenance)
+ * =================================================================
+ */
+
+export const scheduler_pollMyobDeltas = onRequest(httpsOptions, async (req, res) => {
+    // 1. Query all orgs where `accounting.provider == 'myob'`.
+    // 2. For each org, instantiate MYOB adapter.
+    // 3. Call adapter.listChanges(org.accounting.lastSyncAt).
+    // 4. Process changes (e.g., update FinancialIntent status).
+    // 5. Update `org.accounting.lastSyncAt`.
+    logger.info("scheduler.pollMyobDeltas executed.");
+    res.status(200).send('MYOB Polling Complete.');
+});
+
+export const scheduler_repairOutbox = onRequest(httpsOptions, async (req, res) => {
+    // 1. Query `outbox` for messages with `status == 'PENDING'` or 'FAILED' and `nextRunAt <= now`.
+    // 2. For each message, increment `attempts` and process its `kind`.
+    // 3. If successful, set status to 'COMPLETED'.
+    // 4. If failed, calculate next retry time with backoff and update `nextRunAt`.
+    // 5. If attempts > max, set status to 'PARKED'.
+    logger.info("scheduler.repairOutbox executed.");
+    res.status(200).send('Outbox Repair Complete.');
+});
+
+
+/**
+ * =================================================================
+ * MS TEAMS INTEGRATION (Per-Org Configuration)
+ * =================================================================
+ */
+
+export const onProjectCreateCreateTeamsFolder = onDocumentWritten("orgs/{orgId}/projects/{projectId}", async (event) => {
+    if (!event.data?.after.exists) {
+        logger.info("Project document deleted, no action needed.");
         return;
     }
+    
+    const orgId = event.params.orgId;
+    const project = event.data.after.data();
 
+    if (!project) {
+        logger.info("No project data found, exiting.");
+        return;
+    }
+    
     const orgRef = db.collection('orgs').doc(orgId);
     const orgDoc = await orgRef.get();
     const orgData = orgDoc.data();
@@ -107,121 +193,43 @@ export const onCreateJobCreateTeamsFolder = onDocumentCreated("orgs/{orgId}/jobs
         return;
     }
     
-    if (job.xero?.trackingOptionKey) {
-        logger.info(`Teams folder may already exist for job ${event.params.jobId}. Skipping.`);
+    // Check if the folder has already been created to prevent re-runs on update
+    if (project.teams?.folderId) {
+        logger.info(`Teams folder already exists for project ${event.params.projectId}.`);
         return;
     }
     
-    const jobName = job.code || job.name;
-    if (!jobName) {
-        logger.error(`Job ${event.params.jobId} is missing a name/code.`);
+    const projectName = project.code ? `${project.code} - ${project.name}` : project.name;
+    if (!projectName) {
+        logger.error(`Project ${event.params.projectId} is missing a name/code.`);
         return;
     }
     
     try {
-        const client = getGraphClient({
-            tenantId: orgData.integrations.teams.tenantId, // Assuming you store these per-org now
+        // IMPORTANT: In a real app, Azure creds should be stored securely per-org,
+        // likely encrypted in the org doc or retrieved from a service like Google Secret Manager.
+        const azureCreds = {
+            tenantId: orgData.integrations.teams.tenantId,
             clientId: orgData.integrations.teams.clientId,
-            clientSecret: orgData.integrations.teams.clientSecret, // This should be securely stored/retrieved, e.g., from Secret Manager
-        });
-        
-        logger.info(`Provisioning Teams folder for job: "${jobName}"`);
-        const rootFolder = await createFolderInTeamsChannel(client, orgData.integrations.teams.teamId, orgData.integrations.teams.channelId, jobName);
-
-        const folderData = {
-            driveId: rootFolder.parentReference.driveId,
-            itemId: rootFolder.id,
-            webUrl: rootFolder.webUrl,
-            lastSync: FieldValue.serverTimestamp(),
+            clientSecret: orgData.integrations.teams.clientSecret, // This should be retrieved securely
         };
         
-        // This function would typically live in a dedicated module, e.g., 'xero-helper.ts'
-        // await createXeroTrackingOption(orgId, job.name, job.id);
+        const client = getGraphClient(azureCreds);
+        logger.info(`Provisioning Teams folder for project: "${projectName}"`);
+        const folder = await createFolderInTeamsChannel(client, orgData.integrations.teams.teamId, orgData.integrations.teams.channelId, projectName);
+
+        const folderData = {
+            folderId: folder.id,
+            webUrl: folder.webUrl,
+            driveId: folder.parentReference.driveId,
+            lastSyncAt: FieldValue.serverTimestamp(),
+        };
         
-        // Update the job with the new folder data
-        return event.data?.ref.update({ 
-            'teams.folder': folderData,
-            'xero.trackingOptionKey': jobName, // Use job name as tracking key
-        });
+        // Update the project with the new folder data
+        return event.data.after.ref.update({ 'teams': folderData });
 
     } catch (error: any) {
-        logger.error(`Failed to create Teams folder for job ${event.params.jobId}:`, error);
-        return event.data?.ref.update({ 'teams.error': error.message });
-    }
-});
-
-
-/**
- * HTTP-callable: Syncs file changes from all configured Teams folders back to Firestore.
- * In a real app, this would be triggered per-organization.
- */
-export const onSyncAllTeamsChanges = onRequest(requestOptions, async (req, res) => {
-    logger.info("Starting Teams delta sync for all enabled organizations.");
-    
-    try {
-        // Query for orgs that have a teams driveId configured.
-        const orgsSnapshot = await db.collection('orgs').where('integrations.teams.driveId', '!=', null).get();
-        
-        if (orgsSnapshot.empty) {
-            logger.info("No orgs with Teams integration configured. Sync complete.");
-            res.status(200).send("No orgs to sync.");
-            return;
-        }
-        
-        const syncPromises = orgsSnapshot.docs.map(async (orgDoc) => {
-            const orgData = orgDoc.data();
-            const orgId = orgDoc.id;
-            const driveId = orgData.integrations.teams.driveId;
-            const deltaToken = orgData.integrations.teams.deltaToken;
-
-            logger.info(`Syncing changes for org ${orgId}, drive ${driveId}`);
-            
-            const client = getGraphClient({
-                tenantId: orgData.integrations.teams.tenantId,
-                clientId: orgData.integrations.teams.clientId,
-                clientSecret: orgData.integrations.teams.clientSecret,
-            });
-
-            const result = await getDeltaChanges(client, driveId, deltaToken);
-            
-            if (result.changes.length === 0) {
-                 logger.info(`No changes detected for org ${orgId}.`);
-                 if (result.deltaToken) {
-                    await orgDoc.ref.update({ 
-                        'integrations.teams.lastSync': FieldValue.serverTimestamp(),
-                        'integrations.teams.deltaToken': result.deltaToken,
-                    });
-                 }
-                 return;
-            }
-
-            const batch = db.batch();
-            const filesRef = orgDoc.ref.collection('documents');
-
-            for (const change of result.changes) {
-                // This logic needs to be adapted to map files to jobs/intents
-                if (change.file) {
-                    logger.info(`Found file change for ${change.name} in org ${orgId}.`);
-                    // Example: batch.set(filesRef.doc(change.id!), driveItemToFirestore(change), { merge: true });
-                }
-            }
-            
-            if (result.deltaToken) {
-                 batch.update(orgDoc.ref, { 
-                    'integrations.teams.lastSync': FieldValue.serverTimestamp(),
-                    'integrations.teams.deltaToken': result.deltaToken,
-                });
-            }
-
-            await batch.commit();
-        });
-
-        await Promise.all(syncPromises);
-        logger.info("Teams delta sync completed successfully for all orgs.");
-        res.status(200).send("Sync completed successfully.");
-
-    } catch (error: any) {
-        logger.error("Error during Teams delta sync:", error);
-        res.status(500).send("An error occurred during sync: " + error.message);
+        logger.error(`Failed to create Teams folder for project ${event.params.projectId}:`, error);
+        return event.data.after.ref.update({ 'teams.error': error.message });
     }
 });
