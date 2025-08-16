@@ -74,7 +74,7 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required.").optional(),
-  tasks: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
+  tasks: z.array(z.object({ title: z.string().min(3, 'Task title is required.'), description: z.string().optional() })).optional(),
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
@@ -147,6 +147,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     const form = useForm<QuoteFormValues>({ resolver: zodResolver(formSchema) });
     const { control, setValue, watch, getValues, reset, formState: { isDirty } } = form;
     const { fields: lineItemFields, append: appendLineItem, remove: removeLineItem } = useFieldArray({ control, name: "lineItems" });
+    const { fields: taskFields, append: appendTask, remove: removeTask } = useFieldArray({ control, name: "tasks" });
 
     const watchedProjectId = watch('projectId');
     const watchedCustomerId = watch('customerId');
@@ -856,10 +857,15 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <CardTitle className="flex items-center gap-2"><ListChecks /> Job Task List</CardTitle>
                                 <CardDescription>A preliminary task list to complete this job. This will be carried over when converted to a job.</CardDescription>
                             </div>
-                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateTasks} disabled={aiTasksLoading}>
-                                {aiTasksLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                Generate Task List
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ title: '', description: '' })}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={handleGenerateTasks} disabled={aiTasksLoading}>
+                                    {aiTasksLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                    Generate with AI
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             {aiTasksLoading ? (
@@ -868,19 +874,42 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                     <p className="mt-4 text-lg font-semibold">AI is generating your task list...</p>
                                     <p className="mt-1 text-sm text-muted-foreground">This may take a moment.</p>
                                 </div>
-                            ) : (tasksWatch && tasksWatch.length > 0) ? (
+                            ) : (taskFields && taskFields.length > 0) ? (
                                 <div className="space-y-3">
-                                    {tasksWatch.map((task, index) => (
-                                        <div key={index} className="p-3 rounded-md border bg-secondary/30">
-                                            <h4 className="font-semibold">{task.title}</h4>
-                                            <p className="text-sm text-muted-foreground">{task.description}</p>
+                                    {taskFields.map((task, index) => (
+                                        <div key={task.id} className="flex items-start gap-2 p-3 rounded-md border bg-secondary/30">
+                                            <div className="flex-grow space-y-2">
+                                                <FormField
+                                                    control={control}
+                                                    name={`tasks.${index}.title`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                          <FormControl><Input placeholder="Task title" {...field} /></FormControl>
+                                                          <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                 <FormField
+                                                    control={control}
+                                                    name={`tasks.${index}.description`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                          <FormControl><Textarea placeholder="Optional task description..." rows={1} {...field} /></FormControl>
+                                                          <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg">
                                     <ListChecks className="h-12 w-12 text-muted-foreground" />
-                                    <p className="mt-4 text-sm text-muted-foreground">No tasks generated yet. Click the button above to get started.</p>
+                                    <p className="mt-4 text-sm text-muted-foreground">No tasks defined yet. Add tasks manually or generate them with AI.</p>
                                 </div>
                             )}
                         </CardContent>
