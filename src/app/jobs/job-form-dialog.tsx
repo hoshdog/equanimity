@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { jobStaffRoles } from '@/lib/types';
 import { getCustomers, getCustomerSites } from '@/lib/customers';
+import { getLaborRates, GeneratedLaborRate } from '@/lib/billing';
 
 
 const assignedStaffSchema = z.object({
@@ -101,6 +102,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   const [customers, setCustomers] = React.useState<OptionType[]>([]);
   const [sites, setSites] = React.useState<OptionType[]>([]);
   const [dependencyOptions, setDependencyOptions] = React.useState<OptionType[]>([]);
+  const [laborRates, setLaborRates] = React.useState<GeneratedLaborRate[]>([]);
   const { toast } = useToast();
 
   const form = useForm<JobFormValues>({
@@ -139,14 +141,16 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
         if (isOpen) {
             setLoading(true);
             try {
-                const [projectsData, employeesData, customersData] = await Promise.all([
+                const [projectsData, employeesData, customersData, laborRatesData] = await Promise.all([
                     getProjects(),
                     getEmployees(),
-                    getCustomers()
+                    getCustomers(),
+                    getLaborRates()
                 ]);
                 setProjects(projectsData.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })));
                 setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
                 setCustomers(customersData.map(c => ({ value: c.id, label: c.name })));
+                setLaborRates(laborRatesData);
             } catch (error) {
                 console.error("Failed to load data for job form", error);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load initial data.' });
@@ -428,7 +432,32 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                     </TabsContent>
                     <TabsContent value="financials" className="pt-4 space-y-4">
                         <FormField control={form.control} name="billable" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Billable Job</FormLabel><FormDescription>Should the time and materials for this job be billed to the client?</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
-                        <FormField control={form.control} name="billingRate" render={({ field }) => (<FormItem><FormLabel>Billing Rate (per hour)</FormLabel><FormControl><Input type="number" placeholder="Leave blank to use default rate" {...field} /></FormControl><FormDescription>Override the default billing rate for this specific job.</FormDescription><FormMessage /></FormItem>)} />
+                        <FormField
+                            control={form.control}
+                            name="billingRate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Billing Rate (per hour)</FormLabel>
+                                    <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value || '')}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Use default rate" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="">Use default rate</SelectItem>
+                                            {laborRates.map(rate => (
+                                                <SelectItem key={rate.id} value={String(rate.standardRate)}>
+                                                    {rate.name} - ${rate.standardRate.toFixed(2)}/hr
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription>Override the default billing rate for this specific job.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </TabsContent>
                 </Tabs>
                 <DialogFooter>
