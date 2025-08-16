@@ -14,18 +14,18 @@ import {
 } from 'firebase/firestore';
 import type { PurchaseOrder, Project } from './types';
 
-const poCollection = collection(db, 'purchaseOrders');
-
-// Get all POs
-export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
-    const q = query(poCollection); // Removed ordering to avoid index requirement for now
+// Get all POs for an organization
+export async function getPurchaseOrders(orgId: string): Promise<PurchaseOrder[]> {
+    const poCollection = collection(db, 'orgs', orgId, 'purchaseOrders');
+    const q = query(poCollection, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseOrder));
 }
 
 // Get all POs for a specific project
-export async function getPurchaseOrdersForProject(projectId: string): Promise<PurchaseOrder[]> {
-    const q = query(poCollection, where('projectId', '==', projectId));
+export async function getPurchaseOrdersForProject(orgId: string, projectId: string): Promise<PurchaseOrder[]> {
+    const poCollection = collection(db, 'orgs', orgId, 'purchaseOrders');
+    const q = query(poCollection, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -35,8 +35,9 @@ export async function getPurchaseOrdersForProject(projectId: string): Promise<Pu
 
 
 // Add a new PO to a specific project
-export async function addPurchaseOrder(projectId: string, poData: Omit<PurchaseOrder, 'id' | 'createdAt' | 'projectName' | 'customerId'>): Promise<string> {
-    const projectRef = doc(db, 'projects', projectId);
+export async function addPurchaseOrder(orgId: string, projectId: string, poData: Omit<PurchaseOrder, 'id' | 'createdAt' | 'projectName' | 'customerId'>): Promise<string> {
+    const poCollection = collection(db, 'orgs', orgId, 'purchaseOrders');
+    const projectRef = doc(db, 'orgs', orgId, 'projects', projectId);
     const projectSnap = await getDoc(projectRef);
 
     if (!projectSnap.exists()) {

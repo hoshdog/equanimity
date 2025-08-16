@@ -18,15 +18,16 @@ import { auth } from './auth';
 
 interface TimesheetEntry {
     userId: string;
+    orgId: string;
     date: Date;
     durationHours: number;
     notes: string;
-    jobId: string; // Could be a project ID, quote ID, or a special value like 'TRAINING'
+    jobId: string;
     isBillable: boolean;
 }
 
 export async function addTimesheetEntry(entry: TimesheetEntry): Promise<string> {
-    const timesheetsCollection = collection(db, 'timesheets');
+    const timesheetsCollection = collection(db, 'orgs', entry.orgId, 'timesheets');
     const docRef = await addDoc(timesheetsCollection, {
         ...entry,
         createdAt: serverTimestamp(),
@@ -40,6 +41,7 @@ export async function addTimesheetEntry(entry: TimesheetEntry): Promise<string> 
 interface TrackingSession {
     id: string;
     userId: string;
+    orgId: string;
     context: {
         type: 'project' | 'quote' | 'job';
         id: string;
@@ -51,10 +53,9 @@ interface TrackingSession {
     status: 'active' | 'paused';
 }
 
-const sessionsCollection = collection(db, 'trackingSessions');
-
-// Get the current active session for a user (if any)
+// Get the current active session for a user
 export async function getActiveTrackingSession(userId: string): Promise<TrackingSession | null> {
+    const sessionsCollection = collection(db, 'trackingSessions'); // This could be org-scoped too
     const q = query(
         sessionsCollection,
         where('userId', '==', userId),
@@ -71,8 +72,8 @@ export async function getActiveTrackingSession(userId: string): Promise<Tracking
 
 
 // Start a new tracking session
-export async function startTrackingSession(userId: string, context: TrackingSession['context']): Promise<string> {
-    // Ensure no other active sessions exist for this user
+export async function startTrackingSession(orgId: string, userId: string, context: TrackingSession['context']): Promise<string> {
+    const sessionsCollection = collection(db, 'orgs', orgId, 'trackingSessions');
     const existingSession = await getActiveTrackingSession(userId);
     if (existingSession) {
         throw new Error('An active tracking session already exists.');
@@ -80,6 +81,7 @@ export async function startTrackingSession(userId: string, context: TrackingSess
 
     const newSession = {
         userId,
+        orgId,
         context,
         startTime: serverTimestamp(),
         status: 'active',
@@ -89,8 +91,8 @@ export async function startTrackingSession(userId: string, context: TrackingSess
 }
 
 // Stop a tracking session
-export async function stopTrackingSession(sessionId: string): Promise<number> {
-    const sessionRef = doc(db, 'trackingSessions', sessionId);
+export async function stopTrackingSession(orgId: string, sessionId: string): Promise<number> {
+    const sessionRef = doc(db, 'orgs', orgId, 'trackingSessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (!sessionSnap.exists()) {

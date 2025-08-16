@@ -12,13 +12,14 @@ import {
 } from 'firebase/firestore';
 import type { Message } from './types';
 
-// Subscribe to messages for a specific project
+// Subscribe to messages for a specific project within an organization
 export function subscribeToMessages(
+  orgId: string,
   projectId: string,
   onNext: (messages: Message[]) => void,
   onError: (error: FirestoreError) => void
 ) {
-  const messagesRef = collection(db, 'projects', projectId, 'messages');
+  const messagesRef = collection(db, 'orgs', orgId, 'projects', projectId, 'messages');
   const q = query(messagesRef, orderBy('createdAt', 'asc'));
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -33,14 +34,14 @@ export function subscribeToMessages(
 }
 
 // Send a new message
-export async function sendMessage(projectId: string, text: string) {
+export async function sendMessage(orgId: string, projectId: string, text: string) {
   const authInstance = auth();
   const user = authInstance.currentUser;
   if (!user) {
     throw new Error('You must be logged in to send a message.');
   }
 
-  const messagesRef = collection(db, 'projects', projectId, 'messages');
+  const messagesRef = collection(db, 'orgs', orgId, 'projects', projectId, 'messages');
   await addDoc(messagesRef, {
     text,
     senderId: user.uid,

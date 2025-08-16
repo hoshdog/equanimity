@@ -9,8 +9,8 @@ import {
 import type { TimelineItem } from './types';
 
 // Get all timeline items for a specific project
-export async function getTimelineItems(projectId: string): Promise<TimelineItem[]> {
-  const timelineItemsRef = collection(db, 'projects', projectId, 'timelineItems');
+export async function getTimelineItems(orgId: string, projectId: string): Promise<TimelineItem[]> {
+  const timelineItemsRef = collection(db, 'orgs', orgId, 'projects', projectId, 'timelineItems');
   const q = query(timelineItemsRef, orderBy('startDate', 'asc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({

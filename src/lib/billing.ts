@@ -1,6 +1,6 @@
 // src/lib/billing.ts
 import { getEmployeesWithWageData } from './employees';
-import type { Employee } from './types';
+import type { Employee, LaborRate } from './types';
 
 export interface GeneratedLaborRate {
     id: string;
@@ -38,8 +38,8 @@ const calculateCostRate = (roleName: string, employees: Employee[]): number => {
     return parseFloat(actualCostRate.toFixed(2));
 };
 
-export async function getLaborRates(): Promise<GeneratedLaborRate[]> {
-    const employees = await getEmployeesWithWageData();
+export async function getLaborRates(orgId: string): Promise<GeneratedLaborRate[]> {
+    const employees = await getEmployeesWithWageData(orgId);
     const uniqueRoles = [...new Set(employees.map(e => e.role))];
     
     const generatedRates: GeneratedLaborRate[] = uniqueRoles.map(role => {

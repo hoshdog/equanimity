@@ -22,18 +22,18 @@ import { auth, onAuthStateChanged } from './auth';
 import type { User } from 'firebase/auth';
 
 
-// Get all quotes from all projects for the main list view
-export async function getQuotes(): Promise<Quote[]> {
-    const quotesRef = collection(db, 'quotes');
+// Get all quotes from all projects for a specific organization
+export async function getQuotes(orgId: string): Promise<Quote[]> {
+    const quotesRef = collection(db, 'orgs', orgId, 'quotes');
     const q = query(quotesRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     
     return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Quote));
 }
 
-// Get a single quote
-export async function getQuote(id: string): Promise<Quote | null> {
-    const docRef = doc(db, 'quotes', id);
+// Get a single quote from an organization
+export async function getQuote(orgId: string, id: string): Promise<Quote | null> {
+    const docRef = doc(db, 'orgs', orgId, 'quotes', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         const data = docSnap.data();
@@ -51,8 +51,8 @@ export async function getQuote(id: string): Promise<Quote | null> {
 
 
 // Get all quotes for a specific project
-export async function getQuotesForProject(projectId: string): Promise<Quote[]> {
-  const quotesRef = collection(db, 'quotes');
+export async function getQuotesForProject(orgId: string, projectId: string): Promise<Quote[]> {
+  const quotesRef = collection(db, 'orgs', orgId, 'quotes');
   const q = query(quotesRef, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
@@ -74,17 +74,15 @@ async function getCurrentUser(): Promise<User> {
                 unsubscribe();
                 resolve(user);
             }
-            // Note: We don't reject here on a null user during initial load.
-            // A timeout could be added to reject if no user appears after a few seconds.
         });
     });
 }
 
 // Add a new quote
-export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'>): Promise<string> {
+export async function addQuote(orgId: string, quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'>): Promise<string> {
   const user = await getCurrentUser();
 
-  const quotesCollectionRef = collection(db, 'quotes');
+  const quotesCollectionRef = collection(db, 'orgs', orgId, 'quotes');
   
   const dataToSave = {
     ...quoteData,
@@ -92,10 +90,8 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
     version: 1,
     revisions: [],
     attachments: [],
-    // Set defaults for new financial fields
-    likelihood: 75, // Default likelihood to 75%
-    estNetProfit: 0, // Default to 0, will be calculated later
-    // Audit fields
+    likelihood: 75,
+    estNetProfit: 0,
     createdBy: user.uid,
     createdAt: serverTimestamp(),
     updatedBy: user.uid,
@@ -107,13 +103,12 @@ export async function addQuote(quoteData: Omit<Quote, 'id' | 'createdAt' | 'upda
 }
 
 // Update an existing quote
-export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>, changeSummary: string) {
+export async function updateQuote(orgId: string, id: string, quoteData: Partial<Omit<Quote, 'id' | 'createdAt'>>, changeSummary: string) {
   const user = await getCurrentUser();
 
-  const quoteRef = doc(db, 'quotes', id);
+  const quoteRef = doc(db, 'orgs', orgId, 'quotes', id);
   const dataToUpdate = { ...quoteData };
 
-  // Get current quote to determine version number and store for revision
   const currentQuoteSnap = await getDoc(quoteRef);
   if (!currentQuoteSnap.exists()) {
     throw new Error("Quote to update does not exist.");
@@ -121,7 +116,6 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   const currentQuoteData = currentQuoteSnap.data() as Quote;
   const currentVersion = currentQuoteData.version || 0;
 
-  // Convert Date objects back to Timestamps if they exist in the update payload
   if (dataToUpdate.quoteDate && dataToUpdate.quoteDate instanceof Date) {
       dataToUpdate.quoteDate = Timestamp.fromDate(dataToUpdate.quoteDate);
   }
@@ -132,12 +126,11 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
       dataToUpdate.expiryDate = Timestamp.fromDate(dataToUpdate.expiryDate);
   }
 
-  // Handle revision history
   const newRevision: Omit<Revision, 'changedAt' | 'quoteData'> & { quoteData: Quote } = {
       version: currentVersion,
       changedBy: user.uid,
       changeSummary: changeSummary,
-      quoteData: currentQuoteData, // Store the full previous state
+      quoteData: currentQuoteData,
   };
 
   await updateDoc(quoteRef, {
@@ -150,15 +143,13 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
 }
 
 // Upload a file and attach it to a quote
-export async function uploadAndAttachFileToQuote(quoteId: string, file: File) {
+export async function uploadAndAttachFileToQuote(orgId: string, quoteId: string, file: File) {
     const user = await getCurrentUser();
 
-    // 1. Upload file to Firebase Storage
-    const storageRef = ref(storage, `quotes/${quoteId}/${file.name}`);
+    const storageRef = ref(storage, `orgs/${orgId}/quotes/${quoteId}/${file.name}`);
     const uploadResult = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(uploadResult.ref);
 
-    // 2. Create attachment metadata
     const newAttachment: Attachment = {
         name: file.name,
         url: downloadURL,
@@ -166,8 +157,7 @@ export async function uploadAndAttachFileToQuote(quoteId: string, file: File) {
         uploadedBy: user.uid,
     };
 
-    // 3. Update the quote document in Firestore
-    const quoteRef = doc(db, 'quotes', quoteId);
+    const quoteRef = doc(db, 'orgs', orgId, 'quotes', quoteId);
     await updateDoc(quoteRef, {
         attachments: arrayUnion(newAttachment)
     });

@@ -13,20 +13,20 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import type { Project, Customer } from './types.legacy';
+import type { Project, Customer } from './types';
 import { auth } from './auth';
 
 // Get all projects for a given organization
-export async function getProjects(): Promise<Project[]> {
-  const projectsCollection = collection(db, 'projects');
+export async function getProjects(orgId: string): Promise<Project[]> {
+  const projectsCollection = collection(db, 'orgs', orgId, 'projects');
   const q = query(projectsCollection, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
 }
 
 // Subscribe to real-time updates for an organization's projects
-export function subscribeToProjects(callback: (projects: Project[]) => void) {
-    const projectsCollection = collection(db, 'projects');
+export function subscribeToProjects(orgId: string, callback: (projects: Project[]) => void) {
+    const projectsCollection = collection(db, 'orgs', orgId, 'projects');
     const q = query(projectsCollection, orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
         const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
@@ -35,8 +35,8 @@ export function subscribeToProjects(callback: (projects: Project[]) => void) {
 }
 
 // Get a single project
-export async function getProject(projectId: string): Promise<Project | null> {
-  const docRef = doc(db, 'projects', projectId);
+export async function getProject(orgId: string, projectId: string): Promise<Project | null> {
+  const docRef = doc(db, 'orgs', orgId, 'projects', projectId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() } as Project;
@@ -45,12 +45,12 @@ export async function getProject(projectId: string): Promise<Project | null> {
 }
 
 // Add a new project
-export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName' | 'code'>): Promise<string> {
+export async function addProject(orgId: string, projectData: Omit<Project, 'id' | 'createdAt' | 'status' | 'customerName' | 'code' | 'updatedAt' | 'createdBy'>): Promise<string> {
     const authInstance = auth();
     const user = authInstance.currentUser;
     if (!user) throw new Error("User must be authenticated to create a project.");
 
-    const customerDocRef = doc(db, 'customers', projectData.customerId);
+    const customerDocRef = doc(db, 'orgs', orgId, 'contacts', projectData.customerId);
     const customerSnap = await getDoc(customerDocRef);
     if (!customerSnap.exists()) {
         throw new Error("Customer not found for project creation.");
@@ -61,26 +61,26 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
     const newProjectData = {
         ...projectData,
         code: `PRJ-${Date.now().toString().slice(-4)}`,
-        customerName: customer.name,
+        customerName: customer.displayName, // Adapted to new schema
         status: 'Planning' as const,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdBy: user.uid,
     };
 
-    const projectsCollection = collection(db, 'projects');
+    const projectsCollection = collection(db, 'orgs', orgId, 'projects');
     const newProjectRef = await addDoc(projectsCollection, newProjectData);
     return newProjectRef.id;
 }
 
 
 // Update a project
-export async function updateProject(projectId: string, data: Partial<Project>) {
+export async function updateProject(orgId: string, projectId: string, data: Partial<Project>) {
   const authInstance = auth();
   const user = authInstance.currentUser;
   if (!user) throw new Error("User must be authenticated to update a project.");
   
-  const docRef = doc(db, 'projects', projectId);
+  const docRef = doc(db, 'orgs', orgId, 'projects', projectId);
   await updateDoc(docRef, {
     ...data,
     updatedAt: serverTimestamp(),
@@ -88,9 +88,7 @@ export async function updateProject(projectId: string, data: Partial<Project>) {
 }
 
 // Delete a project
-export async function deleteProject(projectId: string) {
-  const docRef = doc(db, 'projects', projectId);
+export async function deleteProject(orgId: string, projectId: string) {
+  const docRef = doc(db, 'orgs', orgId, 'projects', projectId);
   await deleteDoc(docRef);
-  // In a real app, you would also need to delete associated financialIntents, etc.
-  // This is best handled with a Firebase Cloud Function.
 }
