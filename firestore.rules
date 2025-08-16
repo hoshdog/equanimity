@@ -3,11 +3,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow any authenticated user to read/write to any document.
-    // This is permissive and suitable for initial development but should be
-    // locked down before production.
+
+    // This rule allows anyone to read and write to the entire database.
+    // It is insecure and should only be used for initial development.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
