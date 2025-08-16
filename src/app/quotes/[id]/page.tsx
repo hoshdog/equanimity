@@ -37,7 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { initialQuotingProfiles, QuotingProfile } from '@/lib/quoting-profiles';
 import { PartSelectorDialog } from './part-selector-dialog';
 import { generateQuoteDescription } from '@/ai/flows/generate-quote-description';
-import { generateTaskListForQuote } from '@/ai/flows/generate-task-list-for-quote';
+import { generateTaskListForQuote, GenerateTaskListForQuoteInput } from '@/ai/flows/generate-task-list-for-quote';
 import { Badge } from '@/components/ui/badge';
 import { useTimeTracker } from '@/context/time-tracker-context';
 import { useBreadcrumb } from '@/context/breadcrumb-context';
@@ -65,6 +65,14 @@ const lineItemSchema = z.object({
     taxRate: z.coerce.number().min(0).default(10), // Default GST
 });
 
+const taskSchema = z.object({
+    id: z.string(),
+    title: z.string().min(3, "Task title must be at least 3 characters."),
+    description: z.string().optional(),
+    duration: z.coerce.number().optional(),
+    durationUnit: z.enum(['hours', 'days', 'weeks']).optional(),
+});
+
 const formSchema = z.object({
   quoteNumber: z.string().min(1, "Quote number is required."),
   name: z.string().min(3, "Quote name is required."),
@@ -74,7 +82,7 @@ const formSchema = z.object({
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   status: z.enum(['Draft', 'Sent', 'Approved', 'Rejected', 'Invoiced']),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required.").optional(),
-  tasks: z.array(z.object({ title: z.string().min(3, 'Task title is required.'), description: z.string().optional() })).optional(),
+  tasks: z.array(taskSchema).optional(),
   projectContacts: z.array(z.object({ contactId: z.string().min(1), role: z.string().min(2) })).optional(),
   assignedStaff: z.array(z.object({ employeeId: z.string().min(1), role: z.string().min(2) })).optional(),
   attachments: z.array(z.any()).optional(), // Keep it simple for the form
@@ -350,13 +358,20 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         if (!quote) return;
         setAiTasksLoading(true);
         try {
-            const result = await generateTaskListForQuote({
+            const input: GenerateTaskListForQuoteInput = {
                 quoteDescription: getValues('description') || '',
                 lineItems: getValues('lineItems') || [],
                 notes: getValues('internalNotes') || '',
                 quotingProfile,
-            });
-            setValue('tasks', result.tasks);
+            };
+            const result = await generateTaskListForQuote(input);
+            const tasksWithIds = result.tasks.map((task, index) => ({
+                id: `task-${Date.now()}-${index}`,
+                ...task,
+                duration: 8, // Default duration
+                durationUnit: 'hours' as const,
+            }));
+            setValue('tasks', tasksWithIds);
             toast({ title: "Task List Generated", description: "AI has created a suggested task list." });
         } catch (error) {
             console.error(error);
@@ -858,7 +873,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                 <CardDescription>A preliminary task list to complete this job. This will be carried over when converted to a job.</CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ title: '', description: '' })}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ id: `task-${taskFields.length}`, title: '', description: '', duration: 8, durationUnit: 'hours' })}>
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Task
                                 </Button>
                                 <Button type="button" variant="outline" size="sm" onClick={handleGenerateTasks} disabled={aiTasksLoading}>
@@ -899,6 +914,35 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                         </FormItem>
                                                     )}
                                                 />
+                                                 <div className="flex items-center gap-2">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`tasks.${index}.duration`}
+                                                        render={({ field }) => (
+                                                            <FormItem className="w-24">
+                                                                <FormControl><Input type="number" placeholder="e.g., 8" {...field} /></FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                     <FormField
+                                                        control={form.control}
+                                                        name={`tasks.${index}.durationUnit`}
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex-1">
+                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                    <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="hours">Hours</SelectItem>
+                                                                        <SelectItem value="days">Days</SelectItem>
+                                                                        <SelectItem value="weeks">Weeks</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                 </div>
                                             </div>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
