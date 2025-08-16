@@ -1,13 +1,61 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all documents for any authenticated user.
-    // This is a good starting point for development. For production,
-    // you should implement more granular rules.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+  
+    // Helper function to check if a user belongs to a specific organization.
+    function isOrgMember(orgId, role) {
+      return exists(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid)).data.roles.hasAny(role);
+    }
+
+    // Organizations collection
+    match /orgs/{orgId} {
+      allow read: if isOrgMember(orgId, ['reader', 'editor', 'admin']);
+      allow write: if isOrgMember(orgId, ['admin']);
+
+      // All subcollections are scoped to the organization.
+      match /{collection}/{docId} {
+        allow read: if isOrgMember(orgId, ['reader', 'editor', 'admin']);
+        
+        // Default write access for most collections.
+        allow write: if isOrgMember(orgId, ['editor', 'admin']);
+
+        // --- Granular Overrides ---
+
+        // financialIntents require server-side logic for creation and updates to ensure auditability.
+        match /financialIntents/{finId} {
+          allow create, update: if false; // Must be done via Cloud Function
+          allow delete: if isOrgMember(orgId, ['admin']); // Admins can void/delete drafts.
+        }
+
+        // Mapping tables can only be changed by admins.
+        match /mappings/{mapCollection}/{mapId} {
+            allow write: if isOrgMember(orgId, ['admin']);
+        }
+        
+        // Event log is append-only and can only be written by Cloud Functions.
+        match /events/{eventId} {
+            allow read: if isOrgMember(orgId, ['admin']); // Admins can view audit logs
+            allow write: if false; // Functions only
+        }
+
+        // Xero tokens are completely locked down from the client.
+        match /xeroTokens/{tenantId} {
+            allow read, write: if false; // Functions only
+        }
+        
+        // User roles can only be managed by admins.
+        match /users/{userId} {
+            allow read: if isOrgMember(orgId, ['reader', 'editor', 'admin']);
+            allow write: if isOrgMember(orgId, ['admin']);
+        }
+      }
+    }
+    
+    // Outbox is a global collection only accessible by Cloud Functions.
+    match /outbox/{msgId} {
+        allow read, write: if false;
     }
   }
 }

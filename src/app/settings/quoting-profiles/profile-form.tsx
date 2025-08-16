@@ -31,6 +31,8 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 function LaborRateDialog({
   children,
@@ -121,6 +123,11 @@ function LaborRateDialog({
         ? Math.max(...relevantEmployees.map(e => e.wage || 0))
         : 0;
   }, [employees, role]);
+  
+  const availableRoles = React.useMemo(() => {
+    const allRoles = new Set(employees.map(e => e.role));
+    return Array.from(allRoles);
+  }, [employees]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -133,7 +140,15 @@ function LaborRateDialog({
         <div className="space-y-4">
             <FormItem>
                 <FormLabel>Employee Role</FormLabel>
-                <FormControl><Input placeholder="e.g., Lead Technician" value={role} onChange={e => setRole(e.target.value)} /></FormControl>
+                <Select onValueChange={setRole} value={role}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select or type a role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {availableRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Input className="mt-2" placeholder="Or type a new role name..." value={role} onChange={e => setRole(e.target.value)} />
             </FormItem>
             <FormItem>
                 <FormLabel>Standard Billable Rate (Sell)</FormLabel>
@@ -412,7 +427,7 @@ export function ProfileForm() {
             <FormLabel>Special Instructions</FormLabel>
             <FormControl>
               <Textarea
-                placeholder="e.g., Always include a 5% contingency for unforeseen issues..."
+                placeholder="e.g., Always include a 5% contingency for unforeseen issues on jobs estimated over $2000..."
                 rows={4}
                 {...field}
               />

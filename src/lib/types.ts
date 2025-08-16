@@ -1,379 +1,201 @@
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 
-export interface OptionType {
-  value: string;
-  label: string;
-}
+// =================================================================
+// CORE ORGANIZATIONAL & FINANCIAL BLUEPRINT
+// =================================================================
 
-export interface Revision {
-    version: number;
-    changedBy: string;
-    changedAt: Timestamp;
-    changeSummary: string;
-    quoteData?: Quote; // Store the full state of the quote at this revision
-}
-
-export interface Attachment {
-    name: string;
-    url: string; // URL to the file in Firebase Storage
-    uploadedAt: Timestamp;
-    uploadedBy: string;
-}
-
-export interface Contact {
-  id: string;
-  name: string;
-  emails: string[];
-  phones: string[];
-  jobTitle?: string;
-  // Audit Trail
-  createdAt?: Timestamp;
-  createdBy?: string;
-  updatedAt?: Timestamp;
-  updatedBy?: string;
-}
-
-export interface Site {
-  id:string;
-  name: string;
-  address: string;
-  primaryContactId: string;
-   // Audit Trail
-  createdAt?: Timestamp;
-  createdBy?: string;
-  updatedAt?: Timestamp;
-  updatedBy?: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  address: string;
-  type: string;
-  primaryContactName: string;
-  email: string;
-  phone: string;
-  primaryContactId?: string; // Optional: ID of the primary contact in the subcollection
-   // Audit Trail
-  createdAt?: Timestamp;
-  createdBy?: string;
-  updatedAt?: Timestamp;
-  updatedBy?: string;
-}
-
-export interface ProjectContact {
-    contactId: string;
-    role: string;
-}
-
-export interface AssignedStaff {
-    employeeId: string;
-    role: string;
-}
-
-export interface Project {
+export interface Org {
     id: string;
-    projectCode?: string; // e.g. PRJ-2024-001
     name: string;
-    description: string;
-    status: string;
-    assignedStaff: AssignedStaff[];
-    customerId: string;
-    customerName: string; // Denormalized for easier display
-    siteId: string;
-    projectContacts: ProjectContact[];
-    // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
-}
-
-export const jobStaffRoles = ["Lead Technician", "Technician", "Apprentice", "Project Manager", "Safety Officer"];
-
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  duration?: number;
-  durationUnit?: 'hours' | 'days' | 'weeks';
+    country: 'AU';
+    xeroStatus: {
+        connected: boolean;
+        tenantId?: string;
+        lastSyncAt?: Timestamp;
+        scopes?: string[];
+    };
 }
 
 export interface Job {
     id: string;
-    jobCode?: string; // e.g. PRJ-2024-001-JB-001
-    
-    // Core Details
-    title: string;
-    description: string;
-    category: string;
-    
-    // Relationships (denormalized for querying)
-    projectId?: string | null;
-    projectName?: string | null;
-    customerId: string;
-    customerName: string;
-    siteId: string;
-
-    // Scheduling
-    startDate?: Date | Timestamp;
-    endDate?: Date | Timestamp;
-    dependencies?: string[];
-    isMilestone?: boolean;
-    
-    // Assignment
-    assignedStaff: AssignedStaff[];
-    tasks?: Task[];
-    
-    // Status & Priority
-    status: 'Draft' | 'Planned' | 'In Progress' | 'On Hold' | 'Completed';
-    priority: 'Low' | 'Medium' | 'High' | 'Critical';
-    
-    // Financials
-    billable: boolean;
-    billingRate?: number;
-    
-    // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
-}
-
-export interface UserProfile {
-    uid: string; // Firebase Auth UID
-    displayName: string;
-    email: string;
-    phone?: string;
-    photoURL?: string;
-    companyId?: string; // New field to link to the companies collection
-    roles: ('admin' | 'client' | 'contractor' | 'user')[];
-    skills?: string[];
-    certifications?: Array<{
-        name: string;
-        expiryDate: string; // ISO 8601 format (YYYY-MM-DD)
-    }>;
-     // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
-}
-
-export interface Company {
-    id: string;
+    code: string; // e.g., JOB-2024-001
     name: string;
-    logoUrl?: string;
-    ownerUid: string;
-    preferences: {
-        themeColor: string;
-        // Add other preferences here
+    status: 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD' | 'CANCELLED';
+    customerId: string;
+    budget: {
+        revenue: number;
+        cost: number;
     };
+    tracking?: { // Maps to Xero Tracking Categories
+        categoryId: string;
+        optionId: string;
+    };
+    xero?: {
+        trackingOptionKey?: string; // Cache the specific name/id for lookups
+        invoiceIds: string[];
+        billIds: string[];
+    };
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export interface Contact {
+    id: string;
+    type: 'CUSTOMER' | 'SUPPLIER';
+    displayName: string;
+    abn?: string;
+    addresses: { type: 'PHYSICAL' | 'MAILING'; line1: string; city: string; region: string; postalCode: string; country: string }[];
+    emails: { type: 'PRIMARY' | 'BILLING' | 'OTHER'; address: string }[];
+    phones: { type: 'MOBILE' | 'OFFICE' | 'DIRECT'; number: string }[];
+    xero?: {
+        contactId?: string;
+    };
+}
+
+export interface CatalogueItem {
+    id: string;
+    sku: string;
+    name: string;
+    uom: string; // Unit of Measure
+    defaultAccountCode?: string;
+    defaultTaxRateKey?: string;
+    xero?: {
+        itemId?: string;
+    };
+}
+
+export interface Document {
+    id: string;
+    type: 'QUOTE' | 'PURCHASE_ORDER' | 'DELIVERY_DOCKET' | 'TIMESHEET' | 'EVIDENCE_PHOTO';
+    jobId: string;
+    storagePath: string; // Full path in Firebase Storage
+    sha256: string;
+    metadata: {
+        fileName: string;
+        contentType: string;
+        contentLength: number;
+    };
+    xero?: {
+        fileId?: string;
+    };
+    createdBy: string; // User ID
     createdAt: Timestamp;
 }
 
-
-export interface Employee {
+export interface FinancialIntent {
     id: string;
-    name: string;
-    email: string;
-    role: string;
-    status: 'Active' | 'On Leave' | 'Inactive';
-    wage?: number; // Optional wage for hourly
-    annualSalary?: number; // Optional salary for salaried
-    payType?: 'Hourly' | 'Salary';
-    calculatedCostRate?: number;
-    employmentType?: 'Full-time' | 'Part-time' | 'Casual';
-    isOverhead?: boolean;
-    estimatedNonBillableHours?: number;
-    tfn?: string;
-    award?: string;
-    leaveBalances?: {
-        annual: number;
-        sick: number;
-        banked: number;
+    source: 'JOB' | 'PURCHASE_ORDER' | 'TIMESHEET' | 'ADHOC';
+    direction: 'INCOME' | 'EXPENSE';
+    jobId: string;
+    contactId: string;
+    lines: {
+        itemId?: string; // Link to catalogue
+        description: string;
+        qty: number;
+        unitPrice: number; // Tax exclusive
+        accountCode?: string;
+        taxIntentKey: string; // Link to tax mapping
+        tracking?: { categoryId: string; optionId: string };
+    }[];
+    totals: {
+        subtotal: number;
+        tax: number;
+        grand: number;
     };
-    superannuation?: {
-        fundName: string;
-        memberNumber: string;
+    status: 'DRAFT' | 'POSTED' | 'RECONCILED' | 'VOID';
+    ledgerRef?: { // Reference to the created accounting record
+        type: 'INVOICE' | 'BILL' | 'JOURNAL';
+        id?: string;
     };
-     // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
+    idempotencyKey: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 
-export interface QuoteLineItem {
-    id: string; // For React key
-    type: 'Part' | 'Labour';
-    partNumber?: string;
-    description: string;
-    quantity: number;
-    unitPrice: number; // This is the SELL price
-    unitCost?: number; // This is the COST price
-    markup?: number;
-    taxRate?: number; // Optional, defaults can be applied
-    discount?: number; // Optional
-}
+// =================================================================
+// MAPPING & CONFIGURATION TABLES
+// =================================================================
 
-export interface Quote {
-    id: string;
-    quoteNumber: string;
+export interface GLAccount {
+    accountCode: string;
     name: string;
-    description: string;
-    projectId?: string | null;
-    projectName?: string | null; // Denormalized for easier display
-    customerId?: string;
-    siteId?: string;
-    quotingProfileId?: string; // The ID of the QuotingProfile used
-    quoteDate: Timestamp | Date;
-    dueDate: Timestamp | Date;
-    expiryDate: Timestamp | Date;
-    status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Invoiced';
-    lineItems: QuoteLineItem[];
-    tasks?: Task[]; // The generated task list
-    subtotal: number;
-    totalDiscount: number;
-    totalTax: number;
-    totalAmount: number; // This is the final grand total
-    projectContacts?: ProjectContact[];
-    assignedStaff?: AssignedStaff[];
-    prompt?: string; // The AI prompt that may have generated it
-    attachments?: Attachment[];
-    terms?: string;
-    internalNotes?: string;
-    clientNotes?: string;
-    version: number;
-    revisions: Revision[];
-    // Financials
-    likelihood?: number; // Optional: 0-100 percentage
-    estNetProfit?: number; // Optional: Estimated net profit in dollars
-    // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
-    approvedBy?: string;
-    approvedAt?: Timestamp;
-    rejectedBy?: string;
-    rejectedAt?: Timestamp;
+    type: 'REVENUE' | 'EXPENSE' | 'ASSET' | 'LIABILITY' | 'EQUITY';
+    active: boolean;
 }
 
-
-export interface POLineItem {
-  id: string; // For react key
-  description: string;
-  quantity: number;
-  unitPrice: number;
+export interface TaxRateMap {
+    taxKey: string; // e.g., 'GST_ON_INCOME_10'
+    name: string;
+    rate: number;
+    jurisdiction: 'AU';
+    intent: 'GST_ON_INCOME' | 'GST_FREE' | 'INPUT_TAXED' | 'GST_ON_EXPENSE';
+    xeroTaxType?: string;
 }
 
-export interface PurchaseOrder {
-  id: string;
-  poNumber: string;
-  projectId: string;
-  projectName: string; // Denormalized
-  customerId: string; // Denormalized
-  supplierName: string;
-  status: 'Draft' | 'Sent' | 'Partially Received' | 'Received' | 'Cancelled';
-  lineItems: POLineItem[];
-  totalValue: number;
-   // Audit Trail
-  createdAt?: Timestamp;
-  createdBy?: string;
-  updatedAt?: Timestamp;
-  updatedBy?: string;
-}
-
-export interface LaborRate {
-    employeeType: string;
-    standardRate: number; // This is the SELL rate
-    calculatedCostRate: number; // This is the calculated COST rate
-    overtimeRate: number;
-}
-
-export interface StockItem {
+export interface TrackingCategory {
     id: string;
     name: string;
-    sku: string;
-    quantityOnHand: number;
-    reorderThreshold: number;
-     // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
-}
-
-export interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  senderName: string;
-  createdAt: Timestamp;
-}
-
-// Scheduling-specific types
-export interface ScheduleEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  resourceId: string;
-  projectId?: string;
-  jobId?: string;
-  type: 'work' | 'leave';
-  status: 'confirmed' | 'tentative' | 'pending' | 'approved';
-}
-
-export interface ScheduleResource {
-  id: string;
-  title: string;
-}
-
-// Timeline-specific types
-export interface TimelineItem {
-    id: string;
-    taskCode?: string; // e.g. PRJ-2024-001-JB-001-TS-001
-    name: string;
-    type: 'job' | 'task';
-    jobId?: string; // Only for tasks
-    startDate: string; // ISO string
-    endDate: string; // ISO string
-    dependencies: string[]; // Array of other timelineItem IDs
-    assignedResourceIds?: string[]; // New: Staff assigned
-    conflict?: { // New: Conflict info
-        isConflict: boolean;
-        conflictingItems: { itemId: string; projectId: string }[];
+    options: {
+        optionId: string;
+        label: string;
+        jobId?: string; // Link back to the job that created this option
+    }[];
+    xero?: {
+        categoryId?: string;
     };
-    validationError?: string | null; // For date and dependency validation
-    // Optional fields populated by the critical path calculation
-    isCritical?: boolean;
-    earlyStart?: string;
-    earlyFinish?: string;
-    lateStart?: string;
-    lateFinish?: string;
-    slack?: number; // in days
-     // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
 }
 
-// QMS Types
-export interface Procedure {
-    id: string;
-    procedureCode: string; // e.g. SOP-001
-    title: string;
-    description: string;
-    owner: string; // User ID
-    version: number;
-    revisions: Revision[];
-    // Audit Trail
-    createdAt?: Timestamp;
-    createdBy?: string;
-    updatedAt?: Timestamp;
-    updatedBy?: string;
+// =================================================================
+// SYSTEM & OPERATIONAL TYPES
+// =================================================================
+
+export interface XeroToken {
+    encAccessToken: string; // Encrypted
+    encRefreshToken: string; // Encrypted
+    expiresAt: Timestamp;
+    scopes: string[];
+    updatedAt: Timestamp;
 }
+
+export interface AuditEvent {
+    actor: string; // User ID or system process name
+    action: string; // e.g., 'job.create', 'xero.invoice.post'
+    entity: {
+        type: string; // e.g., 'job', 'financialIntent'
+        id: string;
+    };
+    before?: object; // Snapshot of data before change
+    after?: object; // Snapshot of data after change
+    correlationId: string;
+    idempotencyKey?: string;
+    createdAt: Timestamp;
+}
+
+export interface OutboxMessage {
+    orgId: string;
+    kind: 'XERO_PUSH_FINANCIAL_INTENT' | 'XERO_ATTACH_EVIDENCE' | 'XERO_PULL_REFERENCE_DATA';
+    payload: object;
+    attempts: number;
+    nextRunAt: Timestamp;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'PARKED';
+    history: { status: string; timestamp: Timestamp; error?: string }[];
+}
+
+// =================================================================
+// USER & LEGACY TYPES (To be phased out or adapted)
+// =================================================================
+
+export type OptionType = {
+  value: string;
+  label: string;
+};
+
+export const jobStaffRoles = [
+    "Project Manager",
+    "Lead Technician",
+    "Technician",
+    "Apprentice",
+    "Estimator",
+    "Safety Officer",
+];
