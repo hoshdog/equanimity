@@ -1,4 +1,4 @@
-// src/app/settings/quoting-profiles/profile-form.tsx
+// src/app/settings/billing-profiles/profile-form.tsx
 'use client';
 
 import * as React from 'react';

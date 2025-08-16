@@ -1,4 +1,4 @@
-// src/app/settings/quoting-profiles/profile-form-dialog.tsx
+// src/app/settings/billing-profiles/profile-form-dialog.tsx
 'use client';
 
 import * as React from 'react';
@@ -108,7 +108,7 @@ export function ProfileFormDialog({ children, profile, onProfileSaved }: Profile
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Quoting Profile' : 'Create New Quoting Profile'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Billing Profile' : 'Create New Billing Profile'}</DialogTitle>
           <DialogDescription>
             {isEditing ? `Modify the details for the "${profile?.name}" profile.` : 'Create a new profile for the AI to use when generating quotes.'}
           </DialogDescription>
