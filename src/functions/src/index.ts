@@ -11,12 +11,28 @@ import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getGraphClient, createFolderInTeamsChannel } from './graph-helper';
-import { AccountingProvider, selectProvider } from "./accounting-provider";
+import { selectProvider } from "./accounting-provider";
+import type { AuditEvent } from "./types";
+
 
 // Initialize Firebase Admin SDK
 initializeApp();
 const db = getFirestore();
 const httpsOptions: HttpsOptions = { cors: true, enforceAppCheck: false }; // Configure as needed
+
+
+/**
+ * Logs an audit event to the 'events' collection.
+ * @param {Omit<AuditEvent, 'createdAt'>} eventData - The data for the audit event.
+ */
+async function logAuditEvent(eventData: Omit<AuditEvent, 'createdAt'>) {
+    const eventWithTimestamp = {
+        ...eventData,
+        createdAt: FieldValue.serverTimestamp(),
+    };
+    await db.collection('events').add(eventWithTimestamp);
+}
+
 
 /**
  * =================================================================
@@ -102,11 +118,25 @@ export const sync_pullReferenceData = onCall(httpsOptions, async (request) => {
 });
 
 export const sync_pushFinancialIntent = onCall(httpsOptions, async (request) => {
+    const { orgId, intentId, correlationId, idempotencyKey } = request.data;
     // 1. Get orgId, intentId, idempotencyKey from request.
     // 2. Load org config, tokens, and the FinancialIntent document.
     // 3. Instantiate provider adapter.
     // 4. Call adapter.pushInvoice() or pushBill().
     // 5. Update `financialIntents/{finId}.ledgerRef` with the result.
+    
+    // --- DEMONSTRATION OF AUDIT LOGGING ---
+    await logAuditEvent({
+        actor: `function:sync_pushFinancialIntent`,
+        action: 'push.start',
+        entity: { type: 'financialIntent', id: intentId },
+        orgId,
+        correlationId,
+        idempotencyKey,
+        provider: 'xero', // This would be dynamic based on org config
+    });
+    // --- END DEMONSTRATION ---
+
     logger.info("sync.pushFinancialIntent called", { data: request.data });
     return { success: true, ledgerRef: { id: 'INV-12345', url: 'https://go.xero.com/...' } };
 });
