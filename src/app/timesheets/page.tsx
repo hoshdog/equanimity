@@ -67,7 +67,8 @@ export default function TimesheetsPage() {
     async function fetchData() {
         setLoading(true);
         try {
-            const jobsData = await getJobs();
+            // TODO: Replace 'default-org' with dynamic org ID from user session
+            const jobsData = await getJobs('default-org');
             setJobs(jobsData);
         } catch (error) {
             console.error("Failed to fetch jobs:", error);
@@ -84,7 +85,7 @@ export default function TimesheetsPage() {
       ...nonBillableTasks,
       ...jobs.map(job => ({
         value: job.id,
-        label: `${job.id.substring(0, 6)}... - ${job.description}`
+        label: `${job.code} - ${job.name}`
       }))
     ];
   }, [jobs]);

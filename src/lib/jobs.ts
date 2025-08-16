@@ -14,20 +14,30 @@ import {
 import type { Job, Project, Customer } from './types';
 
 
+// Get all jobs for a specific organization.
+export async function getJobs(orgId: string): Promise<Job[]> {
+    const jobsCollection = collection(db, 'orgs', orgId, 'jobs');
+    const q = query(jobsCollection, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
+}
+
+
 // Get all jobs for a specific project
 export async function getJobsForProject(orgId: string, projectId: string): Promise<Job[]> {
-  const jobsCollection = collection(db, 'orgs', orgId, 'jobs', projectId, 'tasks');
-  const q = query(jobsCollection, orderBy('createdAt', 'desc'));
+  const jobsCollection = collection(db, 'orgs', orgId, 'jobs');
+  const q = query(jobsCollection, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
 }
 
 
 // Add a new job to a project
-export async function addJob(orgId: string, projectId: string, jobData: Omit<Job, 'id' | 'createdAt'>): Promise<string> {
-    const jobsCollection = collection(db, 'orgs', orgId, 'jobs', projectId, 'tasks');
+export async function addJob(orgId: string, projectId: string, jobData: Omit<Job, 'id' | 'createdAt' | 'code' | 'name' | 'status' | 'customerId' | 'tracking' | 'xero'>): Promise<string> {
+    const jobsCollection = collection(db, 'orgs', orgId, 'jobs');
     const newJobRef = await addDoc(jobsCollection, {
         ...jobData,
+        projectId: projectId, // Ensure projectId is part of the data
         createdAt: serverTimestamp(),
     });
     return newJobRef.id;
