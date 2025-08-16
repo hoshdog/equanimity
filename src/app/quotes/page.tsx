@@ -5,17 +5,26 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlusCircle, FileText } from 'lucide-react';
+import { Loader2, PlusCircle, FileText, MoreHorizontal, Copy, Archive, Trash2, ClipboardCheck, GitBranch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Quote } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
 import { onSnapshot, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CreateQuoteDialog } from './create-quote-dialog';
-
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
 
 const getQuoteStatusColor = (status: string) => {
     switch (status) {
@@ -31,6 +40,7 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     const q = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'));
@@ -57,6 +67,101 @@ export default function QuotesPage() {
     return () => unsubscribe();
   }, [toast]);
   
+  const handleAction = (action: string, quoteId: string) => {
+    toast({
+        title: `Action: ${action}`,
+        description: `This functionality for quote ${quoteId} is not yet implemented.`,
+    });
+  };
+
+  const columns: ColumnDef<Quote>[] = [
+    {
+      accessorKey: "quoteNumber",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Quote #" />,
+      cell: ({ row }) => (
+        <span className="font-medium text-primary hover:underline cursor-pointer" onClick={() => router.push(`/quotes/${row.original.id}`)}>
+          {row.original.quoteNumber}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+    },
+     {
+      accessorKey: "projectName",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Project / Customer" />,
+      cell: ({ row }) => row.original.projectName || 'Internal Quote'
+    },
+    {
+        accessorKey: 'quoteDate',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+        cell: ({ row }) => format(row.original.quoteDate, 'PPP'),
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <Badge variant="outline" className={cn(getQuoteStatusColor(row.original.status))}>
+          {row.original.status}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "totalAmount",
+      header: ({ column }) => (
+        <div className="text-right">
+          <DataTableColumnHeader column={column} title="Amount" />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right font-semibold">
+          ${row.original.totalAmount.toFixed(2)}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const quote = row.original;
+        return (
+          <div className="text-right">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                 <DropdownMenuItem onClick={() => router.push(`/quotes/${quote.id}`)}>
+                   <FileText className="mr-2 h-4 w-4" /> View/Edit Quote
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAction('Duplicate', quote.quoteNumber)}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAction('Create Revision', quote.quoteNumber)}>
+                  <GitBranch className="mr-2 h-4 w-4" /> Create Revision
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleAction('Convert to Job', quote.quoteNumber)}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" /> Convert to Job
+                </DropdownMenuItem>
+                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleAction('Archive', quote.quoteNumber)}>
+                  <Archive className="mr-2 h-4 w-4" /> Archive
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleAction('Delete', quote.quoteNumber)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -67,49 +172,33 @@ export default function QuotesPage() {
         </CreateQuoteDialog>
       </div>
 
-      {loading ? (
-          <div className="flex justify-center items-center h-96">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : quotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-96">
-            <FileText className="h-16 w-16 text-muted-foreground" />
-            <p className="mt-4 text-lg font-semibold">
-              No quotes have been generated yet.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Click "Create New Quote" to get started.
-            </p>
-          </div>
-        ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {quotes.map(quote => (
-            <Link href={`/quotes/${quote.id}`} key={quote.id}>
-                <Card className="flex flex-col h-full hover:border-primary transition-colors">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="text-lg flex justify-between items-start">
-                            <span className="font-semibold text-primary">{quote.quoteNumber}</span>
-                            <span className="font-bold text-lg">${quote.totalAmount.toFixed(2)}</span>
-                        </CardTitle>
-                        <CardDescription>
-                           For: <span className="font-medium text-foreground">{quote.projectName || 'Internal Quote'}</span>
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                         <Badge variant="outline" className={cn(getQuoteStatusColor(quote.status))}>
-                            {quote.status}
-                        </Badge>
-                    </CardContent>
-                    <CardFooter>
-                         <p className="text-xs text-muted-foreground">
-                            Created on: {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'N/A'}
-                        </p>
-                    </CardFooter>
-                </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      <Card>
+         <CardHeader>
+            <CardTitle>All Quotes</CardTitle>
+            <CardDescription>
+                A list of all quotes across all projects.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+            {loading ? (
+                 <div className="flex justify-center items-center h-96">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : quotes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center p-8 h-96">
+                    <FileText className="h-16 w-16 text-muted-foreground" />
+                    <p className="mt-4 text-lg font-semibold">
+                    No quotes have been generated yet.
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                    Click "Create New Quote" to get started.
+                    </p>
+                </div>
+            ) : (
+                <DataTable columns={columns} data={quotes} />
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
