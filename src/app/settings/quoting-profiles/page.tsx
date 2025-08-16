@@ -46,7 +46,7 @@ export default function QuotingProfilesPage() {
         <CardHeader>
             <CardTitle>Quoting Profiles</CardTitle>
             <CardDescription>
-                Define the standard costs, labor rates, and AI instructions for generating quotes. This ensures accuracy and consistency across your team.
+                Define the standard costs, labor rates, and AI instructions for generating quotes and jobs. This ensures accuracy and consistency across your team.
             </CardDescription>
         </CardHeader>
         <CardContent>
