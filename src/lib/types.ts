@@ -2,18 +2,19 @@
 import { Timestamp } from 'firebase/firestore';
 
 // =================================================================
-// CORE ORGANIZATIONAL & FINANCIAL BLUEPRINT
+// CORE ORGANIZATIONAL & FINANCIAL BLUEPRINT (Provider-Agnostic)
 // =================================================================
 
 export interface Org {
     id: string;
     name: string;
     country: 'AU';
-    xeroStatus: {
-        connected: boolean;
-        tenantId?: string;
+    accounting: {
+        provider: 'xero' | 'myob' | null;
+        status: 'connected' | 'disconnected' | 'error';
+        tenantOrFileId: string | null; // Xero: tenantId, MYOB: Company File ID
+        scopes: string[];
         lastSyncAt?: Timestamp;
-        scopes?: string[];
     };
 }
 
@@ -27,14 +28,9 @@ export interface Job {
         revenue: number;
         cost: number;
     };
-    tracking?: { // Maps to Xero Tracking Categories
-        categoryId: string;
-        optionId: string;
-    };
-    xero?: {
-        trackingOptionKey?: string; // Cache the specific name/id for lookups
-        invoiceIds: string[];
-        billIds: string[];
+    providerRef?: {
+        xero?: { categoryId: string; optionId: string; };
+        myob?: { jobUid: string; categoryUid?: string; };
     };
     createdAt: Timestamp;
     updatedAt: Timestamp;
@@ -48,8 +44,9 @@ export interface Contact {
     addresses: { type: 'PHYSICAL' | 'MAILING'; line1: string; city: string; region: string; postalCode: string; country: string }[];
     emails: { type: 'PRIMARY' | 'BILLING' | 'OTHER'; address: string }[];
     phones: { type: 'MOBILE' | 'OFFICE' | 'DIRECT'; number: string }[];
-    xero?: {
-        contactId?: string;
+    providerRef?: {
+        xero?: { contactId: string; };
+        myob?: { contactUid: string; };
     };
 }
 
@@ -60,8 +57,9 @@ export interface CatalogueItem {
     uom: string; // Unit of Measure
     defaultAccountCode?: string;
     defaultTaxRateKey?: string;
-    xero?: {
-        itemId?: string;
+    providerRef?: {
+        xero?: { itemId: string; };
+        myob?: { itemUid: string; };
     };
 }
 
@@ -76,8 +74,9 @@ export interface Document {
         contentType: string;
         contentLength: number;
     };
-    xero?: {
-        fileId?: string;
+    providerRef?: {
+        xero?: { fileId: string; };
+        myob?: { fileUid: string; };
     };
     createdBy: string; // User ID
     createdAt: Timestamp;
@@ -90,13 +89,13 @@ export interface FinancialIntent {
     jobId: string;
     contactId: string;
     lines: {
-        itemId?: string; // Link to catalogue
+        itemId?: string;
         description: string;
         qty: number;
         unitPrice: number; // Tax exclusive
         accountCode?: string;
-        taxIntentKey: string; // Link to tax mapping
-        tracking?: { categoryId: string; optionId: string };
+        taxIntentKey: string;
+        trackingKey?: string; // Links to the Job ID for tracking purposes
     }[];
     totals: {
         subtotal: number;
@@ -105,6 +104,7 @@ export interface FinancialIntent {
     };
     status: 'DRAFT' | 'POSTED' | 'RECONCILED' | 'VOID';
     ledgerRef?: { // Reference to the created accounting record
+        provider: 'xero' | 'myob';
         type: 'INVOICE' | 'BILL' | 'JOURNAL';
         id?: string;
     };
@@ -112,6 +112,7 @@ export interface FinancialIntent {
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }
+
 
 // =================================================================
 // MAPPING & CONFIGURATION TABLES
@@ -125,48 +126,51 @@ export interface GLAccount {
 }
 
 export interface TaxRateMap {
-    taxKey: string; // e.g., 'GST_ON_INCOME_10'
+    taxKey: string;
     name: string;
     rate: number;
     jurisdiction: 'AU';
     intent: 'GST_ON_INCOME' | 'GST_FREE' | 'INPUT_TAXED' | 'GST_ON_EXPENSE';
-    xeroTaxType?: string;
+    providerRateId?: string; // The ID of the corresponding tax rate in the accounting provider
 }
 
 export interface TrackingCategory {
-    id: string;
-    name: string;
-    options: {
-        optionId: string;
-        label: string;
-        jobId?: string; // Link back to the job that created this option
-    }[];
-    xero?: {
-        categoryId?: string;
+    id: string; // This will be the Job ID
+    name: string; // This will be the Job Name
+    providerRef?: {
+        xero?: { categoryId: string; optionId: string; };
+        myob?: { jobUid: string; categoryUid?: string; };
     };
+}
+
+
+// =================================================================
+// AUTH & TOKENS
+// =================================================================
+
+export interface AccountingTokenSet {
+    encAccessToken: string; // Encrypted
+    encRefreshToken: string; // Encrypted
+    tenantOrFileId: string;
+    expiresAt: Timestamp;
+    scopes: string[];
+    updatedAt: Timestamp;
 }
 
 // =================================================================
 // SYSTEM & OPERATIONAL TYPES
 // =================================================================
 
-export interface XeroToken {
-    encAccessToken: string; // Encrypted
-    encRefreshToken: string; // Encrypted
-    expiresAt: Timestamp;
-    scopes: string[];
-    updatedAt: Timestamp;
-}
-
 export interface AuditEvent {
-    actor: string; // User ID or system process name
-    action: string; // e.g., 'job.create', 'xero.invoice.post'
+    actor: string;
+    action: string;
     entity: {
-        type: string; // e.g., 'job', 'financialIntent'
+        type: string;
         id: string;
     };
-    before?: object; // Snapshot of data before change
-    after?: object; // Snapshot of data after change
+    provider?: 'xero' | 'myob';
+    before?: object;
+    after?: object;
     correlationId: string;
     idempotencyKey?: string;
     createdAt: Timestamp;
@@ -174,7 +178,8 @@ export interface AuditEvent {
 
 export interface OutboxMessage {
     orgId: string;
-    kind: 'XERO_PUSH_FINANCIAL_INTENT' | 'XERO_ATTACH_EVIDENCE' | 'XERO_PULL_REFERENCE_DATA';
+    kind: 'ACCOUNTING_PUSH' | 'ACCOUNTING_ATTACH' | 'ACCOUNTING_SYNC';
+    provider: 'xero' | 'myob';
     payload: object;
     attempts: number;
     nextRunAt: Timestamp;
@@ -183,19 +188,13 @@ export interface OutboxMessage {
 }
 
 // =================================================================
-// USER & LEGACY TYPES (To be phased out or adapted)
+// LEGACY & UI HELPER TYPES
 // =================================================================
 
+export type { UserProfile, Company } from './types.legacy';
+export type { Quote, PurchaseOrder, Employee, Site, TimelineItem, POLineItem, QuoteLineItem, AssignedStaff, ProjectContact, Attachment, Revision, Task } from './types.legacy';
+export { jobStaffRoles } from './types.legacy';
 export type OptionType = {
   value: string;
   label: string;
 };
-
-export const jobStaffRoles = [
-    "Project Manager",
-    "Lead Technician",
-    "Technician",
-    "Apprentice",
-    "Estimator",
-    "Safety Officer",
-];
