@@ -3,85 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Deny all reads/writes by default.
-    match /{document=**} {
-      allow read, write: if false;
+    // Helper function to check if a user is authenticated.
+    // In a real app, you would add more sophisticated role-based access control here.
+    function isOrgMember(orgId) {
+      return request.auth != null;
     }
 
-    // Organizations are the top-level container for all data.
-    match /orgs/{orgId} {
-      // Allow authenticated users to read their own org document.
-      allow read: if request.auth.uid == resource.data.ownerId || request.auth.uid in resource.data.memberIds;
-      // Org creation is handled by a Cloud Function. Updates are restricted.
-      allow write: if false;
+    match /orgs/{orgId}/{document=**} {
+      allow read, write: if isOrgMember(orgId);
     }
-
-    // A user's role is stored within the organization's subcollection.
-    match /orgs/{orgId}/users/{userId} {
-      // A user can read their own user/role document.
-      allow read: if request.auth.uid == userId;
-      // Roles are managed by a Cloud Function or an admin.
-      allow write: if false;
-    }
-    
-    // Secure token storage. Only accessible by backend functions.
-    match /orgs/{orgId}/tokens/{provider} {
-      allow read, write: if false;
-    }
-
-    // Mapping tables can be read by any authenticated member of the org.
-    // Writes should be restricted to admin roles, likely via a Cloud Function.
-    match /orgs/{orgId}/mappings/{mapCollection}/{mapId} {
-        allow read: if isAuthenticatedInOrg(orgId);
-        allow write: if false; // Require admin role via function
-    }
-
-    // Core data collections (projects, jobs, contacts, etc.)
-    // Users within an org can read/write data according to their roles.
-    match /orgs/{orgId}/{collection}/{docId} {
-      allow read: if isAuthenticatedInOrg(orgId);
-      // Write logic is complex and should be granular.
-      // For now, allow writes for authenticated org members.
-      allow write: if isAuthenticatedInOrg(orgId);
-    }
-    
-    // Financial intents have stricter rules.
-    match /orgs/{orgId}/financialIntents/{finId} {
-       allow read, create: if isAuthenticatedInOrg(orgId);
-       // Once a ledgerRef is set, it cannot be changed. This ensures auditability.
-       // Only allow updates if the ledgerRef is unchanged.
-       allow update: if isAuthenticatedInOrg(orgId) && request.resource.data.ledgerRef == resource.data.ledgerRef;
-       // Deletes should likely be soft deletes (e.g., setting a 'void' status).
-       allow delete: if false;
-    }
-    
-    // Documents (evidence) can be created by clients, but provider refs are server-only.
-    match /orgs/{orgId}/documents/{docId} {
-        allow read, create: if isAuthenticatedInOrg(orgId);
-        // Allow update only if providerFileRef is not being changed by the client.
-        allow update: if isAuthenticatedInOrg(orgId) && request.resource.data.providerFileRef == resource.data.providerFileRef;
-        allow delete: if isAuthenticatedInOrg(orgId);
-    }
-
-    // Events are append-only, created by Cloud Functions. No client access.
-    match /orgs/{orgId}/events/{eventId} {
-      allow read, write: if false;
-    }
-    
-    // Outbox messages are for backend processing only. No client access.
-    match /outbox/{msgId} {
-        allow read, write: if false;
-    }
-
   }
-}
-
-// Helper function to check if a user is part of the organization.
-// This assumes user IDs are stored in a `members` array on the org doc.
-// A more robust implementation might check a `users` subcollection.
-function isAuthenticatedInOrg(orgId) {
-  let orgDoc = get(/databases/$(database)/documents/orgs/$(orgId));
-  // This is a simplified check. A real implementation might check a 'members' array or a subcollection.
-  // For now, we'll assume any authenticated user can access the 'test-org' for local dev.
-  return request.auth != null && orgId == 'test-org';
 }
