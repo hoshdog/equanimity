@@ -23,7 +23,7 @@ const formSchema = z.object({
 type AuthFormValues = z.infer<typeof formSchema>;
 
 const devUsers = [
-    { role: "Admin", email: "admin@example.com", password: "password123" },
+    { role: "God Mode", email: "god@example.com", password: "password123" },
     { role: "Jane Doe (Manager)", email: "jane.doe@example.com", password: "password123" },
     { role: "Alice (PM)", email: "alice.j@example.com", password: "password123" },
     { role: "Bob (Tech)", email: "bob.s@example.com", password: "password123" },
@@ -164,7 +164,7 @@ export default function AuthPage() {
                             {devUsers.map(user => (
                                 <Button 
                                     key={user.role} 
-                                    variant="outline"
+                                    variant={user.role === 'God Mode' ? 'default' : 'outline'}
                                     onClick={() => handleDevLogin(user)}
                                     disabled={loading}
                                 >
