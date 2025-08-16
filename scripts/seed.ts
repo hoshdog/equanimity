@@ -220,6 +220,19 @@ const mockJobs = {
         { id: 'JOB009', description: 'Install Cat6 cabling for new cameras', status: 'In Progress', technicianId: 'EMP008' },
         { id: 'JOB010', description: 'Mount and configure 10x IP cameras', status: 'Not Started', technicianId: 'EMP006' },
     ],
+    'PROJ002': [
+        { id: 'JOB011', description: 'Decommission old server', status: 'Completed', technicianId: 'EMP002' },
+        { id: 'JOB012', description: 'Install new server rack', status: 'Completed', technicianId: 'EMP002' },
+        { id: 'JOB013', description: 'Configure new server OS', status: 'Completed', technicianId: 'EMP006' },
+    ],
+    'PROJ010': [
+         { id: 'JOB014', description: 'Remove existing fluorescent lights', status: 'Completed', technicianId: 'EMP003' },
+         { id: 'JOB015', description: 'Install LED high-bay lights', status: 'Completed', technicianId: 'EMP003' },
+    ],
+    'PROJ007': [
+         { id: 'JOB016', description: 'Setup new POS terminal', status: 'Planning', technicianId: 'EMP001' },
+         { id: 'JOB017', description: 'Integrate with accounting software', status: 'Planning', technicianId: 'EMP001' },
+    ]
 };
 
 async function seedDatabase() {
