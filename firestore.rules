@@ -1,16 +1,13 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is authenticated.
-    // In a real app, you would add more sophisticated role-based access control here.
-    function isOrgMember(orgId) {
-      return request.auth != null;
-    }
-
-    match /orgs/{orgId}/{document=**} {
-      allow read, write: if isOrgMember(orgId);
+    // Allow any authenticated user to read/write to any document.
+    // This is permissive and suitable for initial development but should be
+    // locked down before production.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
