@@ -18,7 +18,7 @@ const TaskSchema = z.object({
   description: z.string().describe('A brief description of what the task involves.'),
 });
 
-export const GenerateTaskListForQuoteInputSchema = z.object({
+const GenerateTaskListForQuoteInputSchema = z.object({
   quoteDescription: z.string().optional().describe('The overall description of the quote.'),
   lineItems: z.array(z.any()).optional().describe('The line items (parts and labor) from the quote.'),
   notes: z.string().optional().describe('Any internal or client-facing notes.'),
