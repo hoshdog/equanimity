@@ -156,9 +156,9 @@ export interface AccountingTokenSet {
     encAccessToken: string; // Encrypted
     encRefreshToken: string; // Encrypted
     tenantOrFileId: string;
-    expiresAt: Timestamp;
+    expiresAt: Date | Timestamp;
     scopes: string[];
-    updatedAt: Timestamp;
+    updatedAt?: Timestamp;
 }
 
 // =================================================================
@@ -202,3 +202,11 @@ export type OptionType = {
   value: string;
   label: string;
 };
+
+// This was moved from quoting-profiles.ts to be more generic
+export interface LaborRate {
+    employeeType: string;
+    standardRate: number; // This is the SELL rate
+    calculatedCostRate: number; // This is the calculated COST rate
+    overtimeRate: number;
+}

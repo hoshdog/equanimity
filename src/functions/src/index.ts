@@ -11,6 +11,7 @@ import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getGraphClient, createFolderInTeamsChannel } from './graph-helper';
+import { AccountingProvider, selectProvider } from "./accounting-provider";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -23,10 +24,6 @@ const httpsOptions: HttpsOptions = { cors: true, enforceAppCheck: false }; // Co
  * =================================================================
  */
 
-/**
- * Triggered when a new user signs up via Firebase Auth.
- * Creates a default organization for the user.
- */
 export const oncreateuser = onUserCreate(async (event) => {
     const user = event.data;
     const { uid, email } = user;
@@ -73,35 +70,30 @@ export const oncreateuser = onUserCreate(async (event) => {
  * =================================================================
  */
 
-// NOTE: These are stubs. The 'accounting-provider.ts' interface would be implemented
-// by concrete 'xero-adapter.ts' and 'myob-adapter.ts' files, which these functions would call.
-
 export const connect_startAuth = onCall(httpsOptions, async (request) => {
-    // 1. Get orgId from request context.
-    // 2. Load org's config.
-    // 3. Instantiate the correct provider adapter (Xero or MYOB).
-    // 4. Call adapter.auth.startAuth(orgId) to get the consent URL.
-    // 5. Return the URL to the client.
-    logger.info("connect.startAuth called", { data: request.data });
-    return { redirectUrl: `https://login.xero.com/identity/connect/authorize?response_type=code&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&scope=openid%20profile%20email%20accounting.transactions&state=${request.data.orgId}` };
+    const { orgId, providerName } = request.data;
+    if (!orgId || !providerName) {
+        throw new Error("Missing orgId or providerName.");
+    }
+    const provider = selectProvider(providerName);
+    const redirectUrl = await provider.auth.startAuth(orgId);
+    return { redirectUrl: redirectUrl.toString() };
 });
 
 export const connect_handleCallback = onRequest(httpsOptions, async (req, res) => {
-    // 1. Get 'code' and 'state' (orgId) from query params.
-    // 2. Instantiate provider adapter.
-    // 3. Call adapter.auth.handleRedirect(code, state) to get tokens.
-    // 4. Encrypt and store tokens in `orgs/{orgId}/tokens/{provider}`.
-    // 5. Update `orgs/{orgId}.accounting` status.
-    // 6. Redirect user back to the settings page.
-    logger.info("connect.handleCallback called", { query: req.query });
-    const settingsUrl = new URL('/settings/integrations', process.env.FUNCTION_ORIGIN);
+    const { code, state } = req.query;
+    // Assuming the provider is encoded in the state or determined by the redirect URI
+    const providerName = 'xero'; // Placeholder
+    const provider = selectProvider(providerName);
+    await provider.auth.handleRedirect(code as string, state as string);
+    const settingsUrl = new URL('/settings/integrations', process.env.FUNCTION_ORIGIN || 'http://localhost:3000');
     settingsUrl.searchParams.set('status', 'success');
     res.redirect(settingsUrl.toString());
 });
 
 export const sync_pullReferenceData = onCall(httpsOptions, async (request) => {
     // 1. Get orgId from request context.
-    // 2. Load org config & tokens.
+    // 2. Load org's config, determine provider.
     // 3. Instantiate provider adapter.
     // 4. Call adapter.pullReferenceData().
     // 5. Write results to `orgs/{orgId}/mappings/*`.
