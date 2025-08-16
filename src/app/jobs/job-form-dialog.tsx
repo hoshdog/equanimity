@@ -3,13 +3,13 @@
 
 import * as React from 'react';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, CalendarIcon, Trash2 } from "lucide-react";
+import { PlusCircle, Loader2, CalendarIcon, Trash2, ListChecks } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Job, Employee, OptionType, TimelineItem, AssignedStaff, Customer, Site } from '@/lib/types';
+import type { Project, Job, Employee, OptionType, TimelineItem, AssignedStaff, Customer, Site, Task } from '@/lib/types';
 import { getProjects } from '@/lib/projects';
 import { getEmployees } from '@/lib/employees';
 import { addJob } from '@/lib/jobs';
@@ -35,6 +35,12 @@ const assignedStaffSchema = z.object({
   role: z.string().min(2, "Role is required."),
 });
 
+const taskSchema = z.object({
+    id: z.string(),
+    title: z.string().min(3, "Task title must be at least 3 characters."),
+    description: z.string().optional(),
+});
+
 const jobSchema = z.object({
   // Core Details
   title: z.string().min(3, "Title must be at least 3 characters."),
@@ -54,6 +60,7 @@ const jobSchema = z.object({
 
   // Assignment & Resources
   assignedStaff: z.array(assignedStaffSchema).min(1, "Please assign at least one staff member."),
+  tasks: z.array(taskSchema).optional(),
   
   // Status & Priority
   status: z.enum(['Draft', 'Planned', 'In Progress', 'On Hold', 'Completed']),
@@ -104,6 +111,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
       customerId: "",
       siteId: "",
       assignedStaff: [{ employeeId: '', role: '' }],
+      tasks: [{ id: `task-0`, title: '', description: '' }],
       dependencies: [],
       status: 'Planned',
       priority: 'Medium',
@@ -115,6 +123,10 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
   const { fields: staffFields, append: appendStaff, remove: removeStaff } = useFieldArray({
     control: form.control,
     name: "assignedStaff",
+  });
+  const { fields: taskFields, append: appendTask, remove: removeTask } = useFieldArray({
+    control: form.control,
+    name: 'tasks',
   });
   
   const watchedProjectId = form.watch('projectId');
@@ -201,6 +213,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           customerId: "",
           siteId: "",
           assignedStaff: [{ employeeId: '', role: '' }],
+          tasks: [{ id: 'task-0', title: '', description: '' }],
           dependencies: [],
           status: 'Planned',
           priority: 'Medium',
@@ -246,8 +259,9 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <Tabs defaultValue="core" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="core">Core</TabsTrigger>
+                        <TabsTrigger value="tasks">Tasks</TabsTrigger>
                         <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
                         <TabsTrigger value="assignment">Assignment</TabsTrigger>
                         <TabsTrigger value="financials">Financials</TabsTrigger>
@@ -285,6 +299,48 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                             <FormField control={form.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent>{jobPriorities.map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         </div>
                         <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent>{jobStatuses.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    </TabsContent>
+                    <TabsContent value="tasks" className="pt-4 space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <FormLabel>Job Tasks</FormLabel>
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ id: `task-${taskFields.length}`, title: '', description: '' })}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+                                </Button>
+                            </div>
+                            <FormDescription>Break the job down into smaller, actionable tasks.</FormDescription>
+                            
+                            {taskFields.map((field, index) => (
+                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                                    <ListChecks className="h-5 w-5 text-muted-foreground mt-2.5" />
+                                    <div className="flex-grow space-y-1">
+                                         <FormField
+                                            control={form.control}
+                                            name={`tasks.${index}.title`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormControl><Input placeholder="Task title" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                         <FormField
+                                            control={form.control}
+                                            name={`tasks.${index}.description`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormControl><Textarea placeholder="Optional: task description..." rows={1} className="text-xs" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={taskFields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
                     </TabsContent>
                     <TabsContent value="scheduling" className="pt-4 space-y-4">
                         <div className="grid grid-cols-2 gap-4">

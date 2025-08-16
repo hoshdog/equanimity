@@ -91,6 +91,12 @@ export interface Project {
 
 export const jobStaffRoles = ["Lead Technician", "Technician", "Apprentice", "Project Manager", "Safety Officer"];
 
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+}
+
 export interface Job {
     id: string;
     jobCode?: string; // e.g. PRJ-2024-001-JB-001
@@ -115,6 +121,7 @@ export interface Job {
     
     // Assignment
     assignedStaff: AssignedStaff[];
+    tasks?: Task[];
     
     // Status & Priority
     status: 'Draft' | 'Planned' | 'In Progress' | 'On Hold' | 'Completed';
@@ -206,11 +213,6 @@ export interface QuoteLineItem {
     markup?: number;
     taxRate?: number; // Optional, defaults can be applied
     discount?: number; // Optional
-}
-
-export interface Task {
-    title: string;
-    description: string;
 }
 
 export interface Quote {
