@@ -113,14 +113,15 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   const quoteRef = doc(db, 'quotes', id);
   const dataToUpdate = { ...quoteData };
 
-  // Get current quote to determine version number
+  // Get current quote to determine version number and store for revision
   const currentQuoteSnap = await getDoc(quoteRef);
   if (!currentQuoteSnap.exists()) {
     throw new Error("Quote to update does not exist.");
   }
-  const currentVersion = currentQuoteSnap.data()?.version || 0;
+  const currentQuoteData = currentQuoteSnap.data() as Quote;
+  const currentVersion = currentQuoteData.version || 0;
 
-  // Convert Date objects back to Timestamps if they exist
+  // Convert Date objects back to Timestamps if they exist in the update payload
   if (dataToUpdate.quoteDate && dataToUpdate.quoteDate instanceof Date) {
       dataToUpdate.quoteDate = Timestamp.fromDate(dataToUpdate.quoteDate);
   }
@@ -132,10 +133,11 @@ export async function updateQuote(id: string, quoteData: Partial<Omit<Quote, 'id
   }
 
   // Handle revision history
-  const newRevision: Omit<Revision, 'changedAt'> = {
+  const newRevision: Omit<Revision, 'changedAt' | 'quoteData'> & { quoteData: Quote } = {
       version: currentVersion,
       changedBy: user.uid,
       changeSummary: changeSummary,
+      quoteData: currentQuoteData, // Store the full previous state
   };
 
   await updateDoc(quoteRef, {

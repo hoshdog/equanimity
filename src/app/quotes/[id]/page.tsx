@@ -408,6 +408,41 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             }
         }
     };
+    
+    const handleRestoreVersion = async (revision: Revision) => {
+        if (!quote || !revision.quoteData) {
+            toast({ variant: 'destructive', title: "Restore Failed", description: "Revision data is missing or corrupt." });
+            return;
+        }
+        
+        if (!window.confirm(`Are you sure you want to restore to version ${revision.version}? This will create a new version.`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // The revision.quoteData has Timestamps, which need to be converted to Dates for the form
+            const restoredDataForForm = {
+                ...revision.quoteData,
+                quoteDate: (revision.quoteData.quoteDate as Timestamp)?.toDate(),
+                dueDate: (revision.quoteData.dueDate as Timestamp)?.toDate(),
+                expiryDate: (revision.quoteData.expiryDate as Timestamp)?.toDate(),
+            };
+            
+            // We need to pass the raw data (with Timestamps) to the update function
+            await updateQuote(quote.id, revision.quoteData, `Restored from version ${revision.version}`);
+            
+            // Reset the form with the restored data
+            reset(restoredDataForForm);
+            
+            toast({ title: "Quote Restored", description: `The quote has been restored to version ${revision.version}.` });
+        } catch (error) {
+             console.error("Failed to restore quote:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not restore the quote.' });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const customerOptions = useMemo(() => allCustomers.map(c => ({ value: c.id, label: c.name })), [allCustomers]);
     const projectOptions = useMemo(() => allProjects.map(p => ({ value: p.id, label: `${p.name} (${p.customerName})` })), [allProjects]);
@@ -963,7 +998,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                      <Card>
                         <CardHeader>
                             <CardTitle>Version History</CardTitle>
-                            <CardDescription>Review previous versions of this quote. Restoring a version is coming soon.</CardDescription>
+                            <CardDescription>Review and restore previous versions of this quote.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -973,6 +1008,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                         <TableHead>Date Changed</TableHead>
                                         <TableHead>Changed By</TableHead>
                                         <TableHead>Summary</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -984,6 +1020,17 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                                                 {employees.find(e => e.id === revision.changedBy)?.name || revision.changedBy}
                                             </TableCell>
                                              <TableCell>{revision.changeSummary}</TableCell>
+                                             <TableCell className="text-right">
+                                                <Button 
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRestoreVersion(revision)}
+                                                    disabled={loading || revision.version === quote.version}
+                                                >
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    Restore
+                                                </Button>
+                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

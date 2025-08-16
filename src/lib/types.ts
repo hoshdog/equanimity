@@ -11,6 +11,7 @@ export interface Revision {
     changedBy: string;
     changedAt: Timestamp;
     changeSummary: string;
+    quoteData?: Quote; // Store the full state of the quote at this revision
 }
 
 export interface Attachment {
