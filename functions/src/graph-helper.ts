@@ -9,28 +9,25 @@ import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-grap
 import "isomorphic-fetch";
 import * as logger from "firebase-functions/logger";
 
-const { 
-    AZURE_TENANT_ID, 
-    AZURE_CLIENT_ID, 
-    AZURE_CLIENT_SECRET, 
-    ONEDRIVE_USER_ID,
-} = process.env;
-
-if (!AZURE_TENANT_ID || !AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET) {
-    throw new Error("Missing required core Azure environment variables (TENANT_ID, CLIENT_ID, CLIENT_SECRET).");
-}
 
 const GRAPH_API_SCOPE = process.env.GRAPH_API_SCOPE || 'https://graph.microsoft.com/.default';
 
+interface AzureAppCredentials {
+    tenantId: string;
+    clientId: string;
+    clientSecret: string;
+}
+
 /**
- * Creates and returns an authenticated Microsoft Graph client instance.
+ * Creates and returns an authenticated Microsoft Graph client instance using provided credentials.
+ * @param {AzureAppCredentials} creds - The Azure App credentials.
  * @returns {Client} An initialized Graph client.
  */
-export function getGraphClient(): Client {
+export function getGraphClient(creds: AzureAppCredentials): Client {
     const credential = new ClientSecretCredential(
-        AZURE_TENANT_ID!,
-        AZURE_CLIENT_ID!,
-        AZURE_CLIENT_SECRET!
+        creds.tenantId,
+        creds.clientId,
+        creds.clientSecret
     );
     const authProvider = new TokenCredentialAuthenticationProvider(credential, {
         scopes: [GRAPH_API_SCOPE],
@@ -39,65 +36,19 @@ export function getGraphClient(): Client {
     return Client.initWithMiddleware({ authProvider });
 }
 
-/**
- * =================================================================
- * ONEDRIVE-SPECIFIC HELPERS (USER-DELEGATED)
- * =================================================================
- */
-
-export async function createFolder(client: Client, folderName: string, parentId?: string): Promise<any> {
-    if (!ONEDRIVE_USER_ID) throw new Error("ONEDRIVE_USER_ID is not set.");
-    const url = parentId
-        ? `/users/${ONEDRIVE_USER_ID}/drive/items/${parentId}/children`
-        : `/users/${ONEDRIVE_USER_ID}/drive/root/children`;
-    return client.api(url).post({ name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' });
-}
-
-export async function grantPermission(client: Client, itemId: string, userEmail: string): Promise<any> {
-    if (!ONEDRIVE_USER_ID) throw new Error("ONEDRIVE_USER_ID is not set.");
-    const url = `/users/${ONEDRIVE_USER_ID}/drive/items/${itemId}/invite`;
-    return client.api(url).post({ recipients: [{ email: userEmail }], message: "Access granted.", requireSignIn: true, sendInvitation: true, roles: ['write'] });
-}
-
-/**
- * =================================================================
- * TEAMS / SHAREPOINT HELPERS (APPLICATION)
- * =================================================================
- */
-
-/**
- * Lists all Microsoft Teams the application has access to.
- * Requires Group.Read.All and Channel.ReadBasic.All permissions.
- */
-export async function listTeams(client: Client): Promise<{ id: string, displayName: string }[]> {
-    const result = await client.api("/groups").filter("resourceProvisioningOptions/Any(x:x eq 'Team')").select('id,displayName').get();
-    return result.value.map((team: any) => ({ id: team.id, displayName: team.displayName }));
-}
-
-/**
- * Lists all channels within a given Team.
- * Requires Channel.ReadBasic.All permission.
- */
-export async function listChannelsInTeam(client: Client, teamId: string): Promise<{ id: string, displayName: string }[]> {
-    const result = await client.api(`/teams/${teamId}/channels`).select('id,displayName').get();
-    return result.value.map((channel: any) => ({ id: channel.id, displayName: channel.displayName }));
-}
-
-/**
- * Fetches the metadata for the root "Files" folder of a Teams channel.
- * Requires Sites.Read.All permission.
- */
-export async function getTeamsChannelFilesFolder(client: Client, teamId: string, channelId: string): Promise<any> {
-    return client.api(`/teams/${teamId}/channels/${channelId}/filesFolder`).get();
-}
 
 /**
  * Creates a folder within a specific Microsoft Teams channel's file library.
  * Requires Sites.ReadWrite.All permission.
+ * @param {Client} client - The authenticated Graph client.
+ * @param {string} teamId - The ID of the target Team.
+ * @param {string} channelId - The ID of the target Channel within the Team.
+ * @param {string} folderName - The name of the folder to create.
+ * @returns {Promise<any>} The created folder object from Graph API.
  */
 export async function createFolderInTeamsChannel(client: Client, teamId: string, channelId: string, folderName: string): Promise<any> {
     const url = `/teams/${teamId}/channels/${channelId}/filesFolder/children`;
-    logger.info(`Attempting to create folder "${folderName}" in Teams channel.`);
+    logger.info(`Attempting to create folder "${folderName}" in Teams channel ${channelId}.`);
     const createdFolder = await client.api(url).post({ name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' });
     logger.info(`Successfully created folder "${folderName}" with ID ${createdFolder.id}.`);
     return createdFolder;
