@@ -94,7 +94,9 @@ export const connect_handleCallback = onRequest(httpsOptions, async (req, res) =
     // 5. Update `orgs/{orgId}.accounting` status.
     // 6. Redirect user back to the settings page.
     logger.info("connect.handleCallback called", { query: req.query });
-    res.redirect('/settings/integrations?status=success');
+    const settingsUrl = new URL('/settings/integrations', process.env.FUNCTION_ORIGIN);
+    settingsUrl.searchParams.set('status', 'success');
+    res.redirect(settingsUrl.toString());
 });
 
 export const sync_pullReferenceData = onCall(httpsOptions, async (request) => {

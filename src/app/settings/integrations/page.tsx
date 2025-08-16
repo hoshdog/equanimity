@@ -8,16 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Power, PowerOff, CheckCircle, Settings } from "lucide-react";
 import Image from 'next/image';
 import Link from 'next/link';
-
-// NOTE: This component is now a placeholder. The connection logic will be handled
-// by the new provider-agnostic connection functions.
+import { useOrg } from '@/components/auth-provider';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase'; // Assuming functions is exported from firebase config
 
 function AccountingIntegrationCard({ provider, name, logo, description }: { provider: 'xero' | 'myob', name: string, logo: React.ReactNode, description: string }) {
     const [loading, setLoading] = useState(false);
-    const [isConnected, setIsConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState(false); // This would come from org data in a real app
     const { toast } = useToast();
+    const { orgId } = useOrg();
 
-    // In a real app, this effect would check the org's accounting status
+    // In a real app, this effect would subscribe to the org document to get connection status
     useEffect(() => {
         // Mock checking connection status
         setLoading(true);
@@ -25,19 +26,36 @@ function AccountingIntegrationCard({ provider, name, logo, description }: { prov
             // e.g. if (org.accounting.provider === provider && org.accounting.status === 'connected')
             // setIsConnected(true);
             setLoading(false);
-        }, 1000)
+        }, 500);
     }, [provider]);
 
-    const handleConnect = () => {
-        toast({ title: 'Connection Initiated', description: `Redirecting to ${name} for authorization...`});
-        // In a real app, this would call a cloud function like:
-        // `functions.https.onCall(provider.auth.startAuth)()`
-        // which would return a URL to redirect to.
+    const handleConnect = async () => {
+        if (!orgId) {
+            toast({ variant: "destructive", title: "Error", description: "Organization ID not found." });
+            return;
+        }
+        setLoading(true);
+        try {
+            const startAuth = httpsCallable(functions, 'connect_startAuth');
+            const result = await startAuth({ orgId, provider });
+            const { redirectUrl } = result.data as { redirectUrl: string };
+
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
+            } else {
+                throw new Error("No redirect URL returned.");
+            }
+        } catch (error) {
+            console.error(`Failed to start ${name} auth:`, error);
+            toast({ variant: "destructive", title: "Connection Failed", description: `Could not initiate connection with ${name}.` });
+            setLoading(false);
+        }
     };
     
     const handleDisconnect = () => {
+        // This would call a function to deauthorize tokens and update org status
         toast({ title: 'Disconnecting...', description: `Disconnecting from ${name}.`});
-    }
+    };
 
     return (
         <Card>
@@ -50,9 +68,7 @@ function AccountingIntegrationCard({ provider, name, logo, description }: { prov
                     </div>
                 </div>
                 {loading ? (
-                    <div className="flex items-center space-x-2">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    </div>
+                    <Loader2 className="h-5 w-5 animate-spin" />
                 ) : isConnected ? (
                     <Button variant="destructive" onClick={handleDisconnect} size="sm">
                         <PowerOff className="mr-2 h-4 w-4" />
@@ -73,7 +89,7 @@ function AccountingIntegrationCard({ provider, name, logo, description }: { prov
                 </CardContent>
             )}
         </Card>
-    )
+    );
 }
 
 function TeamsIntegrationCard() {
