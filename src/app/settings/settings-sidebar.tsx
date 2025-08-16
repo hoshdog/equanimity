@@ -14,9 +14,9 @@ const sidebarNavItems = [
     icon: <Building className="mr-2 h-4 w-4" />,
   },
   {
-    title: 'Billing Rates',
-    href: '/settings/billing-rates',
-    icon: <Percent className="mr-2 h-4 w-4" />,
+    title: 'Quoting Profiles',
+    href: '/settings/quoting-profiles',
+    icon: <FileText className="mr-2 h-4 w-4" />,
   },
   {
     title: 'Bills & Purchases',
@@ -67,11 +67,6 @@ const sidebarNavItems = [
     title: 'Price List',
     href: '/settings/prices',
     icon: <BookOpen className="mr-2 h-4 w-4" />,
-  },
-  {
-    title: 'Quotes',
-    href: '/settings/quotes',
-    icon: <Calculator className="mr-2 h-4 w-4" />,
   },
   {
     title: 'Scheduler',

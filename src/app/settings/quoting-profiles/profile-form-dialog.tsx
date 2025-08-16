@@ -1,4 +1,4 @@
-// src/app/training/profile-form-dialog.tsx
+// src/app/settings/quoting-profiles/profile-form-dialog.tsx
 'use client';
 
 import * as React from 'react';
@@ -44,6 +44,7 @@ const profileSchema = z.object({
   }),
   persona: z.string().min(10, "Persona description is required."),
   instructions: z.string().optional(),
+  terms: z.string().optional(),
   laborRates: z.array(laborRateSchema).min(1, "At least one labor rate is required."),
   materialAndServiceRates: z.array(lineItemRateSchema).min(1, "At least one material/service rate is required."),
 });
@@ -66,6 +67,7 @@ const getDefaultValues = (): ProfileFormValues => ({
   },
   persona: "You are a helpful quoting assistant for a services business.",
   instructions: "",
+  terms: "",
   laborRates: [{ 
       employeeType: "Technician",
       standardRate: 90,

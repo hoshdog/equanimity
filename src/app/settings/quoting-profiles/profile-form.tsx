@@ -1,4 +1,4 @@
-// src/app/training/profile-form.tsx
+// src/app/settings/quoting-profiles/profile-form.tsx
 'use client';
 
 import * as React from 'react';
@@ -424,6 +424,26 @@ export function ProfileForm() {
           </FormItem>
         )}
       />
+        <FormField
+            control={control}
+            name="terms"
+            render={({ field }) => (
+            <FormItem>
+                <FormLabel>Default Terms & Conditions</FormLabel>
+                <FormControl>
+                <Textarea
+                    placeholder="e.g., 1. Payment is due within 14 days..."
+                    rows={4}
+                    {...field}
+                />
+                </FormControl>
+                <FormDescription>
+                    These terms will be pre-filled on new quotes using this profile.
+                </FormDescription>
+                <FormMessage />
+            </FormItem>
+            )}
+        />
     </div>
   );
 }
