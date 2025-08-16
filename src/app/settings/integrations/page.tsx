@@ -9,63 +9,44 @@ import { Loader2, Power, PowerOff, CheckCircle, Settings } from "lucide-react";
 import Image from 'next/image';
 import Link from 'next/link';
 
-function XeroIntegrationCard() {
+// NOTE: This component is now a placeholder. The connection logic will be handled
+// by the new provider-agnostic connection functions.
+
+function AccountingIntegrationCard({ provider, name, logo, description }: { provider: 'xero' | 'myob', name: string, logo: React.ReactNode, description: string }) {
     const [loading, setLoading] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
-    const [tenants, setTenants] = useState<any[]>([]);
     const { toast } = useToast();
 
+    // In a real app, this effect would check the org's accounting status
     useEffect(() => {
-        const checkConnection = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch('/api/xero/tenants');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                        setIsConnected(true);
-                        setTenants(data);
-                    }
-                }
-            } catch (error) {
-                console.error("Error checking Xero connection:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        checkConnection();
-    }, []);
-
-    const handleConnect = async () => {
+        // Mock checking connection status
         setLoading(true);
-        try {
-            const response = await fetch('/api/xero/connect');
-            if (response.ok) {
-                const { consentUrl } = await response.json();
-                window.location.href = consentUrl;
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to Xero. Please check your API credentials.' });
-                setLoading(false);
-            }
-        } catch (error) {
-            console.error("Error initiating Xero connection:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to Xero.' });
+        setTimeout(() => {
+            // e.g. if (org.accounting.provider === provider && org.accounting.status === 'connected')
+            // setIsConnected(true);
             setLoading(false);
-        }
+        }, 1000)
+    }, [provider]);
+
+    const handleConnect = () => {
+        toast({ title: 'Connection Initiated', description: `Redirecting to ${name} for authorization...`});
+        // In a real app, this would call a cloud function like:
+        // `functions.https.onCall(provider.auth.startAuth)()`
+        // which would return a URL to redirect to.
     };
     
     const handleDisconnect = () => {
-        alert("Disconnect functionality not yet implemented.");
+        toast({ title: 'Disconnecting...', description: `Disconnecting from ${name}.`});
     }
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Image src="https://developer.xero.com/static/images/xero-app-logo.svg" alt="Xero Logo" width={40} height={40} />
+                    {logo}
                     <div>
-                        <CardTitle className="text-xl">Xero</CardTitle>
-                        <CardDescription>Sync invoices, bills, contacts, and payroll.</CardDescription>
+                        <CardTitle className="text-xl">{name}</CardTitle>
+                        <CardDescription>{description}</CardDescription>
                     </div>
                 </div>
                 {loading ? (
@@ -79,7 +60,7 @@ function XeroIntegrationCard() {
                     </Button>
                 ) : (
                     <Button onClick={handleConnect} disabled={loading} size="sm">
-                        {loading ? '...' : 'Connect'}
+                        Connect
                     </Button>
                 )}
             </CardHeader>
@@ -87,7 +68,7 @@ function XeroIntegrationCard() {
                 <CardContent>
                     <div className="flex items-center gap-2 text-sm text-green-600 border-t pt-4 mt-4">
                         <Power className="h-4 w-4"/>
-                        <p className="font-semibold">Connected to: {tenants.map(t => t.tenantName).join(', ')}</p>
+                        <p className="font-semibold">Connected</p>
                     </div>
                 </CardContent>
             )}
@@ -96,13 +77,12 @@ function XeroIntegrationCard() {
 }
 
 function TeamsIntegrationCard() {
-    const isConfigured = process.env.NEXT_PUBLIC_TEAMS_INTEGRATION_CONFIGURED === 'true';
-
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-4">
                     <svg width="40" height="40" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        {/* SVG paths for Teams logo */}
                         <path d="M120.687 18.25H43.9375C41.25 18.25 39 20.5 39 23.25V79.3125C39 82.0625 41.25 84.3125 43.9375 84.3125H120.687C123.375 84.3125 125.625 82.0625 125.625 79.3125V23.25C125.625 20.5 123.375 18.25 120.687 18.25Z" fill="#6264A7"/>
                         <path d="M120.687 97.5H43.9375C41.25 97.5 39 99.75 39 102.5V158.562C39 161.312 41.25 163.562 43.9375 163.562H120.687C123.375 163.562 125.625 161.312 125.625 158.562V102.5C125.625 99.75 123.375 97.5 120.687 97.5Z" fill="#6264A7"/>
                         <path d="M120.687 176.75H43.9375C41.25 176.75 39 179 39 181.75V237.812C39 240.562 41.25 242.812 43.9375 242.812H120.687C123.375 242.812 125.625 240.562 125.625 237.812V181.75C125.625 179 123.375 176.75 120.687 176.75Z" fill="#6264A7"/>
@@ -137,12 +117,23 @@ export default function IntegrationsPage() {
                 <CardHeader>
                     <CardTitle>Integrations</CardTitle>
                     <CardDescription>
-                        Connect your account to third-party services like Microsoft Teams and Xero.
+                        Connect your account to third-party services.
                     </CardDescription>
                 </CardHeader>
             </Card>
+            <AccountingIntegrationCard 
+                provider="xero" 
+                name="Xero" 
+                logo={<Image src="https://developer.xero.com/static/images/xero-app-logo.svg" alt="Xero Logo" width={40} height={40} />}
+                description="Sync invoices, bills, contacts, and payroll."
+            />
+            <AccountingIntegrationCard 
+                provider="myob" 
+                name="MYOB" 
+                logo={<Image src="https://www.myob.com/au/img/myob_logo.svg" alt="MYOB Logo" width={80} height={40} />}
+                description="Sync with MYOB Business or AccountRight."
+            />
             <TeamsIntegrationCard />
-            <XeroIntegrationCard />
         </div>
     );
 }

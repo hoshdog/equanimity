@@ -1,8 +1,8 @@
-
 // src/lib/xero.ts
-// Note: The 'xero-node' dependency has been temporarily removed to fix build issues.
-// This file will not function correctly until the dependency is restored.
-// import { XeroClient, TokenSet } from 'xero-node';
+// This file is now deprecated and its contents should be moved into the new
+// provider adapter structure. It is kept temporarily to avoid breaking imports
+// but will be removed in a future step.
+
 import { db } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 

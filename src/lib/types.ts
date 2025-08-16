@@ -12,7 +12,7 @@ export interface Org {
     accounting: {
         provider: 'xero' | 'myob' | null;
         status: 'connected' | 'disconnected' | 'error';
-        tenantOrFileId: string | null; // Xero: tenantId, MYOB: Company File ID
+        tenantOrFileId: string | null; // Xero: tenantId, MYOB: Company File GUID
         scopes: string[];
         lastSyncAt?: Timestamp;
     };
@@ -74,9 +74,9 @@ export interface Document {
         contentType: string;
         contentLength: number;
     };
-    providerRef?: {
+    providerFileRef?: {
         xero?: { fileId: string; };
-        myob?: { fileUid: string; };
+        myob?: { attachmentUid: string; };
     };
     createdBy: string; // User ID
     createdAt: Timestamp;
@@ -107,6 +107,7 @@ export interface FinancialIntent {
         provider: 'xero' | 'myob';
         type: 'INVOICE' | 'BILL' | 'JOURNAL';
         id?: string;
+        url?: string;
     };
     idempotencyKey: string;
     createdAt: Timestamp;
@@ -131,7 +132,10 @@ export interface TaxRateMap {
     rate: number;
     jurisdiction: 'AU';
     intent: 'GST_ON_INCOME' | 'GST_FREE' | 'INPUT_TAXED' | 'GST_ON_EXPENSE';
-    providerRateId?: string; // The ID of the corresponding tax rate in the accounting provider
+    providerRef?: {
+        xero?: { taxType: string };
+        myob?: { taxCodeUid: string };
+    };
 }
 
 export interface TrackingCategory {
