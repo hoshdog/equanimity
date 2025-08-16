@@ -1,3 +1,4 @@
+
 // src/app/projects/project-form-dialog.tsx
 'use client';
 
@@ -12,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import type { Project, Customer, Site, Contact, Employee, OptionType, AssignedStaff } from '@/lib/types';
+import type { Project, Customer, Site, Contact, Employee, OptionType, AssignedStaff, ProjectContact } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCustomers, getCustomerSites, getCustomerContacts, addCustomer as addDbCustomer, addContact as addDbContact, addSite as addDbSite } from '@/lib/customers';
@@ -22,18 +23,17 @@ import { AddressAutocompleteInput } from '@/components/ui/address-autocomplete-i
 import { SearchableCombobox } from '@/components/ui/SearchableCombobox';
 
 const customerSchema = z.object({
-    name: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
-    address: z.string().min(10, { message: "Address must be at least 10 characters." }),
-    primaryContactName: z.string().min(2, { message: "Primary contact name must be at least 2 characters." }),
-    email: z.string().email({ message: "Please enter a valid email address." }),
-    phone: z.string().min(8, { message: "Phone number seems too short." }),
-    type: z.string().min(2, { message: "Please select a customer type." }),
+    displayName: z.string().min(2, { message: "Customer name must be at least 2 characters." }),
+    addresses: z.array(z.object({ type: z.literal('PHYSICAL'), line1: z.string().min(10, { message: "Address must be at least 10 characters." }), city: z.string(), region: z.string(), postalCode: z.string(), country: z.string() })).min(1),
+    emails: z.array(z.object({type: z.literal('PRIMARY'), address: z.string().email() })).min(1),
+    phones: z.array(z.object({type: z.literal('MOBILE'), number: z.string().min(8) })).min(1),
+    type: z.literal('CUSTOMER'),
 });
 
 const newContactSchema = z.object({
-  name: z.string().min(2, "Contact name must be at least 2 characters."),
-  emails: z.array(z.object({ value: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
-  phones: z.array(z.object({ value: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
+  displayName: z.string().min(2, "Contact name must be at least 2 characters."),
+  emails: z.array(z.object({ type: z.literal('PRIMARY'), address: z.string().email("Please enter a valid email address.") })).min(1, "At least one email is required."),
+  phones: z.array(z.object({ type: z.literal('MOBILE'), number: z.string().min(8, "Phone number seems too short.") })).min(1, "At least one phone number is required."),
   jobTitle: z.string().optional(),
 });
 
@@ -65,40 +65,32 @@ const projectSchema = z.object({
 
 
 interface ProjectFormDialogProps {
+    orgId: string;
     onProjectCreated: (project: Project) => void;
 }
 
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
+function AddCustomerDialog({ orgId, onCustomerAdded, children }: { orgId: string, onCustomerAdded: (customer: Customer) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof customerSchema>>({
         resolver: zodResolver(customerSchema),
-        defaultValues: { name: "", address: "", primaryContactName: "", email: "", phone: "", type: "Corporate Client" },
+        defaultValues: { type: "CUSTOMER", displayName: "", addresses: [], emails: [], phones: [] },
     });
     
     async function onSubmit(values: z.infer<typeof customerSchema>) {
         setLoading(true);
         try {
-            const newCustomerData = {
-              name: values.name,
-              address: values.address,
-              type: values.type,
-              primaryContactName: values.primaryContactName,
-              email: values.email,
-              phone: values.phone,
-            }
-            const initialContact = { name: values.primaryContactName, emails: [values.email], phones: [values.phone], jobTitle: 'Primary Contact' };
-            const initialSite = { name: 'Main Site', address: values.address };
-            
-            const { customerId } = await addDbCustomer(newCustomerData, initialContact, initialSite);
-            const newCustomer = { id: customerId, ...newCustomerData };
+            // This needs to be adapted to the new logic of creating a primary contact and a site
+            // For now, we'll create a single customer contact
+            const { customerId } = await addDbCustomer(orgId, values);
+            const newCustomer = { id: customerId, ...values };
             
             onCustomerAdded(newCustomer);
-            toast({ title: "Customer Added", description: `"${values.name}" has been added.` });
+            toast({ title: "Customer Added", description: `"${values.displayName}" has been added.` });
             setIsOpen(false);
             form.reset();
         } catch (error) {
@@ -111,10 +103,11 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
 
     const handlePlaceSelect = (place: google.maps.places.PlaceResult | null) => {
         if (place?.name) {
-            form.setValue('name', place.name);
+            form.setValue('displayName', place.name);
         }
         if (place?.formatted_address) {
-            form.setValue('address', place.formatted_address);
+            // This is simplified, a real app would parse address components
+            form.setValue('addresses', [{ type: 'PHYSICAL', line1: place.formatted_address, city: '', region: '', postalCode: '', country: 'AU' }]);
         }
     };
 
@@ -128,7 +121,7 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                 </DialogHeader>
                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormField control={form.control} name="displayName" render={({ field }) => (
                             <FormItem><FormLabel>Customer Name</FormLabel>
                                 <FormControl>
                                     <AddressAutocompleteInput 
@@ -141,38 +134,15 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
                                 <FormMessage />
                             </FormItem>
                         )}/>
-                         <FormField control={form.control} name="address" render={({ field }) => (
+                         <FormField control={form.control} name="addresses.0.line1" render={({ field }) => (
                             <FormItem><FormLabel>Address</FormLabel>
                             <FormControl><Input placeholder="e.g., 123 Tech Park, Sydney" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="primaryContactName" render={({ field }) => (
-                            <FormItem><FormLabel>Primary Contact Name</FormLabel><FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormField control={form.control} name="emails.0.address" render={({ field }) => (
                             <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="e.g., contact@innovate.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="phone" render={({ field }) => (
+                         <FormField control={form.control} name="phones.0.number" render={({ field }) => (
                             <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="e.g., 02 9999 8888" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="type" render={({ field }) => (
-                            <FormItem>
-                                 <FormLabel>Customer Type</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a customer type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Corporate Client">Corporate Client</SelectItem>
-                                        <SelectItem value="Construction Partner">Construction Partner</SelectItem>
-                                        <SelectItem value="Small Business">Small Business</SelectItem>
-                                        <SelectItem value="Government">Government</SelectItem>
-                                        <SelectItem value="Private">Private</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
                         )}/>
                         <DialogFooter>
                              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
@@ -186,13 +156,13 @@ function AddCustomerDialog({ onCustomerAdded, children }: { onCustomerAdded: (cu
 }
 
 
-function AddContactDialog({ customerId, customerName, onContactAdded, children }: { customerId: string, customerName: string, onContactAdded: (contact: Contact) => void, children: React.ReactNode }) {
+function AddContactDialog({ orgId, customerId, customerName, onContactAdded, children }: { orgId: string, customerId: string, customerName: string, onContactAdded: (contact: Contact) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof newContactSchema>>({
         resolver: zodResolver(newContactSchema),
-        defaultValues: { name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" },
+        defaultValues: { displayName: "", emails: [{ type: 'PRIMARY', address: "" }], phones: [{ type: 'MOBILE', number: "" }], jobTitle: "" },
     });
     
     const { fields: emailFields, append: appendEmail, remove: removeEmail } = useFieldArray({ control: form.control, name: "emails" });
@@ -202,16 +172,16 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
         setLoading(true);
         try {
             const contactData = {
-              name: values.name,
-              emails: values.emails.map(e => e.value),
-              phones: values.phones.map(p => p.value),
-              jobTitle: values.jobTitle,
+              displayName: values.displayName,
+              emails: values.emails,
+              phones: values.phones,
+              // jobTitle: values.jobTitle,
             };
-            const newContactId = await addDbContact(customerId, contactData);
-            onContactAdded({ id: newContactId, ...contactData });
-            toast({ title: "Contact Added", description: `"${values.name}" has been added to ${customerName}.` });
+            const newContactId = await addDbContact(orgId, customerId, contactData);
+            onContactAdded({ id: newContactId, type: 'CUSTOMER', ...contactData });
+            toast({ title: "Contact Added", description: `"${values.displayName}" has been added to ${customerName}.` });
             setIsOpen(false);
-            form.reset({ name: "", emails: [{ value: "" }], phones: [{ value: "" }], jobTitle: "" });
+            form.reset({ displayName: "", emails: [{ type: 'PRIMARY', address: "" }], phones: [{ type: 'MOBILE', number: "" }], jobTitle: "" });
         } catch (error) {
             console.error("Failed to add contact", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to add contact.' });
@@ -227,13 +197,13 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                  <DialogHeader><DialogTitle>Add New Contact</DialogTitle><DialogDescription>Add a new contact person for {customerName}.</DialogDescription></DialogHeader>
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField control={form.control} name="displayName" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                         <FormField control={form.control} name="jobTitle" render={({ field }) => ( <FormItem><FormLabel>Job Title (Optional)</FormLabel><FormControl><Input placeholder="e.g., Project Manager" {...field} /></FormControl><FormMessage /></FormItem> )}/>
 
                         <div>
                             <FormLabel>Email Addresses</FormLabel>
                             {emailFields.map((field, index) => (
-                              <FormField key={field.id} control={form.control} name={`emails.${index}.value`} render={({ field }) => (
+                              <FormField key={field.id} control={form.control} name={`emails.${index}.address`} render={({ field }) => (
                                 <FormItem className="flex items-center gap-2 mt-1">
                                   <FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl>
                                   <Button type="button" variant="ghost" size="icon" disabled={emailFields.length <= 1} onClick={() => removeEmail(index)}>
@@ -242,7 +212,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                                 </FormItem>
                               )}/>
                             ))}
-                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmail({ value: "" })}>
+                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmail({ type: 'PRIMARY', address: "" })}>
                                 <PlusCircle className="mr-2 h-4 w-4"/>Add Email
                             </Button>
                         </div>
@@ -250,7 +220,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                         <div>
                             <FormLabel>Phone Numbers</FormLabel>
                             {phoneFields.map((field, index) => (
-                              <FormField key={field.id} control={form.control} name={`phones.${index}.value`} render={({ field }) => (
+                              <FormField key={field.id} control={form.control} name={`phones.${index}.number`} render={({ field }) => (
                                 <FormItem className="flex items-center gap-2 mt-1">
                                   <FormControl><Input placeholder="0412 345 678" {...field} /></FormControl>
                                   <Button type="button" variant="ghost" size="icon" disabled={phoneFields.length <= 1} onClick={() => removePhone(index)}>
@@ -259,7 +229,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
                                 </FormItem>
                               )}/>
                             ))}
-                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendPhone({ value: "" })}>
+                            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendPhone({ type: 'MOBILE', number: "" })}>
                                 <PlusCircle className="mr-2 h-4 w-4"/>Add Phone
                             </Button>
                         </div>
@@ -272,7 +242,7 @@ function AddContactDialog({ customerId, customerName, onContactAdded, children }
     )
 }
 
-function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, children }: { customerId: string, customerName: string, contacts: Contact[], onSiteAdded: (site: Site) => void, children: React.ReactNode }) {
+function AddSiteDialog({ orgId, customerId, customerName, contacts, onSiteAdded, children }: { orgId: string, customerId: string, customerName: string, contacts: Contact[], onSiteAdded: (site: Site) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const { toast } = useToast();
@@ -288,7 +258,7 @@ function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, childr
     async function onSubmit(values: z.infer<typeof newSiteSchema>) {
         setLoading(true);
         try {
-            const newSiteId = await addDbSite(customerId, values);
+            const newSiteId = await addDbSite(orgId, values);
             onSiteAdded({ id: newSiteId, ...values });
             toast({ title: "Site Added", description: `"${values.name}" has been added to ${customerName}.` });
             setIsOpen(false);
@@ -300,7 +270,7 @@ function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, childr
         }
     }
 
-    const contactOptions = contacts.map(c => ({ value: c.id, label: c.name }));
+    const contactOptions = contacts.map(c => ({ value: c.id, label: c.displayName }));
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -326,7 +296,7 @@ function AddSiteDialog({ customerId, customerName, contacts, onSiteAdded, childr
     );
 }
 
-export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) {
+export function ProjectFormDialog({ orgId, onProjectCreated }: ProjectFormDialogProps) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [isContactRoleManagerOpen, setIsContactRoleManagerOpen] = React.useState(false);
   const [isStaffRoleManagerOpen, setIsStaffRoleManagerOpen] = React.useState(false);
@@ -378,8 +348,8 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
         setLoading(true);
         try {
             const [customersData, employeesData] = await Promise.all([
-                getCustomers(),
-                getEmployees()
+                getCustomers(orgId),
+                getEmployees(orgId)
             ]);
             setCustomers(customersData);
             setEmployees(employeesData.map(e => ({ value: e.id, label: e.name })));
@@ -393,7 +363,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
     if (isFormOpen) {
         fetchInitialData();
     }
-  }, [isFormOpen, toast]);
+  }, [isFormOpen, toast, orgId]);
   
   React.useEffect(() => {
     async function fetchCustomerSubData() {
@@ -401,8 +371,8 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
             setLoading(true);
             try {
                 const [sitesData, contactsData] = await Promise.all([
-                    getCustomerSites(watchedCustomerId),
-                    getCustomerContacts(watchedCustomerId)
+                    getCustomerSites(orgId, watchedCustomerId),
+                    getCustomerContacts(orgId, watchedCustomerId)
                 ]);
                 setSites(sitesData);
                 setContacts(contactsData);
@@ -420,12 +390,12 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
         }
     }
     fetchCustomerSubData();
-  }, [watchedCustomerId, form, toast]);
+  }, [watchedCustomerId, form, toast, orgId]);
 
   const customerOptions = React.useMemo(() => {
     return customers.map(c => ({
         value: c.id,
-        label: c.name,
+        label: c.displayName,
     }));
   }, [customers]);
 
@@ -434,7 +404,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   }, [sites]);
   
   const contactOptions = React.useMemo(() => {
-    return contacts.map(c => ({ label: c.name, value: c.id }));
+    return contacts.map(c => ({ label: c.displayName, value: c.id }));
   }, [contacts]);
   
   const employeeOptions = React.useMemo(() => {
@@ -444,16 +414,16 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
   async function onSubmit(values: ProjectFormValues) {
     setLoading(true);
     try {
-        const newProjectId = await addProject(values);
+        const newProjectId = await addProject(orgId, values);
         
         const customer = customers.find(c => c.id === values.customerId);
         
         const newProject: Project = { 
             id: newProjectId, 
             ...values,
-            customerName: customer?.name || "Unknown",
+            customerName: customer?.displayName || "Unknown",
             status: 'Planning',
-            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+            createdAt: new Date(),
         };
 
         onProjectCreated(newProject);
@@ -558,7 +528,7 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                                     onChange={field.onChange}
                                     placeholder="Select a customer"
                                 />
-                                <AddCustomerDialog onCustomerAdded={handleCustomerAdded}>
+                                <AddCustomerDialog orgId={orgId} onCustomerAdded={handleCustomerAdded}>
                                     <Button type="button" variant="outline" size="icon" className="shrink-0">
                                         <Plus className="h-4 w-4" />
                                     </Button>
@@ -587,8 +557,9 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                                     </SelectContent>
                                 </Select>
                                  <AddSiteDialog 
+                                    orgId={orgId}
                                     customerId={watchedCustomerId} 
-                                    customerName={selectedCustomer?.name || ''} 
+                                    customerName={selectedCustomer?.displayName || ''} 
                                     contacts={contacts}
                                     onSiteAdded={handleSiteAdded}
                                 >
@@ -606,8 +577,9 @@ export function ProjectFormDialog({ onProjectCreated }: ProjectFormDialogProps) 
                           <FormLabel>Project Contacts</FormLabel>
                           <div className='flex items-center gap-1'>
                             <AddContactDialog 
+                                orgId={orgId}
                                 customerId={watchedCustomerId} 
-                                customerName={selectedCustomer?.name || ''} 
+                                customerName={selectedCustomer?.displayName || ''} 
                                 onContactAdded={handleContactAdded}
                             >
                                 <Button type="button" variant="outline" size="sm" disabled={!watchedCustomerId}>

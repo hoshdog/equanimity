@@ -1,3 +1,4 @@
+
 // src/app/projects/page.tsx
 'use client';
 
@@ -22,14 +23,15 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ProjectFormDialog } from './project-form-dialog';
 import type { Project, Customer } from '@/lib/types';
-import { getProjects, subscribeToProjects } from '@/lib/projects';
+import { subscribeToProjects } from '@/lib/projects';
 import { getCustomers } from '@/lib/customers';
-import { onSnapshot, query, collection, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 type ColumnVisibilityState = {
   [key: string]: boolean;
 };
+
+// Hardcoded for now, will come from user context later
+const ORG_ID = 'test-org';
 
 export default function ProjectsPage() {
   const [view, setView] = useState('grid');
@@ -41,20 +43,15 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     // Subscribe to real-time project updates
-    const q = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+    const unsubscribe = subscribeToProjects(ORG_ID, (projectsData) => {
         setProjects(projectsData);
-        setLoading(false);
-    }, (error) => {
-        console.error("Failed to subscribe to projects:", error);
         setLoading(false);
     });
 
     // Fetch customers once
     async function fetchCustomers() {
         try {
-            const customersData = await getCustomers();
+            const customersData = await getCustomers(ORG_ID);
             setCustomers(customersData);
         } catch (error) {
             console.error("Failed to fetch customers:", error);
@@ -69,7 +66,6 @@ export default function ProjectsPage() {
 
   const handleProjectCreated = (newProject: Project) => {
     // Real-time listener will handle this automatically
-    // setProjects(prev => [newProject, ...prev]);
   };
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
@@ -100,7 +96,7 @@ export default function ProjectsPage() {
   const visibleColumns = Object.keys(columnVisibility).filter(key => columnVisibility[key]);
 
   const customerMap = useMemo(() => {
-    return new Map(customers.map(c => [c.id, c.name]));
+    return new Map(customers.map(c => [c.id, c.displayName]));
   }, [customers]);
 
   return (
@@ -139,7 +135,7 @@ export default function ProjectsPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-            <ProjectFormDialog onProjectCreated={handleProjectCreated} />
+            <ProjectFormDialog orgId={ORG_ID} onProjectCreated={handleProjectCreated} />
         </div>
       </div>
       
