@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppLayout from '@/components/app-layout';
+import { onAuthStateChanged, User } from '@/lib/auth';
 
 const publicRoutes = ['/auth'];
 
@@ -27,19 +28,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Since auth is removed for local dev, we simulate a logged-in and set-up user.
-  const loading = false;
-  const user = { uid: 'dev-user' }; // Mock user
+  // For development, we'll simulate an admin user being logged in.
+  const [user, setUser] = useState<User | object>({ uid: 'admin-dev', email: 'admin@example.com' });
+  const [loading, setLoading] = useState(false);
+  
+  // In a real app, you would use this effect to listen for auth changes:
+  /*
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged((user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+  */
   
   // For this demo, we'll hardcode the org ID. In a real app, this would come from the user's profile.
   const orgId = 'test-org';
 
   useEffect(() => {
-    // If auth is not loading and the user is on a public/setup route, redirect.
-    if (!loading && publicRoutes.includes(pathname)) {
+    // If the user is logged in (even our mock user) and on a public route, redirect to the dashboard.
+    if (!loading && user && publicRoutes.includes(pathname)) {
       router.push('/');
     }
-  }, [pathname, router, loading]);
+  }, [pathname, router, loading, user]);
 
   if (loading) {
     return (
@@ -49,9 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // For any auth-related pages, show nothing while redirecting.
-  if (publicRoutes.includes(pathname)) {
+  // Since we have a mock user, this will be skipped, and the app will render.
+  if (!user && !publicRoutes.includes(pathname)) {
+    router.push('/auth');
     return null;
+  }
+
+  // Don't render the main layout on public routes.
+  if (publicRoutes.includes(pathname)) {
+    return <>{children}</>;
   }
   
   // Always render the main app layout for any other route.
