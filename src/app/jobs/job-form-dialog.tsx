@@ -39,6 +39,8 @@ const taskSchema = z.object({
     id: z.string(),
     title: z.string().min(3, "Task title must be at least 3 characters."),
     description: z.string().optional(),
+    duration: z.coerce.number().optional(),
+    durationUnit: z.enum(['hours', 'days', 'weeks']).optional(),
 });
 
 const jobSchema = z.object({
@@ -111,7 +113,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
       customerId: "",
       siteId: "",
       assignedStaff: [{ employeeId: '', role: '' }],
-      tasks: [{ id: `task-0`, title: '', description: '' }],
+      tasks: [{ id: `task-0`, title: '', description: '', duration: 8, durationUnit: 'hours' }],
       dependencies: [],
       status: 'Planned',
       priority: 'Medium',
@@ -213,7 +215,7 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
           customerId: "",
           siteId: "",
           assignedStaff: [{ employeeId: '', role: '' }],
-          tasks: [{ id: 'task-0', title: '', description: '' }],
+          tasks: [{ id: 'task-0', title: '', description: '', duration: 8, durationUnit: 'hours' }],
           dependencies: [],
           status: 'Planned',
           priority: 'Medium',
@@ -304,16 +306,16 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <FormLabel>Job Tasks</FormLabel>
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ id: `task-${taskFields.length}`, title: '', description: '' })}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendTask({ id: `task-${taskFields.length}`, title: '', description: '', duration: 8, durationUnit: 'hours' })}>
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Task
                                 </Button>
                             </div>
                             <FormDescription>Break the job down into smaller, actionable tasks.</FormDescription>
                             
                             {taskFields.map((field, index) => (
-                                <div key={field.id} className="flex items-start gap-2 p-2 border rounded-md">
+                                <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
                                     <ListChecks className="h-5 w-5 text-muted-foreground mt-2.5" />
-                                    <div className="flex-grow space-y-1">
+                                    <div className="flex-grow space-y-2">
                                          <FormField
                                             control={form.control}
                                             name={`tasks.${index}.title`}
@@ -334,6 +336,35 @@ export function JobFormDialog({ onJobCreated, initialProjectId }: JobFormDialogP
                                                 </FormItem>
                                             )}
                                         />
+                                         <div className="flex items-center gap-2">
+                                            <FormField
+                                                control={form.control}
+                                                name={`tasks.${index}.duration`}
+                                                render={({ field }) => (
+                                                    <FormItem className="w-24">
+                                                        <FormControl><Input type="number" placeholder="e.g., 8" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                             <FormField
+                                                control={form.control}
+                                                name={`tasks.${index}.durationUnit`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-1">
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="hours">Hours</SelectItem>
+                                                                <SelectItem value="days">Days</SelectItem>
+                                                                <SelectItem value="weeks">Weeks</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                         </div>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={taskFields.length <= 1}>
                                         <Trash2 className="h-4 w-4 text-destructive" />

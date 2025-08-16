@@ -95,6 +95,8 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
+  duration?: number;
+  durationUnit?: 'hours' | 'days' | 'weeks';
 }
 
 export interface Job {
