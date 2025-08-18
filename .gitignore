@@ -43,5 +43,7 @@ next-env.d.ts
 # Firebase
 # IMPORTANT: Never commit your service account key file.
 service-account.json
+equanimity-m1b2n-firebase-adminsdk-fbsvc-c673af7b32.json
+*.json
 
     
