@@ -1,0 +1,58 @@
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# logs directory
+/logs/
+*.log
+firebase-debug.log
+firestore-debug.log
+
+# Firebase
+# IMPORTANT: Never commit your service account key file.
+service-account.json
+equanimity-m1b2n-firebase-adminsdk-fbsvc-c673af7b32.json
+
+# orphaned files (cleanup artifacts)
+nextn@0.1.0
+nul
+tsx
+usr/

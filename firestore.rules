@@ -1,0 +1,124 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Organization-level access control
+    match /orgs/{orgId} {
+      allow read: if isAuthenticated() && isOrgMember(orgId);
+      allow write: if isAuthenticated() && hasRole(orgId, ['admin']);
+      
+      // Projects access
+      match /projects/{projectId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow create: if isAuthenticated() && hasRole(orgId, ['admin', 'manager']);
+        allow update: if isAuthenticated() && hasRole(orgId, ['admin', 'manager']);
+        allow delete: if isAuthenticated() && hasRole(orgId, ['admin']);
+      }
+      
+      // Employees - sensitive data
+      match /employees/{employeeId} {
+        allow read: if isAuthenticated() && (
+          hasRole(orgId, ['admin', 'hr', 'manager']) || 
+          request.auth.uid == employeeId
+        );
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'hr']);
+      }
+      
+      // Customers/Contacts
+      match /contacts/{contactId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'manager', 'sales']);
+      }
+      
+      // Financial documents - highly restricted
+      match /financialIntents/{intentId} {
+        allow read: if isAuthenticated() && hasRole(orgId, ['admin', 'finance', 'accounting']);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'finance']);
+      }
+      
+      // Documents and attachments
+      match /documents/{documentId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow create: if isAuthenticated() && isOrgMember(orgId);
+        allow update: if isAuthenticated() && (
+          hasRole(orgId, ['admin', 'manager']) ||
+          resource.data.createdBy == request.auth.uid
+        );
+        allow delete: if isAuthenticated() && hasRole(orgId, ['admin']);
+      }
+      
+      // User access records
+      match /users/{userId} {
+        allow read: if isAuthenticated() && (
+          request.auth.uid == userId || 
+          hasRole(orgId, ['admin'])
+        );
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin']);
+      }
+      
+      // Quotes
+      match /quotes/{quoteId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'manager', 'sales']);
+      }
+      
+      // Jobs
+      match /jobs/{jobId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'manager']);
+      }
+      
+      // Timesheets
+      match /timesheets/{timesheetId} {
+        allow read: if isAuthenticated() && (
+          hasRole(orgId, ['admin', 'manager', 'hr']) ||
+          resource.data.employeeId == request.auth.uid
+        );
+        allow create: if isAuthenticated() && isOrgMember(orgId);
+        allow update: if isAuthenticated() && (
+          hasRole(orgId, ['admin', 'manager']) ||
+          (resource.data.employeeId == request.auth.uid && resource.data.status == 'DRAFT')
+        );
+        allow delete: if isAuthenticated() && hasRole(orgId, ['admin']);
+      }
+      
+      // Inventory
+      match /inventory/{itemId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'manager', 'inventory']);
+      }
+      
+      // Purchase Orders
+      match /purchaseOrders/{poId} {
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        allow write: if isAuthenticated() && hasRole(orgId, ['admin', 'manager', 'purchasing']);
+      }
+    }
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOrgMember(orgId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid));
+    }
+    
+    function hasRole(orgId, roles) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid)).data.role in roles;
+    }
+    
+    function getUserRole(orgId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId)/users/$(request.auth.uid)).data.role;
+    }
+  }
+}
